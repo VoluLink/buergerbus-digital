@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.37216.2 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BuergerbusAPI", "BuergerbusAPI.csproj", "{D93261C7-C47A-47AF-8623-AEBC1E55BE72}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D93261C7-C47A-47AF-8623-AEBC1E55BE72}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D93261C7-C47A-47AF-8623-AEBC1E55BE72}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D93261C7-C47A-47AF-8623-AEBC1E55BE72}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D93261C7-C47A-47AF-8623-AEBC1E55BE72}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7C314F11-DC7C-469C-896C-BEB320C258F0}
+	EndGlobalSection
+EndGlobal
