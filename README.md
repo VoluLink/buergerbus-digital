@@ -1,146 +1,336 @@
-# Bürgerbus Frontend
+# Bürgerbus Digital
 
-Frontend des Projekts **Bürgerbus Digital** auf Basis von **React**, **Vite**, **TypeScript** und **Tailwind CSS**.
-
-## Verwendeter Stack
-
-Dieses Frontend nutzt folgende Technologien und Pakete:
-
-### Basis
-- **React**  
-  Bibliothek zum Erstellen der Benutzeroberfläche
-
-- **Vite**  
-  Entwicklungsserver und Build-Tool für das Frontend
-
-- **TypeScript**  
-  Erweiterung von JavaScript mit Typisierung
-
-- **Tailwind CSS**  
-  Utility-First-CSS-Framework für schnelles Styling
-
-### Zusätzliche Pakete
-- **react-router-dom**  
-  Routing und Navigation zwischen Seiten innerhalb der React-Anwendung
-
-- **react-hook-form**  
-  Vereinfachte Verwaltung von Formularen in React
-
-- **zod**  
-  Validierung und Prüfung von Datenstrukturen
-
-- **@hookform/resolvers**  
-  Verbindet `react-hook-form` mit `zod` (z. B. via `zodResolver`)
-
-- **lucide-react**  
-  Icon-Bibliothek für React
+![License](https://img.shields.io/badge/License-GPLv3-blue.svg)
+![Frontend](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB)
+![Backend](https://img.shields.io/badge/Backend-ASP.NET%20Core-512BD4)
+![Database](https://img.shields.io/badge/Database-MariaDB-003545)
+![Docker](https://img.shields.io/badge/Deployment-Docker-2496ED)
 
 ---
 
-## Wie die Teile zusammenhängen
+# Übersicht
 
-Die Anwendung besteht aus mehreren Schichten und Hilfspaketen:
+**Bürgerbus Digital** ist eine webbasierte Verwaltungsplattform zur Organisation von Fahrten, Fahrgästen, Fahrern und Fahrzeugen für Bürgerbus-Systeme.
 
-### React
-React bildet die Grundlage der Oberfläche.  
-Damit werden Komponenten, Seiten und Layouts erstellt.
+Aktuell werden viele Prozesse über verschiedene Systeme wie Kalender oder Excel organisiert. Ziel dieses Projekts ist die Zentralisierung aller Verwaltungsprozesse in einer modernen webbasierten Anwendung.
 
-### Vite
-Vite startet die Anwendung im Entwicklungsmodus und baut sie später für die Produktion.
+Die Anwendung ermöglicht:
 
-### TypeScript
-TypeScript sorgt dafür, dass Daten und Komponenten mit klaren Typen definiert werden. Dadurch können Fehler früh erkannt werden.
-
-### Tailwind CSS
-Tailwind wird für das Styling der Oberfläche verwendet. Layout, Farben, Abstände und Größen werden direkt über Klassen in den Komponenten definiert.
-
-### React Router
-Mit `react-router-dom` wird die Navigation zwischen verschiedenen Seiten umgesetzt, z. B.:
-
-- `/`
-- `/fahrten`
-- `/fahrer`
-
-### React Hook Form
-`react-hook-form` verwaltet Formulare und deren Eingabefelder.
-
-### Zod
-`zod` definiert Regeln für die Prüfung der Formulardaten, z. B.:
-
-- Pflichtfelder
-- Mindestlänge
-- erlaubte Formate
-
-In diesem Projekt ist `@hookform/resolvers` installiert und wird genutzt, um Zod direkt an `react-hook-form` zu koppeln.
-
-### Lucide React
-`lucide-react` liefert Icons für Buttons, Navigation und andere UI-Elemente.
+- Verwaltung von Fahrten
+- Verwaltung von Fahrgästen
+- Verwaltung von Fahrern
+- Fahrzeugverwaltung
+- Rollen- und Benutzerverwaltung
+- Kalenderübersicht aller Fahrten
+- Registrierung von Fahrern auf Fahrten
+- Benachrichtigungssystem
+- Sichere Authentifizierung und Rechteverwaltung
 
 ---
 
-## Neu: Routing, Navigation & Redirects (react-router-dom)
-
-### Wo werden Routes definiert?
-Die Zuordnung "URL → Seite" passiert in `src/App.tsx` über `<Routes>` und `<Route>`.
-
-- **Layout-Route**: Das gemeinsame Layout (Header + Sidebar + Content) liegt in `AppLayout`.
-  Die Kind-Seiten werden über `<Outlet />` in den Content-Bereich gerendert.
-- **Index-Route**: `index` entspricht `/` (Dashboard).
-- **Weitere Routes**: `fahrten` entspricht `/fahrten`, `fahrer` entspricht `/fahrer`.
-
-### Wo passiert das Weiterleiten (Redirect)?
-In `src/App.tsx` gibt es eine Fallback-Route:
-
-- `path="*"` → `<Navigate to="/" replace />`
-
-Das bedeutet: Jede unbekannte URL wird automatisch auf `/` umgeleitet.
-
-### Wie wechselt die App die Seite?
-In `src/components/Navigation.tsx` werden Links mit `<NavLink to="...">` verwendet.
-
-- Beim Klick ändert der Router die URL.
-- React Router rendert dann automatisch die passende Route/Seite in `<Outlet />`.
-- `NavLink` liefert zusätzlich den Active-State, damit der aktuelle Menüpunkt optisch markiert werden kann.
-
-### Wichtig für Deployment / Refresh
-Wenn du die App deployed und z. B. direkt `/fahrer` im Browser lädst oder die Seite neu lädst, muss dein Webserver die SPA-Routen auf `index.html` zurückfallen lassen.
-Sonst bekommst du bei Refresh häufig ein 404 vom Server.
-
----
-
-## Neu: Formular + Validierung (react-hook-form + zod)
-
-### Beispiel: Fahrer hinzufügen
-In `src/pages/FahrerPage.tsx` gibt es ein kleines Formular, um Fahrer **lokal** zur Liste hinzuzufügen.
-
-**Ablauf im Code:**
-
-1. `useForm()` verwaltet Input-State und Submit-Handling.
-2. Über `resolver: zodResolver(fahrerFormSchema)` wird die Zod-Validierung an `react-hook-form` angebunden.
-3. Beim Absenden ruft `handleSubmit(...)` den Submit-Handler nur dann auf, wenn die Daten gültig sind.
-4. Wenn die Prüfung fehlschlägt:
-  - `react-hook-form` füllt automatisch `formState.errors`
-  - die Fehlermeldungen erscheinen unter den Inputs (`errors.name`, `errors.telefon`)
-5. Wenn die Prüfung erfolgreich ist:
-  - der Fahrer wird in einen lokalen State (`extraFahrer`) hinzugefügt
-  - das Formular wird mit `reset(...)` geleert
-
-**Wichtig:**
-- Das Hinzufügen ist aktuell bewusst "lokal" (nur im Browser-State) und noch nicht im Backend gespeichert.
-- Die bestehenden Demo-Daten kommen aus `src/services/api.ts`.
-
----
-
-## Projektstruktur
-
-Eine sinnvolle Struktur des Frontends sieht z. B. so aus:
+# Systemarchitektur
 
 ```text
-src/
-├── components/   # Wiederverwendbare UI-Bausteine
-├── pages/        # Einzelne Seiten der Anwendung
-├── services/     # API-Aufrufe und Datenzugriffe
-├── types/        # TypeScript-Typen und Interfaces
-├── App.tsx       # Hauptkomponente
-├── main.tsx      # Einstiegspunkt der Anwendung
-└── index.css     # Globale Styles / Tailwind-Einstieg
+Frontend (React + Vite + TypeScript)
+        │
+        ▼
+REST API (ASP.NET Core)
+        │
+        ▼
+Datenzugriffsschicht (Entity Framework Core)
+        │
+        ▼
+MariaDB Datenbank
+```
+
+Die Anwendung basiert auf einer Vier-Schichten-Architektur:
+
+1. Frontend
+2. Backend
+3. Datenzugriffsschicht
+4. Datenbank
+
+Dadurch wird eine hohe Wartbarkeit und klare Trennung der Verantwortlichkeiten erreicht.
+
+---
+
+# Technologien
+
+## Frontend
+
+- React
+- Vite
+- TypeScript
+- Tailwind CSS
+
+## Backend
+
+- ASP.NET Core
+- REST API
+- Entity Framework Core
+
+## Datenbank
+
+- MariaDB
+
+## Infrastruktur
+
+- Docker
+- Docker Compose
+- NGINX Reverse Proxy
+- WireGuard VPN
+- Fail2Ban
+
+---
+
+# Hauptfunktionen
+
+## Benutzerverwaltung
+
+- Account anlegen
+- Rollen zuweisen
+- Benutzer löschen
+- Passwort zurücksetzen
+- Passwort ändern
+
+## Fahrgastverwaltung
+
+- Fahrgast anlegen
+- Fahrgast bearbeiten
+- Fahrgast löschen
+- Fahrgast Fahrten zuordnen
+
+## Fahrerverwaltung
+
+- Fahrer anlegen
+- Fahrer verwalten
+- Fahrer Fahrten zuordnen
+
+## Fahrzeugverwaltung
+
+- Fahrzeuge erstellen
+- Fahrzeuge bearbeiten
+- Fahrzeuge löschen
+- Fahrzeugstatus verwalten
+
+## Fahrtenverwaltung
+
+- Fahrten erstellen
+- Fahrten veröffentlichen
+- Fahrtenkalender
+- Fahrerregistrierung
+- Fahrtteilnahme stornieren
+
+## Benachrichtigungssystem
+
+- Automatische Benachrichtigungen
+- Ereignisbasierter Versand
+
+---
+
+# Qualitätsanforderungen
+
+## Zuverlässigkeit
+
+- Strukturierte Fehlerbehandlung
+- Datenbanktransaktionen
+- Konsistente Datenhaltung
+
+## Korrektheit
+
+- Serverseitige Validierung
+- Klare Systemtrennung
+- Vermeidung inkonsistenter Zustände
+
+## Benutzbarkeit
+
+- Moderne intuitive Benutzeroberfläche
+- Browserbasierte Nutzung
+- Responsive Design
+
+## Wartbarkeit
+
+- Containerisierung mit Docker
+- REST-basierte Kommunikation
+- Modulare Architektur
+
+## Datenschutz
+
+- DSGVO-konforme Verarbeitung
+- Zugriffsschutz über VPN
+- Absicherung durch NGINX Reverse Proxy
+
+---
+
+# Installation
+
+## Voraussetzungen
+
+- Docker
+- Docker Compose
+- Git
+- Node.js
+- .NET SDK
+- MariaDB (optional lokal)
+
+---
+
+# Repository klonen
+
+```bash
+git clone https://gitlab.rz.htw-berlin.de/softwareentwicklungsprojekt/sose2026/team-6-buergerbus-digital-landesstiftung-hessen.git
+```
+
+---
+
+# Projekt starten
+
+```bash
+docker compose up --build
+```
+
+---
+
+# Frontend lokal starten
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+# Backend lokal starten
+
+```bash
+cd backend
+dotnet restore
+dotnet run
+```
+
+---
+
+# Datenbankkonfiguration
+
+Standardkonfiguration:
+
+```env
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=buergerbus
+DB_USER=db_user
+DB_PASSWORD=your_password
+```
+
+---
+
+# API
+
+Die Kommunikation erfolgt über eine REST-API.
+
+Beispiel:
+
+```http
+GET /api/v1/fahrten
+```
+
+---
+
+# Rollenmodell
+
+| Rolle | Berechtigungen |
+|---|---|
+| Admin | Vollzugriff |
+| Disponent | Verwaltung von Fahrten, Fahrgästen und Fahrzeugen |
+| Fahrer | Registrierung auf Fahrten |
+| Benutzer | Eigene Daten verwalten |
+
+---
+
+# Deployment
+
+Die Anwendung wird containerisiert mit Docker Compose betrieben.
+
+Zusätzliche Sicherheitsmaßnahmen:
+
+- NGINX Reverse Proxy
+- WireGuard VPN
+- Fail2Ban
+- HTTPS
+
+---
+
+# Lizenz
+
+Dieses Projekt steht unter der **GNU General Public License v3.0 (GPLv3)**.
+
+Weitere Informationen:
+
+https://www.gnu.org/licenses/gpl-3.0.de.html
+
+---
+
+# Verwendete Open-Source-Lizenzen
+
+| Technologie | Lizenz |
+|---|---|
+| React | MIT License |
+| Vite | MIT License |
+| TypeScript | Apache License 2.0 |
+| ASP.NET Core | MIT License |
+| Tailwind CSS | MIT License |
+
+---
+
+# Team
+
+| Name | Aufgabe |
+|---|---|
+| David Wolf | Use Case Diagramm |
+| Rolf Philip Maximilian Faber | ER Diagramm |
+| Julian Faber | UI-Entwurf |
+| Gesamte Gruppe | Technische Spezifikation & Entwicklung |
+
+---
+
+# GitLab Repository
+
+```text
+https://gitlab.rz.htw-berlin.de/softwareentwicklungsprojekt/sose2026/team-6-buergerbus-digital-landesstiftung-hessen
+```
+
+---
+
+# Screenshots
+
+## Kalenderübersicht
+
+
+## Fahrzeugverwaltung
+
+
+## Accountverwaltung
+
+
+---
+
+# Entwicklungsstatus
+
+🚧 Projekt in Entwicklung
+
+Geplante Erweiterungen:
+
+- E-Mail-Benachrichtigungen
+- Mobile Optimierung
+- Erweiterte Statistiken
+- Wartungsverwaltung
+
+---
+
+
+# Kontakt
+
+HTW Berlin  
+Softwareentwicklungsprojekt SoSe 2026  
+Team 6 – Bürgerbus Digital
