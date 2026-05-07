@@ -28,6 +28,25 @@ Die Anwendung ermöglicht:
 
 ---
 
+# Inhaltsverzeichnis
+
+- [Übersicht](#übersicht)
+- [Systemarchitektur](#systemarchitektur)
+- [Technologien](#technologien)
+- [Hauptfunktionen](#hauptfunktionen)
+- [Qualitätsanforderungen](#qualitätsanforderungen)
+- [Installation](#installation)
+- [API](#api)
+- [Rollenmodell](#rollenmodell)
+- [Deployment](#deployment)
+- [Lizenz](#lizenz)
+- [Team](#team)
+- [Entwicklungsstatus](#entwicklungsstatus)
+- [Beitragen](#beitragen)
+- [Kontakt](#kontakt)
+
+---
+
 # Systemarchitektur
 
 ```text
