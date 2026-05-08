@@ -1,0 +1,30 @@
+stages:
+  - deploy
+
+deploy_develop:
+  stage: deploy
+
+  only:
+    - develop
+
+  before_script:
+    - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+
+  script:
+    - echo "Deploying develop branch to staging server..."
+    - ssh "$DEPLOY_USER@$DEPLOY_HOST" "
+        cd /opt/fahrplan &&
+        git checkout develop &&
+        git pull origin develop &&
+        docker compose up -d --build
+      "
+
+  environment:
+    name: staging
+    url: $STAGING_URL
