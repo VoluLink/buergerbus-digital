@@ -1,23 +1,17 @@
 function DashboardPage() {
   return (
-    <section className="space-y-4">
-      <div>
-        <h2 className="text-xl font-semibold tracking-tight text-slate-900">
-          Dashboard
-        </h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Willkommen im Bürgerbus-System. Nutze links die Navigation, um zu Fahrten oder Fahrern zu wechseln.
-        </p>
+    <main className="min-h-screen bg-slate-50 px-5 py-8 text-slate-900 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center justify-center">
+        <section className="w-full rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+            Dashboard
+          </h1>
+          <p className="mt-3 text-base text-slate-500">
+            Diese Dashboard-Seite ist aktuell noch leer.
+          </p>
+        </section>
       </div>
-
-      <div className="rounded-lg bg-slate-50 p-4 ring-1 ring-slate-200">
-        <div className="text-sm font-medium text-slate-900">Tipp</div>
-        <p className="mt-1 text-sm text-slate-600">
-          In <span className="font-medium text-slate-900">Fahrten</span> siehst du die geplanten Strecken.
-          In <span className="font-medium text-slate-900">Fahrer</span> findest du Kontaktdaten.
-        </p>
-      </div>
-    </section>
+    </main>
   )
 }
 
