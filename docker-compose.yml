@@ -53,6 +53,14 @@ services:
       - npm_data:/data
       - npm_letsencrypt:/etc/letsencrypt
 
+  gitlab-runner:
+    image: gitlab/gitlab-runner:latest
+    container_name: gitlab-runner
+    restart: always
+    volumes:
+      - ./gitlab-runner/config:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+
 volumes:
   mariadb_data:
   npm_data:
