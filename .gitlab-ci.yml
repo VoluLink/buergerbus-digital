@@ -8,7 +8,7 @@ deploy_develop:
     - develop
 
   before_script:
-    - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+    - 'which ssh-agent || ( apk add --no-cache openssh-client )'
     - eval $(ssh-agent -s)
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
     - mkdir -p ~/.ssh
@@ -18,7 +18,8 @@ deploy_develop:
 
   script:
     - echo "Deploying develop branch to staging server..."
-    - ssh "$DEPLOY_USER@$DEPLOY_HOST" "
+    - |
+      ssh "$DEPLOY_USER@$DEPLOY_HOST" "
         cd /opt/fahrplan &&
         git checkout develop &&
         git pull origin develop &&
