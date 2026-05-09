@@ -4,7 +4,7 @@ namespace BuergerbusAPI.Models
 {
     public class Fahrgast
     {
-        public int Fahrgast_Id { get; set; }
+        public int Id { get; set; }
         public string Vorname { get; set; }
         public string Nachname { get; set; }
         public string Adresse { get; set; }
@@ -16,5 +16,8 @@ namespace BuergerbusAPI.Models
         public DateTime Letzte_Nutzung { get; set; }
         public bool Aktiv {  get; set; }
 
+        // Initiative muss in jeder Tabelle sein (Multi-Tenant System) => Landkreis als Datengrenze
+        public int InitiativeId { get; set; }
+        public Initiativen Initiative { get; set; }
     }
 }

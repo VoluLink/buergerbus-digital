@@ -2,13 +2,20 @@
 {
     public class Benachrichtigungen
     {
-        public int Benachrichtigungen_Id { get; set; }
-        public string Titel {  get; set; }
-        public string Nachricht {  get; set; }
+        public int Id { get; set; }
+        public string Titel { get; set; }
+        public string Nachricht { get; set; }
         public string Typ { get; set; }
         public int Referenz_Id { get; set; }
-        public DateTime Erstellt_Am {  get; set; }
-        public bool Gelesen {  get; set; }
+        public DateTime Erstellt_Am { get; set; }
+        public bool Gelesen { get; set; }
 
+        // 1..n - Benutzer .. Benachrichtigungen
+        public int BenutzerId { get; set; }
+        public Benutzer Benutzer { get; set; }
+
+        // Initiative muss in jeder Tabelle sein (Multi-Tenant System) => Landkreis als Datengrenze
+        public int InitiativeId { get; set; }
+        public Initiativen Initiative { get; set; }
     }
 }

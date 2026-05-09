@@ -2,7 +2,7 @@
 {
     public class Fahrzeug
     {
-        public int Fahrzeug_Id { get; set; }
+        public int Id { get; set; }
         public string Kennzeichen { get; set; }
         public string Bezeichnung { get; set; }
         public byte Kapazitaet {  get; set; }
@@ -12,5 +12,8 @@
         public string Status { get; set; }
         public bool Aktiv {  get; set; }
 
+        // Initiative muss in jeder Tabelle sein (Multi-Tenant System) => Landkreis als Datengrenze
+        public int InitiativeId { get; set; }
+        public Initiativen Initiative { get; set; }
     }
 }

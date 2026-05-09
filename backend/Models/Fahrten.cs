@@ -2,7 +2,7 @@
 {
     public class Fahrten
     {
-        public int Fahrten_Id { get; set; }
+        public int Id { get; set; }
         public string Titel { get; set; }
         public DateTime Datum { get; set; }
         public string Zielort { get; set; }
@@ -14,5 +14,16 @@
         public DateTime Angelegt_Am {  get; set; }
         public string Angelegt_Von { get; set; }
 
+       // 1..n - Fahrer..Fahrten
+        public int FahrerId { get; set; }
+        public Fahrer Fahrer { get; set; }
+
+        // 1..n - Fahrzeug..Fahrten
+        public int FahrzeugId { get; set; }
+        public Fahrzeug Fahrzeug { get; set; }
+
+        // Initiative muss in jeder Tabelle sein (Multi-Tenant System) => Landkreis als Datengrenze
+        public int InitiativeId { get; set; }
+        public Initiativen Initiative { get; set; }
     }
 }
