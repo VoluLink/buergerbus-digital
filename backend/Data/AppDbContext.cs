@@ -37,5 +37,18 @@ namespace BuergerbusAPI.Data
 
         // Kommunikation
         public DbSet<Benachrichtigungen> Benachrichtigungen { get; set; }
+
+        // Alle Beziehungen kommen in die Methode OnModelCreating()
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            // Benutzer ==> Rolle
+            modelBuilder.Entity<BenutzerRolle>()
+                .HasKey(br => new { br.BenutzerId, br.RolleId });
+
+
+        }
     }
 }
