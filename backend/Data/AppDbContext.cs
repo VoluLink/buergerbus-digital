@@ -24,150 +24,180 @@ namespace BuergerbusAPI.Data
         public DbSet<FahrerFahrzeug> FahrerFahrzeuge { get; set; }
 
         // Fahrzeuge
-        public DbSet<Fahrzeug> Fahrzeug { get; set; }
+        public DbSet<Fahrzeug> Fahrzeuge { get; set; }
         public DbSet<Wartungen> Wartungen { get; set; }
-        public DbSet<Schaden> Schaden { get; set; }
+        public DbSet<Schaden> Schaeden { get; set; }
 
         // Fahrgäste
-        public DbSet<Fahrgast> Fahrgast { get; set; }
+        public DbSet<Fahrgast> Fahrgaeste { get; set; }
         public DbSet<Loeschfristen> Loeschfristen { get; set; }
 
-        // Initiative (Landkreis / Mandant)
+        // Initiative (Mandanten / Landkreise)
         public DbSet<Initiativen> Initiativen { get; set; }
 
         // Kommunikation
         public DbSet<Benachrichtigungen> Benachrichtigungen { get; set; }
 
-        // Alle Beziehungen kommen in die Methode OnModelCreating()
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // Benutzer ==> Rolle (n:m)
+            // Benutzer <-> Rollen (n:m)
+
             modelBuilder.Entity<BenutzerRolle>()
                 .HasKey(br => new { br.BenutzerId, br.RolleId });
 
             modelBuilder.Entity<BenutzerRolle>()
                 .HasOne(br => br.Benutzer)
-                .WithMany()
+                .WithMany(b => b.BenutzerRollen)
                 .HasForeignKey(br => br.BenutzerId);
 
             modelBuilder.Entity<BenutzerRolle>()
                 .HasOne(br => br.Rolle)
-                .WithMany()
+                .WithMany(r => r.BenutzerRollen)
                 .HasForeignKey(br => br.RolleId);
 
-            // Benutzer ==> Benachrichtigungen (1:n)
+            // Benutzer -> Benachrichtigungen (1:n)
+
             modelBuilder.Entity<Benachrichtigungen>()
                 .HasOne(b => b.Benutzer)
-                .WithMany()
+                .WithMany(b => b.Benachrichtigungen)
                 .HasForeignKey(b => b.BenutzerId);
 
-            // Fahrer ==> Benutzer (1:1)
+            // Benutzer <-> Fahrer (1:1)
+
             modelBuilder.Entity<Fahrer>()
                 .HasOne(f => f.Benutzer)
-                .WithOne()
+                .WithOne(b => b.Fahrer)
                 .HasForeignKey<Fahrer>(f => f.BenutzerId);
 
-            // Fahrer ==> Fahrten (1:n)
+            // Fahrer -> Fahrten (1:n)
+
             modelBuilder.Entity<Fahrten>()
                 .HasOne(f => f.Fahrer)
-                .WithMany()
+                .WithMany(f => f.Fahrten)
                 .HasForeignKey(f => f.FahrerId);
 
-            // Fahrzeug ==> Fahrten (1:n)
+            // Fahrzeug -> Fahrten (1:n)
+
             modelBuilder.Entity<Fahrten>()
                 .HasOne(f => f.Fahrzeug)
-                .WithMany()
+                .WithMany(fz => fz.Fahrten)
                 .HasForeignKey(f => f.FahrzeugId);
 
-            // Fahrer ==> Fahrzeug (n:m)
+            // Fahrer <-> Fahrzeug (n:m)
+
             modelBuilder.Entity<FahrerFahrzeug>()
                 .HasKey(ff => new { ff.FahrerId, ff.FahrzeugId });
 
             modelBuilder.Entity<FahrerFahrzeug>()
                 .HasOne(ff => ff.Fahrer)
-                .WithMany()
+                .WithMany(f => f.FahrerFahrzeuge)
                 .HasForeignKey(ff => ff.FahrerId);
 
             modelBuilder.Entity<FahrerFahrzeug>()
                 .HasOne(ff => ff.Fahrzeug)
-                .WithMany()
+                .WithMany(f => f.FahrerFahrzeuge)
                 .HasForeignKey(ff => ff.FahrzeugId);
 
-            // Fahrzeug ==> Wartungen (1:n)
+            // Fahrzeug -> Wartungen (1:n)
+
             modelBuilder.Entity<Wartungen>()
                 .HasOne(w => w.Fahrzeug)
-                .WithMany()
+                .WithMany(f => f.Wartungen)
                 .HasForeignKey(w => w.FahrzeugId);
 
-            // Fahrzeug ==> Schaden (1:n)
+            // Fahrzeug -> Schäden (1:n)
+
             modelBuilder.Entity<Schaden>()
                 .HasOne(s => s.Fahrzeug)
-                .WithMany()
+                .WithMany(f => f.Schaeden)
                 .HasForeignKey(s => s.FahrzeugId);
 
-            // Fahrt ==> Fahrgast (n:m)
+            // Fahrt <-> Fahrgast (n:m)
+
             modelBuilder.Entity<FahrtFahrgast>()
                 .HasKey(ff => new { ff.FahrtId, ff.FahrgastId });
 
             modelBuilder.Entity<FahrtFahrgast>()
                 .HasOne(ff => ff.Fahrt)
-                .WithMany()
+                .WithMany(f => f.FahrtFahrgaeste)
                 .HasForeignKey(ff => ff.FahrtId);
 
             modelBuilder.Entity<FahrtFahrgast>()
                 .HasOne(ff => ff.Fahrgast)
-                .WithMany()
+                .WithMany(f => f.FahrtFahrgaeste)
                 .HasForeignKey(ff => ff.FahrgastId);
 
-            // Fahrgast ==> Loeschfristen (1:1)
+            // Fahrgast <-> Löschfristen (1:1)
+
             modelBuilder.Entity<Loeschfristen>()
                 .HasOne(l => l.Fahrgast)
-                .WithOne()
+                .WithOne(f => f.Loeschfrist)
                 .HasForeignKey<Loeschfristen>(l => l.FahrgastId);
 
-            // Initiative ==> alle (Mulit-Tenant-System) bei jeder (1:n)
+            // Initiative -> Benutzer (1:n)
+
             modelBuilder.Entity<Benutzer>()
                 .HasOne(b => b.Initiative)
-                .WithMany()
+                .WithMany(i => i.Benutzer)
                 .HasForeignKey(b => b.InitiativeId);
+
+            // Initiative -> Fahrer (1:n)
 
             modelBuilder.Entity<Fahrer>()
                 .HasOne(f => f.Initiative)
-                .WithMany()
+                .WithMany(i => i.Fahrer)
                 .HasForeignKey(f => f.InitiativeId);
+
+            // Initiative -> Fahrten (1:n)
 
             modelBuilder.Entity<Fahrten>()
                 .HasOne(f => f.Initiative)
-                .WithMany()
+                .WithMany(i => i.Fahrten)
                 .HasForeignKey(f => f.InitiativeId);
+
+            // Initiative -> Fahrzeuge (1:n)
 
             modelBuilder.Entity<Fahrzeug>()
                 .HasOne(f => f.Initiative)
-                .WithMany()
+                .WithMany(i => i.Fahrzeuge)
                 .HasForeignKey(f => f.InitiativeId);
+
+            // Initiative -> Fahrgäste (1:n)
 
             modelBuilder.Entity<Fahrgast>()
                 .HasOne(f => f.Initiative)
-                .WithMany()
+                .WithMany(i => i.Fahrgaeste)
                 .HasForeignKey(f => f.InitiativeId);
+
+            // Initiative -> Benachrichtigungen (1:n)
 
             modelBuilder.Entity<Benachrichtigungen>()
                 .HasOne(b => b.Initiative)
-                .WithMany()
+                .WithMany(i => i.Benachrichtigungen)
                 .HasForeignKey(b => b.InitiativeId);
 
-            modelBuilder.Entity<Schaden>()
-                .HasOne(s => s.Initiative)
-                .WithMany()
-                .HasForeignKey(s => s.InitiativeId);
+            // Initiative -> Wartungen (1:n)
 
             modelBuilder.Entity<Wartungen>()
                 .HasOne(w => w.Initiative)
-                .WithMany()
+                .WithMany(i => i.Wartungen)
                 .HasForeignKey(w => w.InitiativeId);
+
+            // Initiative -> Schäden (1:n)
+
+            modelBuilder.Entity<Schaden>()
+                .HasOne(s => s.Initiative)
+                .WithMany(i => i.Schaeden)
+                .HasForeignKey(s => s.InitiativeId);
+
+            // Initiative -> Löschfristen (1:n)
+
+            modelBuilder.Entity<Loeschfristen>()
+                .HasOne(l => l.Initiative)
+                .WithMany(i => i.Loeschfristen)
+                .HasForeignKey(l => l.InitiativeId);
         }
     }
 }
