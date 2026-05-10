@@ -39,9 +39,6 @@ backend/out/
 backend/*.user
 backend/*.suo
 
-backend/Migrations/*.Designer.cs
-backend/Migrations/*Snapshot.cs
-
 backend/appsettings.json
 backend/appsettings.Development.json
 
