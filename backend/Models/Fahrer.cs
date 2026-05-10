@@ -23,6 +23,11 @@
         public int InitiativeId { get; set; }
         public Initiativen Initiative { get; set; }
 
+        //Liste für Fahrten
         public List<Fahrten> Fahrten { get; set; }
+
+        // Liste für FahrerFahrzeug
+        public List<FahrerFahrzeug> FahrerFahrzeuge { get; set; }
+
     }
 }

@@ -19,5 +19,12 @@ namespace BuergerbusAPI.Models
         // Initiative muss in jeder Tabelle sein (Multi-Tenant System) => Landkreis als Datengrenze
         public int InitiativeId { get; set; }
         public Initiativen Initiative { get; set; }
+
+        //Liste für FahrtFahrgaste
+        public List<FahrtFahrgast> FahrtFahrgaeste { get; set; }
+
+        //Loeschfrist des Fahrgastes
+        public Loeschfristen Loeschfrist { get; set; }
+
     }
 }
