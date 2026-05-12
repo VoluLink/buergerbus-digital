@@ -1,19 +1,21 @@
+import { API_BASE_URL } from './api'
 import type { LoginCredentials, LoginResponse } from '../types/Login'
 
-function wait(durationMs: number) {
-  return new Promise<void>((resolve) => {
-    setTimeout(resolve, durationMs)
-  })
-}
-
-export async function loginWithMockService(
+export async function login(
   credentials: LoginCredentials,
 ): Promise<LoginResponse> {
-  await wait(350)
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(credentials),
+  })
 
-  return {
-    success: true,
-    message: 'Demo-Login erfolgreich. Die Backend-Anbindung folgt später.',
-    email: credentials.email,
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Login fehlgeschlagen.')
   }
+
+  return response.json()
 }

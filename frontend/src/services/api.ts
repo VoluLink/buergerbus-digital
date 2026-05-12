@@ -1,6 +1,12 @@
 import type { Fahrer } from '../types/Fahrer'
 import type { Fahrt } from '../types/Fahrt'
 
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+
+if (!API_BASE_URL) {
+  throw new Error('VITE_API_BASE_URL ist nicht gesetzt.')
+}
+
 export const fahrerDaten: Fahrer[] = [
   { id: 1, name: 'Max Mustermann', telefon: '0123456789' },
   { id: 2, name: 'Anna Schmidt', telefon: '0987654321' },

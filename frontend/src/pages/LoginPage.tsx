@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Bus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import LoginForm from '../components/LoginForm'
-import { loginWithMockService } from '../services/auth'
+import { login } from '../services/auth'
 import type { LoginCredentials } from '../types/Login'
 
 function LoginPage() {
@@ -15,17 +15,20 @@ function LoginPage() {
     setSubmitError(null)
 
     try {
-      const response = await loginWithMockService(credentials)
+      const response = await login(credentials)
 
       if (!response.success) {
-        setSubmitError('Login konnte nicht abgeschlossen werden.')
+        setSubmitError(response.message || 'Login konnte nicht abgeschlossen werden.')
         return
       }
 
-      console.log('Mock login response', response)
       navigate('/dashboard')
-    } catch {
-      setSubmitError('Login konnte nicht abgeschlossen werden.')
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : 'Login konnte nicht abgeschlossen werden.',
+      )
     } finally {
       setIsSubmitting(false)
     }
