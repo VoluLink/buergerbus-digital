@@ -39,9 +39,6 @@ backend/out/
 backend/*.user
 backend/*.suo
 
-backend/appsettings.json
-backend/appsettings.Development.json
-
 # =========================
 
 # IDE / OS
