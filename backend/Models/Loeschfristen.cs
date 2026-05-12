@@ -3,8 +3,8 @@
     public class Loeschfristen
     {
         public int Id { get; set; }
-        public DateTime Loeschen_Am {  get; set; }
-        public DateTime? Geloescht_Am { get; set; }
+        public DateTime LoeschenAm {  get; set; }
+        public DateTime? GeloeschtAm { get; set; }
         public string? Grund {  get; set; }
 
         //1..1 - Fahrgast..Loeschfristen

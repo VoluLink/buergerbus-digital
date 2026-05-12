@@ -6,6 +6,6 @@
         public string Rollenname { get; set; }
 
         //Liste der BenutzerRollen
-        public List<BenutzerRolle> BenutzerRollen { get; set; }
+        public List<BenutzerRolle> BenutzerRollen { get; set; } = new();
     }
 }

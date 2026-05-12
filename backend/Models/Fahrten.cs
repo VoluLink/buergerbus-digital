@@ -11,8 +11,8 @@
         public DateTime? Endzeit { get; set; }
         public string? Bemerkung { get; set; }
         public string Status { get; set; }
-        public DateTime Angelegt_Am {  get; set; }
-        public string Angelegt_Von { get; set; }
+        public DateTime AngelegtAm {  get; set; }
+        public string AngelegtVon { get; set; }
 
        // 1..n - Fahrer..Fahrten
         public int FahrerId { get; set; }
@@ -27,6 +27,6 @@
         public Initiativen Initiative { get; set; }
 
         //Liste für FahrtFahrgaste
-        public List<FahrtFahrgast> FahrtFahrgaeste { get; set; }
+        public List<Teilstrecke> Teilstrecken { get; set; } = new();
     }
 }

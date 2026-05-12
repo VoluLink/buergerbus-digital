@@ -17,15 +17,15 @@
         public Initiativen Initiative { get; set; }
 
         //Liste für FahrerFahrzeug
-        public List<FahrerFahrzeug> FahrerFahrzeuge { get; set; }
+        public List<FahrerFahrzeug> FahrerFahrzeuge { get; set; } = new();
 
         //Liste für Wartungen
-        public List<Wartungen> Wartungen { get; set; }
+        public List<Wartungen> Wartungen { get; set; } = new();
 
         //Liste für Schaden
-        public List<Schaden> Schaeden { get; set; }
+        public List<Schaden> Schaeden { get; set; } = new();
 
         //Liste für Fahrten
-        public List<Fahrten> Fahrten { get; set; }
+        public List<Fahrten> Fahrten { get; set; } = new();
     }
 }

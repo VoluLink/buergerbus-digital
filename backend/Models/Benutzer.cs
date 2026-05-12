@@ -19,6 +19,6 @@
         public List<BenutzerRolle> BenutzerRollen { get; set; } = new();
 
         // Benutzer kann ein Fahrer sein (1:1)
-        public Fahrer Fahrer { get; set; }
+        public Fahrer? Fahrer { get; set; }
     }
 }

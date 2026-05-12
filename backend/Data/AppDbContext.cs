@@ -17,7 +17,7 @@ namespace BuergerbusAPI.Data
 
         // Fahrten-System
         public DbSet<Fahrten> Fahrten { get; set; }
-        public DbSet<FahrtFahrgast> FahrtFahrgaeste { get; set; }
+        public DbSet<Teilstrecke> Teilstrecken { get; set; }
 
         // Fahrer
         public DbSet<Fahrer> Fahrer { get; set; }
@@ -114,20 +114,27 @@ namespace BuergerbusAPI.Data
                 .WithMany(f => f.Schaeden)
                 .HasForeignKey(s => s.FahrzeugId);
 
-            // Fahrt <-> Fahrgast (n:m)
+            // Fahrt -> Teilstrecke (1:n)
 
-            modelBuilder.Entity<FahrtFahrgast>()
-                .HasKey(ff => new { ff.FahrtId, ff.FahrgastId });
+            modelBuilder.Entity<Teilstrecke>()
+                .HasOne(t => t.Fahrt)
+                .WithMany(f => f.Teilstrecken)
+                .HasForeignKey(t => t.FahrtId);
 
-            modelBuilder.Entity<FahrtFahrgast>()
-                .HasOne(ff => ff.Fahrt)
-                .WithMany(f => f.FahrtFahrgaeste)
-                .HasForeignKey(ff => ff.FahrtId);
+            // Fahrgast -> Teilstrecke (1:n)
 
-            modelBuilder.Entity<FahrtFahrgast>()
-                .HasOne(ff => ff.Fahrgast)
-                .WithMany(f => f.FahrtFahrgaeste)
-                .HasForeignKey(ff => ff.FahrgastId);
+            modelBuilder.Entity<Teilstrecke>()
+                .HasOne(t => t.Fahrgast)
+                .WithMany(f => f.Teilstrecken)
+                .HasForeignKey(t => t.FahrgastId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Initiative -> Teilstrecke (1:n)
+
+            modelBuilder.Entity<Teilstrecke>()
+                .HasOne(t => t.Initiative)
+                .WithMany(i => i.Teilstrecken)
+                .HasForeignKey(t => t.InitiativeId);
 
             // Fahrgast <-> Löschfristen (1:1)
 
@@ -198,6 +205,12 @@ namespace BuergerbusAPI.Data
                 .HasOne(l => l.Initiative)
                 .WithMany(i => i.Loeschfristen)
                 .HasForeignKey(l => l.InitiativeId);
+
+            // Fahrgast darf pro Fahrt nur einmal vorkommen
+
+            modelBuilder.Entity<Teilstrecke>()
+                .HasIndex(t => new { t.FahrtId, t.FahrgastId })
+                .IsUnique();
         }
     }
 }

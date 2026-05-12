@@ -11,9 +11,9 @@ namespace BuergerbusAPI.Models
         public string? Email { get; set; }
         public string? Telefonnummer { get; set; }
         public string? Bemerkung { get; set; }
-        public DateTime Angelegt_Am {  get; set; }
-        public DateTime? Geaendert_Am { get; set; }
-        public DateTime Letzte_Nutzung { get; set; }
+        public DateTime AngelegtAm {  get; set; }
+        public DateTime? GeaendertAm { get; set; }
+        public DateTime LetzteNutzung { get; set; }
         public bool Aktiv {  get; set; }
 
         // Initiative muss in jeder Tabelle sein (Multi-Tenant System) => Landkreis als Datengrenze
@@ -21,10 +21,10 @@ namespace BuergerbusAPI.Models
         public Initiativen Initiative { get; set; }
 
         //Liste für FahrtFahrgaste
-        public List<FahrtFahrgast> FahrtFahrgaeste { get; set; } = new();
+        public List<Teilstrecke> Teilstrecken { get; set; } = new();
 
         //Loeschfrist des Fahrgastes
-        public Loeschfristen Loeschfrist { get; set; }
+        public Loeschfristen? Loeschfrist { get; set; }
 
     }
 }

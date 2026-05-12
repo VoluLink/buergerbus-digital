@@ -11,8 +11,8 @@
         public DateTime LetzteG25 { get; set; }
         public DateTime? NaechsteG25 { get; set; }
         public string? Bemerkung {  get; set; }
-        public DateTime Angelegt_Am {  get; set; }
-        public DateTime? Geaendert_Am { get; set; }
+        public DateTime AngelegtAm {  get; set; }
+        public DateTime? GeaendertAm { get; set; }
         public bool Aktiv {  get; set; }
 
         // 1..n - Benutzer..Fahrer
