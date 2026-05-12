@@ -6,10 +6,10 @@ namespace BuergerbusAPI.Models
     {
         public int Id { get; set; }
         public DateTime Letzter_Termin {  get; set; }
-        public DateTime Naechster_Termin { get; set; }
-        public string Grund { get; set; }
+        public DateTime? Naechster_Termin { get; set; }
+        public string? Grund { get; set; }
         public string Ort {  get; set; }
-        public decimal Kosten {  get; set; }
+        public decimal? Kosten {  get; set; }
 
         //1..n - Fahrzeug..Wartungen
         public int FahrzeugId { get; set; }

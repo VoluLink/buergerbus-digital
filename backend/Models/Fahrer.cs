@@ -6,13 +6,13 @@
         public string Vorname { get; set; }
         public string Nachname { get; set; }
         public string  Adresse { get; set; }
-        public string Telefonnummer { get; set; }
+        public string? Telefonnummer { get; set; }
         public string Fuehrerscheinklasse { get; set; }
         public DateTime LetzteG25 { get; set; }
-        public DateTime NaechsteG25 { get; set; }
-        public string Bemerkung {  get; set; }
+        public DateTime? NaechsteG25 { get; set; }
+        public string? Bemerkung {  get; set; }
         public DateTime Angelegt_Am {  get; set; }
-        public DateTime Geaendert_Am { get; set; }
+        public DateTime? Geaendert_Am { get; set; }
         public bool Aktiv {  get; set; }
 
         // 1..n - Benutzer..Fahrer
@@ -24,10 +24,10 @@
         public Initiativen Initiative { get; set; }
 
         //Liste für Fahrten
-        public List<Fahrten> Fahrten { get; set; }
+        public List<Fahrten> Fahrten { get; set; } = new();
 
         // Liste für FahrerFahrzeug
-        public List<FahrerFahrzeug> FahrerFahrzeuge { get; set; }
+        public List<FahrerFahrzeug> FahrerFahrzeuge { get; set; } = new();
 
     }
 }

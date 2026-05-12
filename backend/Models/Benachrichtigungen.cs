@@ -6,9 +6,9 @@
         public string Titel { get; set; }
         public string Nachricht { get; set; }
         public string Typ { get; set; }
-        public int ReferenzId { get; set; }
+        public int? ReferenzId { get; set; }
         public DateTime Erstellt_Am { get; set; }
-        public bool Gelesen { get; set; }
+        public bool? Gelesen { get; set; }
 
         // 1..n - Benutzer .. Benachrichtigungen
         public int BenutzerId { get; set; }
