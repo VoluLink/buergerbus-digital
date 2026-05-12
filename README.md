@@ -198,6 +198,21 @@ Dadurch wird eine hohe Wartbarkeit und klare Trennung der Verantwortlichkeiten e
 
 ```bash
 git clone https://gitlab.rz.htw-berlin.de/softwareentwicklungsprojekt/sose2026/team-6-buergerbus-digital-landesstiftung-hessen.git
+cd team-6-buergerbus-digital-landesstiftung-hessen
+```
+
+---
+
+# Datenbankkonfiguration
+
+Im Hauptverzeichnis des Projekts muss eine `.env`-Datei angelegt werden.
+
+```env
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=buergerbus
+DB_USER=db_user
+DB_PASSWORD=your_password
 ```
 
 ---
@@ -209,6 +224,29 @@ docker compose up --build
 ```
 
 ---
+
+# Lokale URLs und Ports
+
+> Hinweis: Solange noch kein SSL-Zertifikat eingerichtet ist, erfolgt der Zugriff über `http://`.
+> Nach der Einrichtung eines SSL-Zertifikats wird der Zugriff über `https://` ermöglicht.
+
+| Dienst | URL | Port | Beschreibung |
+|------|------|------:|---|
+| Frontend (Vite Dev Server) | http://localhost:5173 | 5173 | React-Entwicklungsserver |
+| Backend (ASP.NET Core API) | http://localhost:5000 | 5000 | REST-API (HTTP) |
+| Backend (HTTPS) | http://localhost:5001 | 5001 | REST-API (HTTPS) |
+| MariaDB | localhost:3306 | 3306 | Datenbankserver |
+| phpMyAdmin (optional) | http://localhost:8080 | 8080 | Weboberfläche für MariaDB |
+| NGINX Reverse Proxy | http://localhost:80 | 80 | Reverse Proxy |
+| NGINX Reverse Proxy (HTTPS) | http://localhost:443 | 443 | Reverse Proxy mit TLS |
+| NGINX Proxy Manager Admin | http://localhost:81 | 81 | Administrationsoberfläche |
+
+---
+
+# Lokaler Start ohne Docker (optional)
+
+Die folgenden Schritte sind nur erforderlich, wenn Frontend und Backend
+für Entwicklungszwecke separat ohne Docker Compose gestartet werden sollen.
 
 # Frontend lokal starten
 
@@ -226,20 +264,6 @@ npm run dev
 cd backend
 dotnet restore
 dotnet run
-```
-
----
-
-# Datenbankkonfiguration
-
-Standardkonfiguration:
-
-```env
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=buergerbus
-DB_USER=db_user
-DB_PASSWORD=your_password
 ```
 
 ---
@@ -310,14 +334,6 @@ https://www.gnu.org/licenses/gpl-3.0.de.html
 | Rolf Philip Maximilian Faber | ER Diagramm |
 | Julian Faber | UI-Entwurf |
 | Gesamte Gruppe | Technische Spezifikation & Entwicklung |
-
----
-
-# GitLab Repository
-
-```text
-https://gitlab.rz.htw-berlin.de/softwareentwicklungsprojekt/sose2026/team-6-buergerbus-digital-landesstiftung-hessen
-```
 
 ---
 
