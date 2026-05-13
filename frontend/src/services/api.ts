@@ -4,6 +4,10 @@ import type { Fahrt } from '../types/Fahrt'
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 if (!API_BASE_URL) {
+  if (import.meta.env.DEV) {
+    console.error('import.meta.env.VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL)
+    console.error('import.meta.env:', import.meta.env)
+  }
   throw new Error('VITE_API_BASE_URL ist nicht gesetzt.')
 }
 
