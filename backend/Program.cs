@@ -135,11 +135,19 @@ static async Task SeedAdminUserAsync(IServiceProvider services)
     var initiativeName = Environment.GetEnvironmentVariable("SEED_INITIATIVE_NAME")
                          ?? "Default";
 
-    var existingUser = await db.Benutzer.FirstOrDefaultAsync(u => u.Email == email);
-    if (existingUser is not null)
+    const string roleName = "admin";
+
+    var adminRole = await db.Rollen.FirstOrDefaultAsync(r => r.Rollenname == roleName);
+    if (adminRole is null)
     {
-        return;
+        adminRole = new Rollen { Rollenname = roleName };
+        db.Rollen.Add(adminRole);
+        await db.SaveChangesAsync();
+
+        logger.LogInformation("Seed-Rolle {RoleName} wurde erstellt.", roleName);
     }
+
+    var user = await db.Benutzer.FirstOrDefaultAsync(u => u.Email == email);
 
     var initiative = await db.Initiativen.FirstOrDefaultAsync();
     if (initiative is null)
@@ -154,20 +162,47 @@ static async Task SeedAdminUserAsync(IServiceProvider services)
         await db.SaveChangesAsync();
     }
 
-    var user = new Benutzer
+    if (user is null)
     {
-        Nutzername = email,
-        Email = email,
-        InitiativeId = initiative.Id,
-        PasswortHash = "",
-    };
+        user = new Benutzer
+        {
+            Nutzername = email,
+            Email = email,
+            InitiativeId = initiative.Id,
+            PasswortHash = "",
+        };
 
-    user.PasswortHash = passwordHasher.HashPassword(user, password);
+        user.PasswortHash = passwordHasher.HashPassword(user, password);
 
-    db.Benutzer.Add(user);
-    await db.SaveChangesAsync();
+        db.Benutzer.Add(user);
+        await db.SaveChangesAsync();
 
-    logger.LogInformation("Seed-Admin-Benutzer {Email} wurde erstellt (InitiativeId={InitiativeId}).", email, user.InitiativeId);
+        logger.LogInformation(
+            "Seed-Admin-Benutzer {Email} wurde erstellt (InitiativeId={InitiativeId}).",
+            email,
+            user.InitiativeId
+        );
+    }
+
+    var hasAdminRole = await db.BenutzerRollen.AnyAsync(br =>
+        br.BenutzerId == user.Id && br.RolleId == adminRole.Id);
+
+    if (!hasAdminRole)
+    {
+        db.BenutzerRollen.Add(new BenutzerRolle
+        {
+            BenutzerId = user.Id,
+            RolleId = adminRole.Id,
+        });
+
+        await db.SaveChangesAsync();
+
+        logger.LogInformation(
+            "Seed: Benutzer {Email} wurde Rolle {RoleName} zugeordnet.",
+            user.Email,
+            roleName
+        );
+    }
 }
 
 record LoginRequest(string Email, string Password);
