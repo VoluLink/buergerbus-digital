@@ -9,18 +9,18 @@ services:
       - /app/node_modules
     command: npm run dev -- --host
 
-backend:
-  build: ./backend
-  container_name: buergerbus_backend
-  ports:
-    - "5000:8080"
-  depends_on:
-    - db
-  environment:
-    ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
-    ASPNETCORE_URLS: http://+:8080
-    ConnectionStrings__Default: "server=db;port=3306;database=${DB_NAME};user=${DB_USER};password=${DB_PASSWORD};"
-    
+  backend:
+    build: ./backend
+    container_name: buergerbus_backend
+    ports:
+      - "5000:8080"
+    depends_on:
+      - db
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Default: "server=db;port=3306;database=${DB_NAME};user=${DB_USER};password=${DB_PASSWORD};"
+      
   db:
     image: mariadb:11
     container_name: buergerbus_db
