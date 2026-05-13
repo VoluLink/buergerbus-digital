@@ -40,7 +40,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseCors("Frontend");
 
@@ -100,7 +103,6 @@ try
 catch (Exception ex)
 {
     app.Logger.LogError(ex, "Fehler beim Seeding des initialen Admin-Benutzers.");
-    throw;
 }
 
 app.Run();
