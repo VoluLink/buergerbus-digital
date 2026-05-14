@@ -124,7 +124,35 @@ static async Task SeedAdminUserAsync(IServiceProvider services)
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<Benutzer>>();
 
-    await db.Database.MigrateAsync();
+    var maxAttempts = 10;
+    if (int.TryParse(Environment.GetEnvironmentVariable("DB_SEED_MAX_ATTEMPTS"), out var configuredAttempts)
+        && configuredAttempts > 0)
+    {
+        maxAttempts = configuredAttempts;
+    }
+
+    var delayMs = 1000;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++)
+    {
+        try
+        {
+            await db.Database.MigrateAsync();
+            break;
+        }
+        catch (Exception ex) when (attempt < maxAttempts)
+        {
+            logger.LogWarning(
+                ex,
+                "DB noch nicht bereit (Attempt {Attempt}/{MaxAttempts}). Retry in {DelayMs}ms...",
+                attempt,
+                maxAttempts,
+                delayMs
+            );
+
+            await Task.Delay(delayMs);
+            delayMs = Math.Min(delayMs * 2, 10_000);
+        }
+    }
 
     var email = Environment.GetEnvironmentVariable("SEED_ADMIN_EMAIL")
                 ?? "admin@example.com";
