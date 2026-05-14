@@ -97,7 +97,7 @@ function LoginForm({
           placeholder="name@beispiel.de"
           aria-invalid={Boolean(errors.email)}
           aria-describedby={errors.email ? 'login-email-error' : undefined}
-          className="w-full rounded-2xl border border-sky-200 bg-white px-4 py-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+          className="w-full rounded-2xl border border-[#0053a0]/25 bg-white px-4 py-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/15"
         />
         {errors.email ? (
           <p id="login-email-error" className="text-sm text-rose-600">
@@ -122,7 +122,7 @@ function LoginForm({
           placeholder="Passwort eingeben"
           aria-invalid={Boolean(errors.password)}
           aria-describedby={errors.password ? 'login-password-error' : undefined}
-          className="w-full rounded-2xl border border-sky-200 bg-white px-4 py-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+          className="w-full rounded-2xl border border-[#0053a0]/25 bg-white px-4 py-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/15"
         />
         {errors.password ? (
           <p id="login-password-error" className="text-sm text-rose-600">
@@ -146,15 +146,15 @@ function LoginForm({
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full rounded-full bg-sky-600 px-6 py-4 text-base font-semibold text-white shadow-[0_18px_40px_rgba(2,132,199,0.15)] transition hover:bg-sky-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-200"
+        className="w-full rounded-full bg-[#0053a0] px-6 py-4 text-base font-semibold text-white shadow-[0_18px_40px_rgba(0,83,160,0.2)] transition hover:brightness-95 focus:outline-none focus-visible:ring-4 focus-visible:ring-[#0053a0]/20"
       >
-        {isSubmitting ? 'Login wird geprueft...' : 'Login'}
+        {isSubmitting ? 'Login wird geprüft...' : 'Login'}
       </button>
 
       <div className="flex justify-center">
         <Link
           to="/passwort-vergessen"
-          className="text-sm font-medium text-sky-700 transition hover:text-sky-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200"
+          className="text-sm font-medium text-[#0053a0] transition hover:brightness-90 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0053a0]/20"
         >
           Passwort vergessen
         </Link>

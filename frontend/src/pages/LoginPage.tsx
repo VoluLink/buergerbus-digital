@@ -37,14 +37,14 @@ function LoginPage() {
 
       <div className="relative flex min-h-[calc(100vh-4rem)] w-full items-center justify-center">
         <section className="w-full max-w-md">
-          <div className="w-full rounded-[2rem] border border-sky-100 bg-white p-6 shadow-[0_30px_80px_rgba(14,116,144,0.12)] sm:p-8">
+          <div className="w-full rounded-[2rem] border border-[#0053a0]/15 bg-white p-6 shadow-[0_30px_80px_rgba(0,83,160,0.16)] sm:p-8">
             <div className="mb-8 space-y-3">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0053a0]/10 text-[#0053a0]">
                 <Bus className="h-6 w-6" aria-hidden="true" />
               </div>
 
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0053a0]">
                   Bürgerbus Digital
                 </p>
                 <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">

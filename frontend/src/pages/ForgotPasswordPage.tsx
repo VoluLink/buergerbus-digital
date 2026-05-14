@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Bus, ChevronLeft, Mail } from 'lucide-react'
+import { Bus, ChevronLeft } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
