@@ -25,6 +25,24 @@ builder.Services.AddCors(options =>
     options.AddPolicy("FrontendCors", policy =>
     {
         var allowedOriginsRaw = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
+                if (string.Equals(allowedOriginsRaw?.Trim(), "*", StringComparison.Ordinal))
+        {
+            policy
+                .AllowAnyOrigin()
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+            return;
+        }
+
+        if (builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(allowedOriginsRaw))
+        {
+            policy
+                .SetIsOriginAllowed(_ => true)
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+            return;
+        }
+
         var allowedOrigins = (allowedOriginsRaw ?? "http://localhost:5173")
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
