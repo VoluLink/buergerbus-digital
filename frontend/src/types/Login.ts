@@ -9,4 +9,5 @@ export interface LoginResponse {
   success: boolean
   message: string
   email: string
+  token?: string
 }
