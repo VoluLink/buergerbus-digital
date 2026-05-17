@@ -12,7 +12,10 @@ services:
     command: npm run dev -- --host
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      network: host
     container_name: buergerbus_backend
     restart: on-failure
     ports:
