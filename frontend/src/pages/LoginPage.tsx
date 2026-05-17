@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { Bus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import LoginForm from '../components/LoginForm'
-import { login } from '../services/auth'
 import type { LoginCredentials } from '../types/Login'
+import { useAuth } from '../context/AuthContext'
 
 function LoginPage() {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -15,13 +16,7 @@ function LoginPage() {
     setSubmitError(null)
 
     try {
-      const response = await login(credentials)
-
-      if (!response.success) {
-        setSubmitError(response.message || 'Login konnte nicht abgeschlossen werden.')
-        return
-      }
-
+      await login(credentials)
       navigate('/dashboard')
     } catch (error) {
       setSubmitError(

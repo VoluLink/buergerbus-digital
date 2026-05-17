@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Bus,
   Menu,
@@ -9,9 +9,40 @@ import {
   X,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import UserMenuButton from '../components/UserMenuButton'
+import { useAuth } from '../context/AuthContext'
+
+function formatDateInput(value?: string | null) {
+  if (!value) {
+    return ''
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return ''
+  }
+
+  return parsed.toISOString().slice(0, 10)
+}
+
+function formatRoleLabel(role: string) {
+  const normalized = role.toLowerCase()
+  if (normalized === 'admin') {
+    return 'Admin'
+  }
+  if (normalized === 'disponent') {
+    return 'Disponent'
+  }
+  if (normalized === 'fahrer') {
+    return 'Fahrer'
+  }
+
+  return role
+}
 
 function ProfilePage() {
   const navigate = useNavigate()
+  const { currentUser, isLoading, error, refreshProfile } = useAuth()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isAccountActive, setIsAccountActive] = useState(false)
 
@@ -32,11 +63,35 @@ function ProfilePage() {
   const [emailError, setEmailError] = useState('')
   const [phoneError, setPhoneError] = useState('')
 
-  // Rollen vom Backend (hier zur Anzeige, werden später vom Backend gesetzt)
-  const userRoles = ['Admin', 'Disponend', 'Fahrer']
+  useEffect(() => {
+    if (!currentUser) {
+      void refreshProfile()
+      return
+    }
 
-  // Benutzer-ID vom Backend (hier zur Anzeige, wird später vom Backend gesetzt)
-  const userId = 'U-001'
+    const fahrer = currentUser.fahrer
+
+    setFormData({
+      email: currentUser.email ?? '',
+      firstName: fahrer?.vorname ?? '',
+      lastName: fahrer?.nachname ?? '',
+      phone: fahrer?.telefonnummer ?? '',
+      driverLicense: fahrer?.fuehrerscheinklasse ?? '',
+      lastG2s: formatDateInput(fahrer?.letzteG25),
+      nextG2s: formatDateInput(fahrer?.naechsteG25),
+      street: fahrer?.adresse ?? '',
+      postCode: '',
+      city: '',
+      remarks: fahrer?.bemerkung ?? '',
+    })
+
+    setIsAccountActive(fahrer?.aktiv ?? true)
+  }, [currentUser, refreshProfile])
+
+  const userRoles = currentUser?.roles ?? []
+  const userId = currentUser ? String(currentUser.id) : '-'
+  const username = currentUser?.username ?? ''
+  const initiativeName = currentUser?.initiative?.name ?? ''
 
   function closeSideMenu() {
     setIsSideMenuOpen(false)
@@ -91,22 +146,24 @@ function ProfilePage() {
             <h1 className="text-2xl font-bold text-slate-800">Profil</h1>
           </div>
 
-          <button
-            type="button"
+          <UserMenuButton
             onClick={() => navigate('/profil')}
-            className="ml-auto flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:bg-slate-50"
-          >
-            <span className="text-sm font-semibold text-slate-700">Profil</span>
-
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#0053a0] text-white shadow-md">
-              <UserRound className="h-6 w-6" aria-hidden="true" />
-            </div>
-          </button>
+            icon={<UserRound className="h-6 w-6" aria-hidden="true" />}
+          />
         </div>
       </header>
 
       <div className="p-2 sm:p-3 lg:p-4">
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          {error ? (
+            <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {error}
+            </p>
+          ) : null}
+
+          {isLoading && !currentUser ? (
+            <p className="mb-4 text-sm text-slate-500">Profil wird geladen...</p>
+          ) : null}
           <div className="mb-4 border-b border-slate-200 pb-3">
             <h2 className="text-lg font-bold text-slate-800 sm:text-xl">Profil</h2>
           </div>
@@ -119,14 +176,15 @@ function ProfilePage() {
             <div className="flex flex-wrap gap-2">
               {userRoles.length > 0 ? (
                 userRoles.map((role) => {
+                  const normalizedRole = role.toLowerCase()
                   let bgColor = 'bg-slate-200 text-slate-700'
-                  if (role === 'Admin') bgColor = 'bg-[#0053a0] text-white'
-                  if (role === 'Disponend') bgColor = 'bg-amber-500 text-white'
-                  if (role === 'Fahrer') bgColor = 'bg-emerald-600 text-white'
+                  if (normalizedRole === 'admin') bgColor = 'bg-[#0053a0] text-white'
+                  if (normalizedRole === 'disponent') bgColor = 'bg-amber-500 text-white'
+                  if (normalizedRole === 'fahrer') bgColor = 'bg-emerald-600 text-white'
 
                   return (
                     <span key={role} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${bgColor}`}>
-                      {role}
+                      {formatRoleLabel(role)}
                     </span>
                   )
                 })
@@ -152,6 +210,20 @@ function ProfilePage() {
               />
             </div>
 
+            {/* Benutzername */}
+            <div>
+              <label htmlFor="username" className="block text-xs font-semibold text-slate-700">
+                Benutzername
+              </label>
+              <input
+                id="username"
+                type="text"
+                value={username}
+                disabled
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none cursor-not-allowed"
+              />
+            </div>
+
             {/* E-Mail-Adresse */}
             <div>
               <label htmlFor="email" className="block text-xs font-semibold text-slate-700">
@@ -168,6 +240,20 @@ function ProfilePage() {
                 }`}
               />
               {emailError && <p className="mt-1 text-xs text-red-600">{emailError}</p>}
+            </div>
+
+            {/* Initiative */}
+            <div>
+              <label htmlFor="initiative" className="block text-xs font-semibold text-slate-700">
+                Initiative
+              </label>
+              <input
+                id="initiative"
+                type="text"
+                value={initiativeName || 'Nicht gesetzt'}
+                disabled
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none cursor-not-allowed"
+              />
             </div>
 
             {/* Vorname */}

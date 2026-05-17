@@ -3,6 +3,7 @@ import { Bus, CircleUserRound, Menu, Settings, UserRound, UserRoundPlus, X } fro
 import { useNavigate } from 'react-router-dom'
 import type { Fahrer, FahrerFormData } from '../types/Fahrer'
 import { getAllFahrer, createFahrer, updateFahrer, deleteFahrer } from '../services/fahrerApi'
+import UserMenuButton from '../components/UserMenuButton'
 
 function FahrerinfosPage() {
   const navigate = useNavigate()
@@ -163,17 +164,10 @@ function FahrerinfosPage() {
             </button>
           </div>
 
-          <button
-            type="button"
+          <UserMenuButton
             onClick={() => navigate('/profil')}
-            className="ml-auto flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:bg-slate-50"
-          >
-            <span className="text-sm font-semibold text-slate-700">Profil</span>
-
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#0053a0] text-white shadow-md">
-              <CircleUserRound className="h-6 w-6" aria-hidden="true" />
-            </div>
-          </button>
+            icon={<CircleUserRound className="h-6 w-6" aria-hidden="true" />}
+          />
         </div>
       </header>
 

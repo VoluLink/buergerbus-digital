@@ -1,41 +1,123 @@
-import { useEffect, useState } from 'react'
-import {
-  Bus,
-  Menu,
-  Settings,
-  UserRound,
-  UserRoundPlus,
-  X,
-} from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Bus, Menu, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { fetchUsers, updateUserRoles, updateUserStatus, type User } from '../services/users'
+import UserMenuButton from '../components/UserMenuButton'
+import {
+  fetchInitiatives,
+  fetchRoles,
+  fetchUserProfile,
+  fetchUsers,
+  updateUserInitiative,
+  updateUserRoles,
+} from '../services/users'
+import type { InitiativeSummary, RoleSummary, UserProfile, UserSummary } from '../types/UserProfile'
 
-type UserRole = 'Admin' | 'Disponend' | 'Fahrer'
+function formatRoleLabel(role: string, roles: RoleSummary[]) {
+  const matchedRole = roles.find((entry) => entry.name.toLowerCase() === role.toLowerCase())
+  if (matchedRole) {
+    return matchedRole.name
+  }
+
+  return role.charAt(0).toUpperCase() + role.slice(1)
+}
+
+function getRoleActiveClass(roleName: string) {
+  const normalized = roleName.toLowerCase()
+
+  if (normalized === 'admin') {
+    return 'bg-[#0053a0] text-white'
+  }
+
+  if (normalized === 'disponent') {
+    return 'bg-amber-500 text-white'
+  }
+
+  if (normalized === 'fahrer') {
+    return 'bg-emerald-600 text-white'
+  }
+
+  return 'bg-slate-800 text-white'
+}
+
+function buildDisplayName(profile: UserProfile | null) {
+  if (!profile) {
+    return ''
+  }
+
+  const nameParts = [profile.fahrer?.vorname, profile.fahrer?.nachname].filter(Boolean)
+  if (nameParts.length > 0) {
+    return nameParts.join(' ')
+  }
+
+  return profile.username || profile.email
+}
 
 function RollenverteilungPage() {
   const navigate = useNavigate()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [users, setUsers] = useState<User[]>([])
+  const [users, setUsers] = useState<UserSummary[]>([])
+  const [roles, setRoles] = useState<RoleSummary[]>([])
+  const [initiatives, setInitiatives] = useState<InitiativeSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [saveError, setSaveError] = useState('')
+  const [savingUserId, setSavingUserId] = useState<number | null>(null)
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
+  const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null)
+  const [isProfileLoading, setIsProfileLoading] = useState(false)
+  const [profileError, setProfileError] = useState('')
 
-  // Lade Nutzer vom Backend beim Komponenten-Mount
   useEffect(() => {
-    async function loadUsers() {
+    let isActive = true
+
+    async function loadData() {
+      setIsLoading(true)
+      setLoadError('')
+
       try {
-        const fetchedUsers = await fetchUsers()
-        setUsers(fetchedUsers)
-      } catch {
-        console.error('Fehler beim Laden der Nutzer')
+        const [loadedUsers, loadedInitiatives, loadedRoles] = await Promise.all([
+          fetchUsers(),
+          fetchInitiatives(),
+          fetchRoles(),
+        ])
+
+        if (!isActive) {
+          return
+        }
+
+        setUsers(loadedUsers)
+        setInitiatives(loadedInitiatives)
+        setRoles(loadedRoles)
+      } catch (err) {
+        if (isActive) {
+          setLoadError(err instanceof Error ? err.message : 'Nutzer konnten nicht geladen werden.')
+        }
       } finally {
-        setIsLoading(false)
+        if (isActive) {
+          setIsLoading(false)
+        }
       }
     }
 
-    loadUsers()
+    void loadData()
+
+    return () => {
+      isActive = false
+    }
   }, [])
 
-  const availableRoles: UserRole[] = ['Admin', 'Disponend', 'Fahrer']
+  const filteredUsers = useMemo(() => {
+    const needle = searchQuery.trim().toLowerCase()
+    if (!needle) {
+      return users
+    }
+
+    return users.filter((user) => {
+      const haystack = `${user.id} ${user.username} ${user.email}`.toLowerCase()
+      return haystack.includes(needle)
+    })
+  }, [searchQuery, users])
 
   function closeSideMenu() {
     setIsSideMenuOpen(false)
@@ -46,49 +128,118 @@ function RollenverteilungPage() {
     navigate(path)
   }
 
-  function handleStatusToggle(index: number) {
-    const user = users[index]
-    const newStatus = user.status === 'Aktiv' ? 'Inaktiv' : 'Aktiv'
+  async function handleSelectUser(userId: number) {
+    setSelectedUserId(userId)
+    setSelectedProfile(null)
+    setProfileError('')
+    setIsProfileLoading(true)
 
-    // Lokales State aktualisieren
-    setUsers((prev) =>
-      prev.map((u, i) => (i === index ? { ...u, status: newStatus } : u)),
-    )
-
-    // Backend aktualisieren
-    updateUserStatus(user.id, newStatus).catch(() => {
-      // Bei Fehler zurückrollen
-      setUsers((prev) =>
-        prev.map((u, i) => (i === index ? { ...u, status: user.status } : u)),
-      )
-    })
+    try {
+      const profile = await fetchUserProfile(userId)
+      setSelectedProfile(profile)
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : 'Profil konnte nicht geladen werden.')
+    } finally {
+      setIsProfileLoading(false)
+    }
   }
 
-  function toggleRole(index: number, role: UserRole) {
-    const user = users[index]
-    const hasRole = user.roles.includes(role)
-    const newRoles = hasRole ? user.roles.filter((r) => r !== role) : [...user.roles, role]
+  function toggleRole(userId: number, role: string) {
+    const user = users.find((entry) => entry.id === userId)
+    if (!user) {
+      return
+    }
 
-    // Lokales State aktualisieren
+    setSaveError('')
+
+    const normalizedRole = role.toLowerCase()
+    const hasRole = user.roles.map((r) => r.toLowerCase()).includes(normalizedRole)
+    const nextRoles = hasRole
+      ? user.roles.filter((entry) => entry.toLowerCase() !== normalizedRole)
+      : [...user.roles, role]
+
     setUsers((prev) =>
-      prev.map((u, i) => (i === index ? { ...u, roles: newRoles } : u)),
+      prev.map((entry) =>
+        entry.id === userId
+          ? { ...entry, roles: nextRoles }
+          : entry,
+      ),
     )
 
-    // Backend aktualisieren
-    updateUserRoles(user.id, newRoles).catch(() => {
-      // Bei Fehler zurückrollen
-      setUsers((prev) =>
-        prev.map((u, i) => (i === index ? { ...u, roles: user.roles } : u)),
-      )
-    })
+    setSavingUserId(userId)
+
+    void updateUserRoles(userId, nextRoles)
+      .then((savedRoles) => {
+        setUsers((prev) =>
+          prev.map((entry) =>
+            entry.id === userId ? { ...entry, roles: savedRoles } : entry,
+          ),
+        )
+
+        setSelectedProfile((prev) =>
+          prev && prev.id === userId ? { ...prev, roles: savedRoles } : prev,
+        )
+      })
+      .catch((err) => {
+        setUsers((prev) =>
+          prev.map((entry) =>
+            entry.id === userId ? { ...entry, roles: user.roles } : entry,
+          ),
+        )
+        setSaveError(err instanceof Error ? err.message : 'Rollen konnten nicht gespeichert werden.')
+      })
+      .finally(() => {
+        setSavingUserId((current) => (current === userId ? null : current))
+      })
   }
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+  function handleInitiativeChange(userId: number, nextValue: string) {
+    const nextInitiativeId = Number(nextValue)
+    if (!nextInitiativeId) {
+      return
+    }
+
+    const previousUser = users.find((entry) => entry.id === userId)
+    if (!previousUser) {
+      return
+    }
+
+    const previousInitiative = previousUser.initiative ?? null
+    const nextInitiative = initiatives.find((entry) => entry.id === nextInitiativeId) ?? null
+
+    setSaveError('')
+
+    setUsers((prev) =>
+      prev.map((entry) =>
+        entry.id === userId ? { ...entry, initiative: nextInitiative } : entry,
+      ),
+    )
+
+    void updateUserInitiative(userId, nextInitiativeId)
+      .then((savedInitiative) => {
+        setUsers((prev) =>
+          prev.map((entry) =>
+            entry.id === userId ? { ...entry, initiative: savedInitiative } : entry,
+          ),
+        )
+
+        setSelectedProfile((prev) =>
+          prev && prev.id === userId
+            ? { ...prev, initiative: savedInitiative }
+            : prev,
+        )
+      })
+      .catch((err) => {
+        setUsers((prev) =>
+          prev.map((entry) =>
+            entry.id === userId ? { ...entry, initiative: previousInitiative } : entry,
+          ),
+        )
+        setSaveError(err instanceof Error ? err.message : 'Initiative konnte nicht gespeichert werden.')
+      })
+  }
+
+  const displayName = buildDisplayName(selectedProfile)
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
@@ -107,28 +258,33 @@ function RollenverteilungPage() {
             <h1 className="text-2xl font-bold text-slate-800">Nutzer & Rollenverteilung</h1>
           </div>
 
-          <button
-            type="button"
+          <UserMenuButton
             onClick={() => navigate('/profil')}
-            className="ml-auto flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:bg-slate-50"
-          >
-            <span className="text-sm font-semibold text-slate-700">Profil</span>
-
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#0053a0] text-white shadow-md">
-              <UserRound className="h-6 w-6" aria-hidden="true" />
-            </div>
-          </button>
+            icon={<UserRound className="h-6 w-6" aria-hidden="true" />}
+          />
         </div>
       </header>
 
       <div className="p-2 sm:p-3 lg:p-4">
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          {loadError ? (
+            <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {loadError}
+            </p>
+          ) : null}
+
+          {saveError ? (
+            <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              {saveError}
+            </p>
+          ) : null}
+
           <div className="mb-4">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Suche nach Nutzer, E-Mail, Fahrer-ID oder Rolle ..."
+              placeholder="Suche nach Nutzer oder E-Mail ..."
               className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
             />
           </div>
@@ -138,86 +294,149 @@ function RollenverteilungPage() {
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="px-2 py-3 text-left font-semibold text-slate-700 w-1/6">Benutzer-ID</th>
-                  <th className="px-2 py-3 text-left font-semibold text-slate-700 w-1/6">Benutzername</th>
-                  <th className="px-2 py-3 text-left font-semibold text-slate-700 w-1/6">E-Mail</th>
-                  <th className="px-2 py-3 text-left font-semibold text-slate-700 w-1/12">Fahrer-ID</th>
-                  <th className="px-2 py-3 text-left font-semibold text-slate-700 w-1/12">Standort</th>
-                  <th className="px-2 py-3 text-left font-semibold text-slate-700 w-1/4">Rollen</th>
-                  <th className="px-2 py-3 text-left font-semibold text-slate-700 w-1/12">Status</th>
+                  <th className="px-2 py-3 text-left font-semibold text-slate-700 w-1/5">Benutzername</th>
+                  <th className="px-2 py-3 text-left font-semibold text-slate-700 w-1/4">E-Mail</th>
+                  <th className="px-2 py-3 text-left font-semibold text-slate-700 w-1/6">Initiative</th>
+                  <th className="px-2 py-3 text-left font-semibold text-slate-700 w-1/3">Rollen</th>
+                  <th className="px-2 py-3 text-left font-semibold text-slate-700 w-1/6">Profil</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                       Nutzer werden geladen...
                     </td>
                   </tr>
                 ) : filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                       Keine Nutzer gefunden
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((user) => (
-                    <tr key={user.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  filteredUsers.map((user) => {
+                    const isSelected = selectedUserId === user.id
+
+                    return (
+                      <tr
+                        key={user.id}
+                        className={`border-b border-slate-100 hover:bg-slate-50 ${
+                          isSelected ? 'bg-slate-50' : ''
+                        }`}
+                      >
                       <td className="px-2 py-3 text-slate-700 truncate">{user.id}</td>
                       <td className="px-2 py-3 text-slate-700 truncate">{user.username}</td>
                       <td className="px-2 py-3 text-slate-700 truncate">{user.email}</td>
-                      <td className="px-2 py-3 text-slate-500 truncate">{user.fahrerId}</td>
                       <td className="px-2 py-3">
-                        <select className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15">
-                          <option></option>
+                        <select
+                          value={user.initiative?.id ?? ''}
+                          onChange={(event) => handleInitiativeChange(user.id, event.target.value)}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
+                          disabled={initiatives.length === 0}
+                        >
+                          <option value="">Keine Initiative</option>
+                          {initiatives.map((initiative) => (
+                            <option key={initiative.id} value={initiative.id}>
+                              {initiative.name}
+                            </option>
+                          ))}
                         </select>
                       </td>
                       <td className="px-2 py-3">
                         <div className="flex flex-nowrap gap-2 overflow-x-auto">
-                          {availableRoles.map((role) => (
-                            <button
-                              key={role}
-                              type="button"
-                              onClick={() => toggleRole(users.indexOf(user), role)}
-                              className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition ${
-                                user.roles.includes(role)
-                                  ? role === 'Admin'
-                                    ? 'bg-[#0053a0] text-white'
-                                    : role === 'Disponend'
-                                      ? 'bg-amber-500 text-white'
-                                      : 'bg-emerald-600 text-white'
-                                  : 'border border-slate-300 bg-white text-slate-500 hover:bg-slate-50'
-                              }`}
-                            >
-                              {role}
-                            </button>
-                          ))}
+                          {roles.length === 0 ? (
+                            <span className="text-xs text-slate-400">Keine Rollen verfügbar</span>
+                          ) : roles.map((role) => {
+                            const normalizedRole = role.name.toLowerCase()
+                            const isActive = user.roles.map((entry) => entry.toLowerCase()).includes(normalizedRole)
+
+                            return (
+                              <button
+                                key={role.id}
+                                type="button"
+                                onClick={() => toggleRole(user.id, role.name)}
+                                disabled={savingUserId === user.id}
+                                className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition ${
+                                  isActive
+                                    ? getRoleActiveClass(role.name)
+                                    : 'border border-slate-300 bg-white text-slate-500 hover:bg-slate-50'
+                                }`}
+                              >
+                                {role.name}
+                              </button>
+                            )
+                          })}
                         </div>
                       </td>
                       <td className="px-2 py-3">
                         <button
                           type="button"
-                          onClick={() => handleStatusToggle(users.indexOf(user))}
-                          className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                            user.status === 'Aktiv'
-                              ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                              : 'bg-red-100 text-red-700 hover:bg-red-200'
-                          }`}
+                          onClick={() => handleSelectUser(user.id)}
+                          className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
                         >
-                          {user.status}
+                          Profil anzeigen
                         </button>
                       </td>
                     </tr>
-                  ))
+                  )})
                 )}
               </tbody>
             </table>
           </div>
 
-
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+            <h2 className="text-lg font-semibold text-slate-800">Ausgewähltes Profil</h2>
+            {isProfileLoading ? (
+              <p className="mt-2 text-sm text-slate-500">Profil wird geladen...</p>
+            ) : profileError ? (
+              <p className="mt-2 text-sm text-rose-600">{profileError}</p>
+            ) : selectedProfile ? (
+              <div className="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Name</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{displayName}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">E-Mail</p>
+                  <p className="mt-1 text-sm text-slate-700">{selectedProfile.email}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Benutzername</p>
+                  <p className="mt-1 text-sm text-slate-700">{selectedProfile.username}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Initiative</p>
+                  <p className="mt-1 text-sm text-slate-700">
+                    {selectedProfile.initiative?.name ?? 'Nicht gesetzt'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Rollen</p>
+                  <p className="mt-1 text-sm text-slate-700">
+                    {selectedProfile.roles.length > 0
+                      ? selectedProfile.roles.map((role) => formatRoleLabel(role, roles)).join(', ')
+                      : 'Keine Rollen'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Fahrerprofil</p>
+                  <p className="mt-1 text-sm text-slate-700">
+                    {selectedProfile.fahrer
+                      ? `ID ${selectedProfile.fahrer.id}`
+                      : 'Nicht vorhanden'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-slate-500">
+                Wähle einen Benutzer aus, um Profildetails zu sehen.
+              </p>
+            )}
+          </div>
         </section>
       </div>
 
-      {/* Side Menu */}
       {isSideMenuOpen ? (
         <div className="fixed inset-0 z-30 bg-slate-900/45 backdrop-blur-[2px]" onClick={closeSideMenu}>
           <aside
