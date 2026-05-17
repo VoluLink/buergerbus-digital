@@ -1,8 +1,29 @@
 import { API_BASE_URL } from './api'
 import type { InitiativeSummary, RoleSummary, UserProfile, UserSummary } from '../types/UserProfile'
 
-export async function fetchUsers(): Promise<UserSummary[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/users`, {
+export interface PagedUsersResponse {
+  items: UserSummary[]
+  page: number
+  pageSize: number
+  totalItems: number
+  totalPages: number
+}
+
+export async function getUsers(
+  page = 1,
+  pageSize = 25,
+  search = '',
+): Promise<PagedUsersResponse> {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  })
+
+  if (search.trim()) {
+    params.set('search', search.trim())
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/users?${params.toString()}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
