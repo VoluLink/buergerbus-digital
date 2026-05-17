@@ -38,6 +38,14 @@ print_header() {
   echo
 }
 
+print_section() {
+  local title="$1"
+  echo
+  echo -e "${CYAN}──────────────────────────${RESET}"
+  echo -e "${CYAN} ${title}${RESET}"
+  echo -e "${CYAN}──────────────────────────${RESET}"
+}
+
 ask_database_reset_if_env_exists() {
   [[ "$ENV_FOUND" == "true" ]] || return 0
 
@@ -304,6 +312,15 @@ validate_vite_api_url() {
   return 0
 }
 
+assert_vite_not_docker_service() {
+  local url="$1"
+  if [[ "$url" =~ ^https?://backend(:[0-9]+)?(/|$) ]]; then
+    print_error "VITE_API_BASE_URL darf nicht auf die Docker-Service-Adresse 'backend' zeigen (Browser-Sicht!)."
+    return 1
+  fi
+  return 0
+}
+
 is_localhost_url() {
   local url="$1"
   [[ "$url" =~ ^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])([:/]|$) ]]
@@ -401,6 +418,147 @@ default_backend_url_remote() {
   fi
 
   echo "http://localhost:5000"
+}
+
+ask_usage_mode() {
+  local choice=""
+  print_section "Nutzungsmodus"
+  echo "  1) SSH-Tunnel / lokale Testnutzung" >&2
+  echo "     Browser nutzt localhost (Tunnel auf den Server)" >&2
+  echo >&2
+  echo "  2) Zugriff über Server-IP / LAN / öffentliche IP" >&2
+  echo "     Browser erreicht Server direkt über IP" >&2
+  echo >&2
+  echo "  3) Zugriff über Domain / Reverse Proxy" >&2
+  echo "     Browser nutzt Domain (empfohlen: https)" >&2
+  echo >&2
+
+  while true; do
+    read -r -p "$(echo -e "${BOLD}Bitte wählen${RESET} [1]: ")" choice
+    if [[ -z "$choice" ]]; then
+      choice="1"
+    fi
+    case "$choice" in
+      1) echo "SSH_TUNNEL"; return 0 ;;
+      2) echo "SERVER_IP"; return 0 ;;
+      3) echo "DOMAIN"; return 0 ;;
+      *) print_warning "Ungültige Auswahl. Bitte 1, 2 oder 3 eingeben." >&2 ;;
+    esac
+  done
+}
+
+warn_if_http_in_non_dev() {
+  local env_name="$1"
+  local label="$2"
+  local url="$3"
+
+  if [[ "$env_name" == "Staging" || "$env_name" == "Production" ]]; then
+    if [[ "$url" =~ ^http:// ]]; then
+      print_warning "${label} nutzt http://. In ${env_name} ist https:// stark empfohlen (Reverse Proxy/Domain)."
+    fi
+  fi
+}
+
+warn_if_http_in_cors_non_dev() {
+  local env_name="$1"
+  local cors_csv="$2"
+  if [[ "$env_name" != "Staging" && "$env_name" != "Production" ]]; then
+    return 0
+  fi
+  local part
+  IFS=',' read -r -a parts <<<"$cors_csv"
+  for part in "${parts[@]}"; do
+    part="${part//[$'\t\r\n']/}"
+    part="${part## }"; part="${part%% }"
+    [[ -z "$part" ]] && continue
+    if [[ "$part" =~ ^http:// ]]; then
+      print_warning "CORS_ALLOWED_ORIGINS enthält http:// (${part}). In ${env_name} ist https:// empfohlen."
+    fi
+  done
+}
+
+ask_ipv4() {
+  local label="$1"
+  local default_value="$2"
+  local value=""
+
+  while true; do
+    value="$(ask_value "" "$label" "$default_value")"
+    value="${value//[$'\t\r\n']/}"
+    if [[ -z "$value" ]]; then
+      print_warning "Bitte eine IPv4-Adresse eingeben." >&2
+      continue
+    fi
+    if [[ "$value" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] && ! [[ "$value" =~ ^127\. ]]; then
+      echo "$value"
+      return 0
+    fi
+    print_warning "Ungültige IPv4-Adresse. Beispiel: 192.168.178.10" >&2
+  done
+}
+
+derive_browser_config() {
+  # args: env_name usage_mode
+  local env_name="$1"
+  local usage_mode="$2"
+
+  VITE_API_BASE_URL=""
+  FRONTEND_ORIGIN=""
+  CORS_ALLOWED_ORIGINS=""
+  SSH_TUNNEL_CMD=""
+
+  case "$usage_mode" in
+    SSH_TUNNEL)
+      VITE_API_BASE_URL="http://localhost:5000"
+      FRONTEND_ORIGIN="http://localhost:5173"
+      CORS_ALLOWED_ORIGINS="http://localhost:5173"
+
+      local ip_hint="<SERVER-IP>"
+      if [[ -n "${SERVER_IPV4:-}" ]]; then
+        ip_hint="${SERVER_IPV4}"
+      fi
+      SSH_TUNNEL_CMD="ssh -L 5173:localhost:5173 -L 5000:localhost:5000 <USER>@${ip_hint}"
+      ;;
+
+    SERVER_IP)
+      if [[ -z "${SERVER_IPV4:-}" ]]; then
+        print_warning "Server-IP konnte nicht automatisch erkannt werden."
+        SERVER_IPV4="$(ask_ipv4 "Server-IP (LAN/WAN)" "192.168.178.10")"
+      fi
+      VITE_API_BASE_URL="http://${SERVER_IPV4}:5000"
+      FRONTEND_ORIGIN="http://${SERVER_IPV4}:5173"
+      CORS_ALLOWED_ORIGINS="http://localhost:5173,http://${SERVER_IPV4}:5173"
+      ;;
+
+    DOMAIN)
+      print_section "Domains (Browser-Sicht)"
+      print_info "Bitte URLs so eingeben, wie sie im Browser verwendet werden." >&2
+
+      # In Staging/Production verbieten wir localhost.
+      local allow_localhost_api="true"
+      if [[ "$env_name" == "Staging" || "$env_name" == "Production" ]]; then
+        allow_localhost_api="false"
+      fi
+
+      FRONTEND_ORIGIN="$(ask_frontend_origin "https://example.com")"
+      VITE_API_BASE_URL="$(ask_url "Backend/API URL (VITE_API_BASE_URL)" "https://api.example.com" "$allow_localhost_api")"
+      CORS_ALLOWED_ORIGINS="$FRONTEND_ORIGIN"
+      ;;
+
+    *)
+      print_error "Unbekannter Nutzungsmodus: ${usage_mode}"
+      return 1
+      ;;
+  esac
+
+  validate_vite_api_url "$VITE_API_BASE_URL" || return 1
+  assert_vite_not_docker_service "$VITE_API_BASE_URL" || return 1
+
+  warn_if_http_in_non_dev "$env_name" "VITE_API_BASE_URL" "$VITE_API_BASE_URL"
+  warn_if_http_in_non_dev "$env_name" "FRONTEND_ORIGIN" "$FRONTEND_ORIGIN"
+  warn_if_http_in_cors_non_dev "$env_name" "$CORS_ALLOWED_ORIGINS"
+
+  return 0
 }
 
 ask_environment() {
@@ -502,6 +660,7 @@ check_required_env_keys() {
   for key in \
     VITE_API_BASE_URL \
     ASPNETCORE_ENVIRONMENT \
+    USAGE_MODE FRONTEND_ORIGIN \
     DB_NAME DB_USER DB_PASSWORD DB_ROOT_PASSWORD \
     CORS_ALLOWED_ORIGINS \
     SEED_ADMIN_EMAIL SEED_ADMIN_PASSWORD SEED_INITIATIVE_NAME \
@@ -523,7 +682,10 @@ check_required_env_keys() {
   if (( ${#missing[@]} > 0 )); then
     print_warning ".env scheint unvollständig zu sein (leere/missing Keys): ${missing[*]}"
     print_info "Tipp: Script erneut ausführen und 'aktualisieren' wählen."
+    return 1
   fi
+
+  return 0
 }
 
 assert_env_sane() {
@@ -535,6 +697,7 @@ assert_env_sane() {
   local required=(
     DB_NAME DB_USER DB_PASSWORD DB_ROOT_PASSWORD
     ASPNETCORE_ENVIRONMENT
+    USAGE_MODE FRONTEND_ORIGIN
     VITE_API_BASE_URL
     SEED_ADMIN_EMAIL SEED_ADMIN_PASSWORD SEED_INITIATIVE_NAME
     DB_SEED_MAX_ATTEMPTS
@@ -554,6 +717,11 @@ assert_env_sane() {
     exit 1
   fi
 
+  if [[ "$vite" =~ ^https?://backend(:[0-9]+)?(/|$) ]]; then
+    print_error "VITE_API_BASE_URL zeigt auf 'backend' (Docker-Service). Das ist aus Browser-Sicht falsch."
+    exit 1
+  fi
+
   # Environment-spezifische Regeln
   if [[ "$env_name" == "Production" || "$env_name" == "Staging" ]]; then
     if [[ -z "${cors// }" ]]; then
@@ -567,6 +735,119 @@ assert_env_sane() {
   fi
 
   print_success ".env geprüft: keine leeren Pflichtwerte."
+}
+
+backend_build_uses_network_host() {
+  # Prüft nur die Konvention: services.backend.build.network: host
+  # Rückgabe: 0 = gefunden, 1 = nicht gefunden
+  awk '
+    /^  backend:[[:space:]]*$/ {in_backend=1; next}
+    in_backend && /^  [A-Za-z0-9_-]+:[[:space:]]*$/ {exit}
+    in_backend && /^    build:[[:space:]]*$/ {in_build=1; next}
+    in_backend && in_build && /^    [A-Za-z0-9_-]+:[[:space:]]*$/ {in_build=0}
+    in_backend && in_build && /^[[:space:]]*network:[[:space:]]*host[[:space:]]*$/ {found=1}
+    END { exit(found?0:1) }
+  ' docker-compose.yml
+}
+
+docker_build_mode_summary() {
+  if backend_build_uses_network_host; then
+    echo "backend.build.network=host"
+  else
+    echo "default"
+  fi
+}
+
+check_backend_build_network_host_warn() {
+  if backend_build_uses_network_host; then
+    print_success "Backend-Build: network: host ist gesetzt."
+    return 0
+  fi
+  print_warning "Backend-Build nutzt nicht network: host. Bei NuGet-Problemen kann der Build hängen."
+  return 0
+}
+
+port_is_listening() {
+  local port="$1"
+
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltn 2>/dev/null | awk '{print $4}' | grep -E "(:|\])${port}$" -q
+    return $?
+  fi
+
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1
+    return $?
+  fi
+
+  if command -v netstat >/dev/null 2>&1; then
+    netstat -an 2>/dev/null | grep -E "LISTEN(ING)?" | grep -E "[:.]${port}[[:space:]]" -q
+    return $?
+  fi
+
+  return 1
+}
+
+preflight_checks_before_docker_start() {
+  print_section "Vorab-Checks"
+
+  if ! command -v docker >/dev/null 2>&1; then
+    print_error "Docker wurde nicht gefunden."
+    print_info "Installiere Docker Desktop (Windows/macOS) oder Docker Engine (Linux)."
+    return 1
+  fi
+  print_success "Docker gefunden."
+
+  if ! detect_compose_cmd; then
+    print_error "Docker Compose wurde nicht gefunden."
+    print_info "Tipp: Docker Desktop installiert 'docker compose'."
+    return 1
+  fi
+  print_success "Docker Compose verfügbar: ${COMPOSE_CMD[*]}"
+
+  # .env Sanity
+  if [[ ! -f "$ENV_FILE" ]]; then
+    print_error ".env fehlt. Bitte Script erneut ausführen und .env erstellen lassen."
+    return 1
+  fi
+
+  if ! check_required_env_keys; then
+    print_warning ".env wirkt unvollständig. Das kann zu Start-/Login-Problemen führen."
+    if ! ask_yes_no "Trotzdem starten?" "N"; then
+      return 1
+    fi
+  fi
+
+  local db_name db_user
+  db_name="$(read_env_value "$ENV_FILE" DB_NAME || true)"
+  db_user="$(read_env_value "$ENV_FILE" DB_USER || true)"
+  if [[ "$db_name" =~ ^HIER || "$db_user" =~ ^HIER ]]; then
+    print_error "DB_NAME/DB_USER enthält Platzhalter (HIER...). Bitte korrigieren oder Script neu ausführen."
+    return 1
+  fi
+
+  # Ports 5000/5173 (Server-Sicht)
+  local used_ports=()
+  if port_is_listening 5000; then
+    used_ports+=("5000")
+  fi
+  if port_is_listening 5173; then
+    used_ports+=("5173")
+  fi
+  if (( ${#used_ports[@]} > 0 )); then
+    print_warning "Ports bereits belegt (Server-Sicht): ${used_ports[*]}"
+    print_info "Wenn das bewusst ist (anderer Dienst/alte Container), kannst du trotzdem fortfahren." 
+    if ! ask_yes_no "Trotzdem fortfahren?" "N"; then
+      return 1
+    fi
+  else
+    print_success "Ports 5000 und 5173 scheinen frei zu sein."
+  fi
+
+  # Container-Namenskonflikte: nur Hinweis (Compose-Fehlerfall)
+  print_info "Wenn 'Name is already in use' auftritt: 'docker ps -a' prüfen und alte Container entfernen (docker rm -f …)."
+
+  return 0
 }
 
 print_header
@@ -610,9 +891,9 @@ if [[ "$should_write_env" == "true" ]]; then
     IS_DEVELOPMENT="true"
   fi
 
-  echo -e "${CYAN}──────────────────────────${RESET}"
-  echo -e "${CYAN} Datenbank (MariaDB)${RESET}"
-  echo -e "${CYAN}──────────────────────────${RESET}"
+  USAGE_MODE="$(ask_usage_mode)"
+
+  print_section "Datenbank (MariaDB)"
 
   print_info "Standard (Docker Compose): DB_HOST=db und DB_PORT=3306 beibehalten."
   print_info "Nur ändern, wenn du bewusst eine externe DB (außerhalb von Compose) nutzt."
@@ -654,119 +935,34 @@ if [[ "$should_write_env" == "true" ]]; then
     DB_ROOT_PASSWORD="$(ask_secret DB_ROOT_PASSWORD "DB_ROOT_PASSWORD" "false")"
   fi
 
-  echo
-  echo -e "${CYAN}──────────────────────────${RESET}"
-  echo -e "${CYAN} Backend/Frontend (CORS + API URL)${RESET}"
-  echo -e "${CYAN}──────────────────────────${RESET}"
+  print_section "Browser-Konfiguration (automatisch)"
 
   echo "Environment: ${ASPNETCORE_ENVIRONMENT}"
+  echo "Nutzungsmodus: ${USAGE_MODE}"
   if [[ -n "${SERVER_IPV4:-}" ]]; then
     echo "Server-IP erkannt:      ${SERVER_IPV4}"
   else
     echo "Server-IP erkannt:      -"
   fi
-  echo
 
-  print_info "VITE_API_BASE_URL ist die URL, unter der der Browser das Backend erreicht."
-  print_info "'localhost' funktioniert nur, wenn Browser und Backend auf demselben Rechner laufen."
-  print_info "Wenn Benutzer von anderen PCs/Smartphones zugreifen, nutze Server-IP oder Domain."
-  echo
-  echo "Beispiele:"
-  echo "  http://localhost:5000"
-  echo "  http://192.168.178.115:5000"
-  echo "  https://api.example.com"
-  echo
+  print_info "Wichtig: Werte sind aus Sicht des Browsers gedacht." 
+  print_info "VITE_API_BASE_URL darf nicht auf 'backend' zeigen." 
 
-  # Frontend-Adresse (für sinnvollen CORS Default)
-  existing_frontend_origin_guess="$(read_env_value "$ENV_FILE" CORS_ALLOWED_ORIGINS || true)"
-  frontend_origin_default=""
+  derive_browser_config "$ASPNETCORE_ENVIRONMENT" "$USAGE_MODE"
 
-  if [[ "$IS_DEVELOPMENT" == "true" ]]; then
-    if ask_yes_no "Wird das Frontend ausschließlich auf demselben Rechner genutzt wie das Backend?" "N"; then
-      # Browser läuft auf derselben Maschine wie das Backend
-      VITE_API_BASE_URL="http://localhost:5000"
-      frontend_origin_default="http://localhost:5173"
-    else
-      # Browser erreicht Backend über IP/Domain
-      remote_default="$(default_backend_url_remote)"
-      VITE_API_BASE_URL="$(ask_url "VITE_API_BASE_URL (Backend URL)" "$remote_default" "true")"
-      if [[ -n "${SERVER_IPV4:-}" ]]; then
-        frontend_origin_default="http://${SERVER_IPV4}:5173"
-      else
-        frontend_origin_default="http://localhost:5173"
-      fi
-      print_info "Tipp: Wenn du das Frontend über IP/Domain aufrufst, muss CORS_ALLOWED_ORIGINS diese Origin enthalten."
-    fi
-  else
-    # Staging/Production: niemals automatisch localhost
-    VITE_API_BASE_URL="$(ask_url "VITE_API_BASE_URL (Backend URL)" "" "false")"
-    if [[ -n "${SERVER_IPV4:-}" ]]; then
-      frontend_origin_default="http://${SERVER_IPV4}:5173"
-    else
-      frontend_origin_default="https://example.com"
-    fi
-  fi
-
-  # Frontend Origin abfragen (für CORS Default)
-  FRONTEND_ORIGIN="$(ask_frontend_origin "$frontend_origin_default")"
-
-  echo
-  echo -e "${CYAN}──────────────────────────${RESET}"
-  echo -e "${CYAN} CORS (Backend)${RESET}"
-  echo -e "${CYAN}──────────────────────────${RESET}"
-
-  print_info "CORS_ALLOWED_ORIGINS: kommagetrennte Origins, die Browser-Requests ans Backend erlauben."
-  print_info "Typisch ist die Frontend-Origin, z.B. ${FRONTEND_ORIGIN}"
-  if [[ "$IS_DEVELOPMENT" == "true" ]]; then
-    print_info "Development: leer = alle Origins erlauben (Program.cs unterstützt das)."
-  else
-    print_info "Staging/Production: darf NICHT leer sein (mindestens eine Origin)."
-  fi
-
-  derived_cors_default="$FRONTEND_ORIGIN"
-  if [[ "$IS_DEVELOPMENT" == "true" ]]; then
-    derived_cors_default="$(default_cors_origins_development)"
-  fi
-  existing_cors_value="$(read_env_value "$ENV_FILE" CORS_ALLOWED_ORIGINS || true)"
-  example_cors_value="$(read_env_value "$ENV_EXAMPLE_FILE" CORS_ALLOWED_ORIGINS || true)"
-
-  if [[ "$IS_DEVELOPMENT" == "true" ]]; then
-    # Dev: Default soll localhost + Server-IP enthalten (und vorhandene Origins nicht verlieren)
-    CORS_DEFAULT="$(merge_cors_defaults_development "$existing_cors_value" "$derived_cors_default")"
-  elif [[ -n "$existing_cors_value" ]]; then
-    CORS_DEFAULT="$existing_cors_value"
-  elif [[ -n "$example_cors_value" ]]; then
-    # wenn example mehrere origins enthält, aber wir einen klaren default wollen,
-    # nehmen wir trotzdem derived_cors_default als default (nutzer kann überschreiben)
-    CORS_DEFAULT="$derived_cors_default"
-  else
-    CORS_DEFAULT="$derived_cors_default"
-  fi
-
-  while true; do
-    CORS_ALLOWED_ORIGINS="$(ask_value CORS_ALLOWED_ORIGINS "CORS_ALLOWED_ORIGINS" "$CORS_DEFAULT")"
-    # Trim check
-    if [[ -z "${CORS_ALLOWED_ORIGINS// }" ]]; then
-      if [[ "$IS_DEVELOPMENT" == "true" ]]; then
-        break
-      fi
-      print_error "CORS_ALLOWED_ORIGINS darf in ${ASPNETCORE_ENVIRONMENT} nicht leer sein."
-      continue
-    fi
-    break
-  done
-
-  if [[ "$IS_DEVELOPMENT" != "true" ]]; then
+  # Staging/Production Regeln
+  if [[ "$ASPNETCORE_ENVIRONMENT" == "Staging" || "$ASPNETCORE_ENVIRONMENT" == "Production" ]]; then
     if is_localhost_url "$VITE_API_BASE_URL"; then
-      print_error "In ${ASPNETCORE_ENVIRONMENT} ist VITE_API_BASE_URL=localhost nicht erlaubt."
+      print_error "In ${ASPNETCORE_ENVIRONMENT} darf VITE_API_BASE_URL nicht auf localhost zeigen."
+      exit 1
+    fi
+    if [[ -z "${CORS_ALLOWED_ORIGINS// }" ]]; then
+      print_error "In ${ASPNETCORE_ENVIRONMENT} darf CORS_ALLOWED_ORIGINS nicht leer sein."
       exit 1
     fi
   fi
 
-  echo
-  echo -e "${CYAN}──────────────────────────${RESET}"
-  echo -e "${CYAN} Initialer Admin-Seed (optional)${RESET}"
-  echo -e "${CYAN}──────────────────────────${RESET}"
+  print_section "Initialer Admin-Seed (optional)"
 
   SEED_ADMIN_EMAIL_DEFAULT="$(default_for SEED_ADMIN_EMAIL || echo "admin@example.com")"
   SEED_INITIATIVE_NAME_DEFAULT="$(default_for SEED_INITIATIVE_NAME || echo "Default")"
@@ -785,10 +981,7 @@ if [[ "$should_write_env" == "true" ]]; then
 
   SEED_INITIATIVE_NAME="$(ask_value SEED_INITIATIVE_NAME "SEED_INITIATIVE_NAME" "$SEED_INITIATIVE_NAME_DEFAULT")"
 
-  echo
-  echo -e "${CYAN}──────────────────────────${RESET}"
-  echo -e "${CYAN} Seed/Migration Retry${RESET}"
-  echo -e "${CYAN}──────────────────────────${RESET}"
+  print_section "Seed/Migration Retry"
 
   DB_SEED_MAX_ATTEMPTS_DEFAULT="$(default_for DB_SEED_MAX_ATTEMPTS || echo "10")"
   DB_SEED_MAX_ATTEMPTS="$(ask_int DB_SEED_MAX_ATTEMPTS "DB_SEED_MAX_ATTEMPTS" "$DB_SEED_MAX_ATTEMPTS_DEFAULT")"
@@ -829,6 +1022,12 @@ DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
 ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
 
 # =========================
+# Setup (Wizard)
+# =========================
+USAGE_MODE=${USAGE_MODE}
+FRONTEND_ORIGIN=${FRONTEND_ORIGIN}
+
+# =========================
 # CORS (Backend)
 # - "*" erlaubt alle Origins
 # - In Development: leer = alle Origins (Program.cs)
@@ -860,10 +1059,7 @@ EOF
   assert_env_sane
 fi
 
-echo
-echo -e "${CYAN}──────────────────────────${RESET}"
-echo -e "${CYAN} Zusammenfassung${RESET}"
-echo -e "${CYAN}──────────────────────────${RESET}"
+print_section "Zusammenfassung"
 
 SERVER_IPV4_SUMMARY="$(detect_primary_ipv4 || true)"
 if [[ -z "${SERVER_IPV4_SUMMARY// }" ]]; then
@@ -877,25 +1073,19 @@ DB_USER_SUMMARY="$(read_env_value "$ENV_FILE" DB_USER || echo "-")"
 ASPNET_SUMMARY="$(read_env_value "$ENV_FILE" ASPNETCORE_ENVIRONMENT || echo "-")"
 CORS_SUMMARY="$(read_env_value "$ENV_FILE" CORS_ALLOWED_ORIGINS || echo "-")"
 VITE_SUMMARY="$(read_env_value "$ENV_FILE" VITE_API_BASE_URL || echo "-")"
+FRONTEND_ORIGIN_ENV_SUMMARY="$(read_env_value "$ENV_FILE" FRONTEND_ORIGIN || echo "-")"
+USAGE_MODE_SUMMARY="$(read_env_value "$ENV_FILE" USAGE_MODE || echo "-")"
 SEED_EMAIL_SUMMARY="$(read_env_value "$ENV_FILE" SEED_ADMIN_EMAIL || echo "-")"
 SEED_INIT_SUMMARY="$(read_env_value "$ENV_FILE" SEED_INITIATIVE_NAME || echo "-")"
 SEED_ATTEMPTS_SUMMARY="$(read_env_value "$ENV_FILE" DB_SEED_MAX_ATTEMPTS || echo "-")"
 
 echo "Environment:            ${ASPNET_SUMMARY}"
+echo "Nutzungsmodus:          ${USAGE_MODE_SUMMARY}"
 echo "Server-IP erkannt:      ${SERVER_IPV4_SUMMARY}"
 echo "VITE_API_BASE_URL:      ${VITE_SUMMARY}"
-echo "Datenbankstatus:        ${DB_RESET_STATUS}"
-
-FRONTEND_ORIGIN_SUMMARY="${FRONTEND_ORIGIN:-}"
-if [[ -z "${FRONTEND_ORIGIN_SUMMARY// }" ]]; then
-  if [[ -n "${CORS_SUMMARY// }" ]]; then
-    FRONTEND_ORIGIN_SUMMARY="${CORS_SUMMARY%%,*}"
-  else
-    FRONTEND_ORIGIN_SUMMARY="-"
-  fi
-fi
-echo "Frontend-Origin:        ${FRONTEND_ORIGIN_SUMMARY}"
+echo "FRONTEND_ORIGIN:        ${FRONTEND_ORIGIN_ENV_SUMMARY}"
 echo "CORS_ALLOWED_ORIGINS:   ${CORS_SUMMARY}"
+echo "Datenbankstatus:        ${DB_RESET_STATUS}"
 
 cors_mode="eingeschränkt"
 if [[ "${ASPNET_SUMMARY}" == "Development" && -z "${CORS_SUMMARY// }" ]]; then
@@ -904,6 +1094,19 @@ elif [[ "${CORS_SUMMARY}" == "*" ]]; then
   cors_mode="alle Origins erlaubt (*)"
 fi
 echo "CORS Modus:             ${cors_mode}"
+
+docker_build_mode="$(docker_build_mode_summary)"
+echo "Docker-Build-Modus:     ${docker_build_mode}"
+
+if [[ "${USAGE_MODE_SUMMARY}" == "SSH_TUNNEL" ]]; then
+  echo
+  print_info "SSH-Tunnel-Befehl (Client-PC):"
+  if [[ -n "${SERVER_IPV4_SUMMARY// }" && "${SERVER_IPV4_SUMMARY}" != "-" ]]; then
+    echo "  ssh -L 5173:localhost:5173 -L 5000:localhost:5000 <USER>@${SERVER_IPV4_SUMMARY}"
+  else
+    echo "  ssh -L 5173:localhost:5173 -L 5000:localhost:5000 <USER>@<SERVER-IP>"
+  fi
+fi
 
 echo
 echo "DB_HOST:                ${DB_HOST_SUMMARY}"
@@ -920,8 +1123,15 @@ print_warning "Passwörter werden hier nicht angezeigt (stehen in .env)."
 check_required_env_keys
 
 echo
+check_backend_build_network_host_warn
+
+echo
 print_info "Lokale URLs (Compose Standard):"
-echo "  Frontend:  http://localhost:5173"
+print_info "Browser-URLs (aus .env):"
+echo "  Frontend:  ${FRONTEND_ORIGIN_ENV_SUMMARY}"
+echo "  Backend:   ${VITE_SUMMARY}"
+echo
+print_info "Container-Ports (Compose Standard auf dem Server):"
 echo "  Backend:   http://localhost:5000"
 echo "  MariaDB:   localhost:3306"
 echo "  phpMyAdmin:http://localhost:8081"
@@ -929,23 +1139,57 @@ echo "  NPM Admin: http://localhost:81"
 
 echo
 if ask_yes_no "Docker Container jetzt starten?" "Y"; then
-  if detect_compose_cmd; then
-    print_info "Compose: ${COMPOSE_CMD[*]}"
-    if ask_yes_no "Images neu bauen (--build)?" "Y"; then
-      print_info "Starte Container (mit Build)..."
-      "${COMPOSE_CMD[@]}" up -d --build
-    else
-      print_info "Starte Container..."
-      "${COMPOSE_CMD[@]}" up -d
-    fi
-    echo
-    "${COMPOSE_CMD[@]}" ps
-    echo
-    print_success "Container laufen (wenn oben keine Fehler stehen)."
-  else
-    print_error "Docker Compose wurde nicht gefunden."
-    print_info "Installiere Docker + Compose oder starte später manuell: docker compose up -d --build"
+  if ! preflight_checks_before_docker_start; then
+    print_error "Preflight-Checks fehlgeschlagen. Docker-Start wird abgebrochen."
+    exit 1
   fi
+
+  print_info "Compose: ${COMPOSE_CMD[*]}"
+  print_section "Docker-Start"
+  echo "Optionen:" 
+  echo "  1) Nur starten" 
+  echo "  2) Frontend neu bauen" 
+  echo "  3) Backend neu bauen" 
+  echo "  4) Alles neu bauen" 
+  echo
+
+  start_choice=""
+  while true; do
+    read -r -p "$(echo -e "${BOLD}Bitte wählen${RESET} [1]: ")" start_choice
+    [[ -z "$start_choice" ]] && start_choice="1"
+    case "$start_choice" in
+      1)
+        print_info "Starte Container..."
+        "${COMPOSE_CMD[@]}" up -d
+        break
+        ;;
+      2)
+        print_info "Starte Container (Frontend rebuild)..."
+        "${COMPOSE_CMD[@]}" up -d --build frontend
+        break
+        ;;
+      3)
+        print_info "Starte Container (Backend rebuild)..."
+        print_warning "Falls NuGet hängt, prüfe Docker-DNS oder verwende build.network: host."
+        "${COMPOSE_CMD[@]}" up -d --build backend
+        break
+        ;;
+      4)
+        print_info "Starte Container (alles rebuild)..."
+        print_warning "Falls NuGet hängt, prüfe Docker-DNS oder verwende build.network: host."
+        "${COMPOSE_CMD[@]}" up -d --build
+        break
+        ;;
+      *)
+        print_warning "Ungültige Auswahl. Bitte 1-4 eingeben." 
+        ;;
+    esac
+  done
+
+  echo
+  "${COMPOSE_CMD[@]}" ps
+  echo
+  print_success "Container laufen (wenn oben keine Fehler stehen)."
 else
   print_info "Docker wurde nicht gestartet."
   print_info "Später starten mit: docker compose up -d --build"
