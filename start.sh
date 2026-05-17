@@ -422,7 +422,7 @@ default_backend_url_remote() {
 
 ask_usage_mode() {
   local choice=""
-  print_section "Nutzungsmodus"
+  print_section "Nutzungsmodus" >&2
   echo "  1) SSH-Tunnel / lokale Testnutzung" >&2
   echo "     Browser nutzt localhost (Tunnel auf den Server)" >&2
   echo >&2
@@ -501,6 +501,11 @@ derive_browser_config() {
   # args: env_name usage_mode
   local env_name="$1"
   local usage_mode="$2"
+
+  # Robustheit: falls irgendwo Whitespace/Zeilenumbrüche reingeraten
+  usage_mode="${usage_mode//[$'\t\r\n']/}"
+  usage_mode="${usage_mode## }"
+  usage_mode="${usage_mode%% }"
 
   VITE_API_BASE_URL=""
   FRONTEND_ORIGIN=""
