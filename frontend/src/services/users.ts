@@ -1,83 +1,101 @@
 import { API_BASE_URL } from './api'
+import type { InitiativeSummary, RoleSummary, UserProfile, UserSummary } from '../types/UserProfile'
 
-type UserRole = 'Admin' | 'Disponend' | 'Fahrer'
+export async function fetchUsers(): Promise<UserSummary[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/users`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
 
-export interface User {
-  id: string
-  username: string
-  email: string
-  fahrerId: string
-  location: string
-  roles: UserRole[]
-  status: 'Aktiv' | 'Inaktiv'
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Benutzer konnten nicht geladen werden.')
+  }
+
+  return response.json()
 }
 
-// Hole alle Nutzer vom Backend
-export async function fetchUsers(): Promise<User[]> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/users`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
+export async function fetchInitiatives(): Promise<InitiativeSummary[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/initiatives`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-
-    return await response.json()
-  } catch {
-    // Fallback auf Mock-Daten wenn Backend nicht verfügbar
-    console.warn('Backend nicht verfügbar, verwende Mock-Daten')
-    return [
-      {
-        id: 'U-001',
-        username: 'Max Mustermann',
-        email: 'max.mustermann@firma.de',
-        fahrerId: '-',
-        location: 'Berlin',
-        roles: ['Admin', 'Disponend'],
-        status: 'Aktiv',
-      },
-    ]
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Initiativen konnten nicht geladen werden.')
   }
+
+  return response.json()
 }
 
-// Update User Rollen
-export async function updateUserRoles(userId: string, roles: UserRole[]): Promise<void> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}/roles`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ roles }),
-    })
+export async function fetchRoles(): Promise<RoleSummary[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/roles`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-  } catch {
-    console.error('Fehler beim Aktualisieren der Rollen')
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Rollen konnten nicht geladen werden.')
   }
+
+  return response.json()
 }
 
-// Update User Status
-export async function updateUserStatus(userId: string, status: 'Aktiv' | 'Inaktiv'): Promise<void> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}/status`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ status }),
-    })
+export async function fetchUserProfile(userId: number): Promise<UserProfile> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}/profile`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-  } catch {
-    console.error('Fehler beim Aktualisieren des Status')
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Profil konnte nicht geladen werden.')
   }
+
+  return response.json()
+}
+
+export async function updateUserRoles(userId: number, roles: string[]): Promise<string[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}/roles`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ roles }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Rollen konnten nicht gespeichert werden.')
+  }
+
+  const data = await response.json() as { roles: string[] }
+  return data.roles
+}
+
+export async function updateUserInitiative(userId: number, initiativeId: number): Promise<InitiativeSummary> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}/initiative`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ initiativeId }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Initiative konnte nicht gespeichert werden.')
+  }
+
+  return response.json()
 }
