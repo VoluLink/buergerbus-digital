@@ -176,22 +176,29 @@ app.MapGet("/api/v1/users", async (AppDbContext db) =>
         .Include(u => u.BenutzerRollen)
             .ThenInclude(br => br.Rolle)
         .Include(u => u.Fahrer)
-        .Select(u => new UserSummaryDto(
+        .ToListAsync();
+
+    var result = users.Select(u =>
+    {
+        var roles = u.BenutzerRollen
+            .Select(br => br.Rolle?.Rollenname)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new UserSummaryDto(
             u.Id,
             u.Nutzername,
             u.Email,
             u.Initiative == null ? null : new InitiativeDto(u.Initiative.Id, u.Initiative.Name),
-            u.BenutzerRollen
-                .Select(br => br.Rolle.Rollenname)
-                .Where(name => !string.IsNullOrWhiteSpace(name))
-                .Distinct()
-                .ToList(),
+            roles,
             u.Fahrer == null ? null : u.Fahrer.Id,
             u.Fahrer == null || u.Fahrer.Aktiv
-        ))
-        .ToListAsync();
+        );
+    }).ToList();
 
-    return Results.Ok(users);
+    return Results.Ok(result);
 });
 
 app.MapGet("/api/v1/users/{id:int}", async (int id, AppDbContext db) =>
