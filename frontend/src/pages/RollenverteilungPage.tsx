@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Bus, Menu, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import UserMenuButton from '../components/UserMenuButton'
@@ -6,7 +6,7 @@ import {
   fetchInitiatives,
   fetchRoles,
   fetchUserProfile,
-  fetchUsers,
+  getUsers,
   updateUserInitiative,
   updateUserRoles,
 } from '../services/users'
@@ -56,6 +56,10 @@ function RollenverteilungPage() {
   const navigate = useNavigate()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+  const [totalItems, setTotalItems] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
   const [users, setUsers] = useState<UserSummary[]>([])
   const [roles, setRoles] = useState<RoleSummary[]>([])
   const [initiatives, setInitiatives] = useState<InitiativeSummary[]>([])
@@ -71,13 +75,11 @@ function RollenverteilungPage() {
   useEffect(() => {
     let isActive = true
 
-    async function loadData() {
-      setIsLoading(true)
+    async function loadMeta() {
       setLoadError('')
 
       try {
-        const [loadedUsers, loadedInitiatives, loadedRoles] = await Promise.all([
-          fetchUsers(),
+        const [loadedInitiatives, loadedRoles] = await Promise.all([
           fetchInitiatives(),
           fetchRoles(),
         ])
@@ -86,9 +88,41 @@ function RollenverteilungPage() {
           return
         }
 
-        setUsers(loadedUsers)
         setInitiatives(loadedInitiatives)
         setRoles(loadedRoles)
+      } catch (err) {
+        if (isActive) {
+          setLoadError(err instanceof Error ? err.message : 'Stammdaten konnten nicht geladen werden.')
+        }
+      }
+    }
+
+    void loadMeta()
+
+    return () => {
+      isActive = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let isActive = true
+
+    async function loadUsers() {
+      setIsLoading(true)
+      setLoadError('')
+
+      try {
+        const response = await getUsers(page, pageSize, searchQuery)
+        if (!isActive) {
+          return
+        }
+
+        setUsers(response.items)
+        setTotalItems(response.totalItems)
+        setTotalPages(response.totalPages)
+        setSelectedUserId(null)
+        setSelectedProfile(null)
+        setProfileError('')
       } catch (err) {
         if (isActive) {
           setLoadError(err instanceof Error ? err.message : 'Nutzer konnten nicht geladen werden.')
@@ -100,24 +134,12 @@ function RollenverteilungPage() {
       }
     }
 
-    void loadData()
+    void loadUsers()
 
     return () => {
       isActive = false
     }
-  }, [])
-
-  const filteredUsers = useMemo(() => {
-    const needle = searchQuery.trim().toLowerCase()
-    if (!needle) {
-      return users
-    }
-
-    return users.filter((user) => {
-      const haystack = `${user.id} ${user.username} ${user.email}`.toLowerCase()
-      return haystack.includes(needle)
-    })
-  }, [searchQuery, users])
+  }, [page, pageSize, searchQuery])
 
   function closeSideMenu() {
     setIsSideMenuOpen(false)
@@ -283,7 +305,10 @@ function RollenverteilungPage() {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                setPage(1)
+              }}
               placeholder="Suche nach Nutzer oder E-Mail ..."
               className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
             />
@@ -308,14 +333,14 @@ function RollenverteilungPage() {
                       Nutzer werden geladen...
                     </td>
                   </tr>
-                ) : filteredUsers.length === 0 ? (
+                ) : users.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                       Keine Nutzer gefunden
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((user) => {
+                  users.map((user) => {
                     const isSelected = selectedUserId === user.id
 
                     return (
@@ -383,6 +408,50 @@ function RollenverteilungPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <span>Treffer: {totalItems}</span>
+              <label htmlFor="pageSize" className="ml-2 text-xs font-semibold text-slate-600">
+                Pro Seite
+              </label>
+              <select
+                id="pageSize"
+                value={pageSize}
+                onChange={(event) => {
+                  setPageSize(Number(event.target.value))
+                  setPage(1)
+                }}
+                className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={page <= 1}
+                className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 transition enabled:hover:bg-slate-100 disabled:opacity-50"
+              >
+                Zurück
+              </button>
+              <span className="text-xs font-semibold text-slate-600">
+                Seite {totalPages === 0 ? 0 : page} von {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((current) => current + 1)}
+                disabled={totalPages === 0 || page >= totalPages}
+                className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 transition enabled:hover:bg-slate-100 disabled:opacity-50"
+              >
+                Weiter
+              </button>
+            </div>
           </div>
 
           <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">

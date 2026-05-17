@@ -168,17 +168,40 @@ app.MapGet("/api/v1/users/me", async (
     return Results.Ok(CreateUserProfile(user));
 });
 
-app.MapGet("/api/v1/users", async (AppDbContext db) =>
+app.MapGet("/api/v1/users", async (
+    int page,
+    int pageSize,
+    string? search,
+    AppDbContext db
+) =>
 {
-    var users = await db.Benutzer
-        .AsNoTracking()
+    page = Math.Max(1, page == 0 ? 1 : page);
+    pageSize = Math.Clamp(pageSize == 0 ? 25 : pageSize, 1, 100);
+
+    var query = db.Benutzer.AsNoTracking();
+
+    if (!string.IsNullOrWhiteSpace(search))
+    {
+        var term = search.Trim().ToLowerInvariant();
+        query = query.Where(b =>
+            b.Nutzername.ToLower().Contains(term)
+            || b.Email.ToLower().Contains(term));
+    }
+
+    var totalItems = await query.CountAsync();
+
+    var users = await query
+        .OrderBy(b => b.Nutzername)
+        .ThenBy(b => b.Id)
+        .Skip((page - 1) * pageSize)
+        .Take(pageSize)
         .Include(u => u.Initiative)
         .Include(u => u.BenutzerRollen)
             .ThenInclude(br => br.Rolle)
         .Include(u => u.Fahrer)
         .ToListAsync();
 
-    var result = users.Select(u =>
+    var items = users.Select(u =>
     {
         var roles = u.BenutzerRollen
             .Select(br => br.Rolle?.Rollenname)
@@ -198,7 +221,16 @@ app.MapGet("/api/v1/users", async (AppDbContext db) =>
         );
     }).ToList();
 
-    return Results.Ok(result);
+    var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
+    return Results.Ok(new
+    {
+        items,
+        page,
+        pageSize,
+        totalItems,
+        totalPages,
+    });
 });
 
 app.MapGet("/api/v1/users/{id:int}", async (int id, AppDbContext db) =>
