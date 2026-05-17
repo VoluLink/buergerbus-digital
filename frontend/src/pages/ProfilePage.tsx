@@ -428,15 +428,6 @@ function ProfilePage() {
                 <Settings className="h-5 w-5" aria-hidden="true" />
                 Rollenverteilung
               </button>
-
-              <button
-                type="button"
-                onClick={() => goToPage('/profil')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0] px-4 py-3 text-left text-lg font-medium text-white"
-              >
-                <UserRound className="h-5 w-5" aria-hidden="true" />
-                Profil
-              </button>
             </div>
           </aside>
         </div>
