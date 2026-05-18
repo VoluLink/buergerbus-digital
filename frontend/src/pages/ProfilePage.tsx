@@ -11,6 +11,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import UserMenuButton from '../components/UserMenuButton'
 import { useAuth } from '../context/AuthContext'
+import { updateUserProfile } from '../services/profile'
 
 function formatDateInput(value?: string | null) {
   if (!value) {
@@ -45,6 +46,9 @@ function ProfilePage() {
   const { currentUser, isLoading, error, refreshProfile } = useAuth()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isAccountActive, setIsAccountActive] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     email: '',
@@ -60,7 +64,6 @@ function ProfilePage() {
     remarks: '',
   })
 
-  const [emailError, setEmailError] = useState('')
   const [phoneError, setPhoneError] = useState('')
 
   useEffect(() => {
@@ -73,19 +76,21 @@ function ProfilePage() {
 
     setFormData({
       email: currentUser.email ?? '',
-      firstName: fahrer?.vorname ?? '',
-      lastName: fahrer?.nachname ?? '',
-      phone: fahrer?.telefonnummer ?? '',
+      firstName: currentUser.vorname ?? '',
+      lastName: currentUser.nachname ?? '',
+      phone: currentUser.telefonnummer ?? '',
       driverLicense: fahrer?.fuehrerscheinklasse ?? '',
       lastG2s: formatDateInput(fahrer?.letzteG25),
       nextG2s: formatDateInput(fahrer?.naechsteG25),
-      street: fahrer?.adresse ?? '',
+      street: currentUser.adresse ?? '',
       postCode: '',
       city: '',
-      remarks: fahrer?.bemerkung ?? '',
+      remarks: currentUser.bemerkung ?? fahrer?.bemerkung ?? '',
     })
 
-    setIsAccountActive(fahrer?.aktiv ?? true)
+    setIsAccountActive(currentUser.aktiv ?? true)
+    setSaveError(null)
+    setSaveSuccess(null)
   }, [currentUser, refreshProfile])
 
   const userRoles = currentUser?.roles ?? []
@@ -107,20 +112,76 @@ function ProfilePage() {
       ...prev,
       [field]: value,
     }))
-    
-    if (field === 'email') {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      setEmailError(value && !emailRegex.test(value) ? 'Ungültige E-Mail-Adresse' : '')
-    }
-    
+
     if (field === 'phone') {
       const phoneRegex = /^[\d\s+()/-]*$/
       setPhoneError(value && !phoneRegex.test(value) ? 'Ungültige Telefonnummer' : '')
     }
   }
 
-  function handleSaveProfile() {
-    console.log('Profil speichern:', { userId, formData, userRoles, isAccountActive })
+  async function handleSaveProfile() {
+    if (!currentUser) {
+      return
+    }
+
+    if (phoneError) {
+      setSaveError('Bitte prüfen Sie die Telefonnummer.')
+      return
+    }
+
+    const normalizeNullable = (value: string) => {
+      const trimmed = value.trim()
+      return trimmed.length === 0 ? null : trimmed
+    }
+
+    const hasFahrerRole = userRoles.some((role) => role.toLowerCase() === 'fahrer')
+
+    setIsSaving(true)
+    setSaveError(null)
+    setSaveSuccess(null)
+
+    try {
+      const updatedProfile = await updateUserProfile(currentUser.id, {
+        vorname: normalizeNullable(formData.firstName),
+        nachname: normalizeNullable(formData.lastName),
+        adresse: normalizeNullable(formData.street),
+        telefonnummer: normalizeNullable(formData.phone),
+        bemerkung: normalizeNullable(formData.remarks),
+        aktiv: isAccountActive,
+        fahrer: hasFahrerRole
+          ? {
+              fuehrerscheinklasse: normalizeNullable(formData.driverLicense),
+              letzteG25: formData.lastG2s ? formData.lastG2s : null,
+              naechsteG25: formData.nextG2s ? formData.nextG2s : null,
+              bemerkung: normalizeNullable(formData.remarks),
+              aktiv: isAccountActive,
+            }
+          : null,
+      })
+
+      const fahrer = updatedProfile.fahrer
+
+      setFormData((prev) => ({
+        ...prev,
+        email: updatedProfile.email ?? '',
+        firstName: updatedProfile.vorname ?? '',
+        lastName: updatedProfile.nachname ?? '',
+        phone: updatedProfile.telefonnummer ?? '',
+        driverLicense: fahrer?.fuehrerscheinklasse ?? '',
+        lastG2s: formatDateInput(fahrer?.letzteG25),
+        nextG2s: formatDateInput(fahrer?.naechsteG25),
+        street: updatedProfile.adresse ?? '',
+        remarks: updatedProfile.bemerkung ?? fahrer?.bemerkung ?? '',
+      }))
+
+      setIsAccountActive(updatedProfile.aktiv ?? true)
+      setSaveSuccess('Profil wurde gespeichert.')
+      void refreshProfile()
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Profil konnte nicht gespeichert werden.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   function handleDeleteProfile() {
@@ -158,6 +219,18 @@ function ProfilePage() {
           {error ? (
             <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {error}
+            </p>
+          ) : null}
+
+          {saveSuccess ? (
+            <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              {saveSuccess}
+            </p>
+          ) : null}
+
+          {saveError ? (
+            <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {saveError}
             </p>
           ) : null}
 
@@ -233,13 +306,10 @@ function ProfilePage() {
                 id="email"
                 type="email"
                 value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
+                disabled
                 placeholder="email@example.de"
-                className={`mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15 ${
-                  emailError ? 'border-red-400' : 'border-slate-300'
-                }`}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none cursor-not-allowed"
               />
-              {emailError && <p className="mt-1 text-xs text-red-600">{emailError}</p>}
             </div>
 
             {/* Initiative */}
@@ -441,9 +511,12 @@ function ProfilePage() {
             <button
               type="button"
               onClick={handleSaveProfile}
-              className="ml-auto inline-flex items-center gap-2 rounded-lg bg-[#0053a0] px-4 py-2 text-xs font-semibold text-white shadow-md transition hover:brightness-105"
+              disabled={isSaving}
+              className={`ml-auto inline-flex items-center gap-2 rounded-lg bg-[#0053a0] px-4 py-2 text-xs font-semibold text-white shadow-md transition hover:brightness-105 ${
+                isSaving ? 'opacity-60 cursor-not-allowed' : ''
+              }`}
             >
-              Speichern
+              {isSaving ? 'Speichere...' : 'Speichern'}
             </button>
           </div>
         </section>

@@ -1,4 +1,8 @@
-﻿namespace BuergerbusAPI.Models
+﻿/// <summary>
+/// Repräsentiert einen Benutzer des Systems.
+/// Enthält Login-Daten, Profildaten, Rollen und optionale Fahrerinformationen.
+/// </summary>
+namespace BuergerbusAPI.Models
 {
     public class Benutzer
     {
@@ -7,6 +11,14 @@
         public string Email { get; set; }
         public string PasswortHash { get; set; }
 
+        public string? Vorname { get; set; }
+        public string? Nachname { get; set; }
+        public string? Adresse { get; set; }
+        public string? Telefonnummer { get; set; }
+        public string? Bemerkung { get; set; }
+        public DateTime AngelegtAm { get; set; }
+        public DateTime? GeaendertAm { get; set; }
+        public bool Aktiv { get; set; }
 
         // Initiative muss in jeder Tabelle sein (Multi-Tenant System) => Landkreis als Datengrenze
         public int InitiativeId { get; set; }

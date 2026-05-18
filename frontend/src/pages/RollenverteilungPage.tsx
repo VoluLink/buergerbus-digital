@@ -44,7 +44,7 @@ function buildDisplayName(profile: UserProfile | null) {
     return ''
   }
 
-  const nameParts = [profile.fahrer?.vorname, profile.fahrer?.nachname].filter(Boolean)
+  const nameParts = [profile.vorname, profile.nachname].filter(Boolean)
   if (nameParts.length > 0) {
     return nameParts.join(' ')
   }

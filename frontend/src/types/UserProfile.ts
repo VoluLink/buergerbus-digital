@@ -10,12 +10,8 @@ export interface RoleSummary {
 
 export interface FahrerProfile {
   id: number
-  vorname: string
-  nachname: string
-  adresse: string
-  telefonnummer?: string | null
-  fuehrerscheinklasse: string
-  letzteG25: string
+  fuehrerscheinklasse?: string | null
+  letzteG25?: string | null
   naechsteG25?: string | null
   bemerkung?: string | null
   aktiv: boolean
@@ -25,6 +21,12 @@ export interface UserProfile {
   id: number
   username: string
   email: string
+  vorname?: string | null
+  nachname?: string | null
+  adresse?: string | null
+  telefonnummer?: string | null
+  bemerkung?: string | null
+  aktiv: boolean
   roles: string[]
   initiative?: InitiativeSummary | null
   fahrer?: FahrerProfile | null

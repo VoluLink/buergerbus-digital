@@ -1,6 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using BuergerbusAPI.Models;
-
+/// <summary>
+/// Zentraler Entity Framework Core Datenbankkontext.
+/// Enthält alle DbSet-Definitionen und konfiguriert Beziehungen,
+/// Schlüssel und Einschränkungen zwischen den Datenbanktabellen.
+/// </summary>
 namespace BuergerbusAPI.Data
 {
     public class AppDbContext : DbContext
@@ -153,9 +157,12 @@ namespace BuergerbusAPI.Data
             // Initiative -> Fahrer (1:n)
 
             modelBuilder.Entity<Fahrer>()
-                .HasOne(f => f.Initiative)
+                .Property<int>("InitiativeId");
+
+            modelBuilder.Entity<Fahrer>()
+                .HasOne<Initiativen>()
                 .WithMany(i => i.Fahrer)
-                .HasForeignKey(f => f.InitiativeId);
+                .HasForeignKey("InitiativeId");
 
             // Initiative -> Fahrten (1:n)
 
