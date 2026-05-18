@@ -2,18 +2,21 @@ import { API_BASE_URL } from './api'
 import type { UserProfile } from '../types/UserProfile'
 
 type UpdateFahrerProfileRequest = {
-  fuehrerscheinklasse?: string | null
-  letzteG25?: string | null
-  naechsteG25?: string | null
   bemerkung?: string | null
   aktiv: boolean
 }
 
 type UpdateUserProfileRequest = {
+  username: string
   vorname?: string | null
   nachname?: string | null
-  adresse?: string | null
+  strasse?: string | null
+  postleitzahl?: string | null
+  ort?: string | null
   telefonnummer?: string | null
+  fuehrerscheinklasse?: string | null
+  letzteG25?: string | null
+  naechsteG25?: string | null
   bemerkung?: string | null
   aktiv: boolean
   fahrer?: UpdateFahrerProfileRequest | null

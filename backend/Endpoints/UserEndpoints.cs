@@ -3,16 +3,31 @@ using BuergerbusAPI.DTOs;
 using BuergerbusAPI.Mappers;
 using BuergerbusAPI.Models;
 using Microsoft.EntityFrameworkCore;
+
 /// <summary>
 /// Enthält API-Endpunkte für Benutzerverwaltung,
 /// Benutzerprofile und Rollenzuweisungen.
 /// </summary>
+
 namespace BuergerbusAPI.Endpoints;
 
 public static class UserEndpoints
 {
+    /// <summary>
+    /// Registriert alle Minimal-API-Endpunkte für Benutzer.
+    /// Dazu gehören:
+    /// - Benutzerliste
+    /// - Einzelne Benutzer
+    /// - Eigenes Profil
+    /// - Profil bearbeiten
+    /// - Rollen anzeigen und ändern
+    /// </summary>
     public static IEndpointRouteBuilder MapUserEndpoints(this IEndpointRouteBuilder app)
     {
+
+// -----------------------------------------------------------------------------
+// Eigenes Benutzerprofil anhand von userId oder E-Mail laden
+// -----------------------------------------------------------------------------
         app.MapGet("/api/v1/users/me", async (
             int? userId,
             string? email,
@@ -43,6 +58,9 @@ public static class UserEndpoints
             return Results.Ok(UserMapper.CreateUserProfile(user));
         });
 
+// -----------------------------------------------------------------------------
+// Paginierte Benutzerliste mit optionaler Suchfunktion
+// -----------------------------------------------------------------------------
         app.MapGet("/api/v1/users", async (
             int page,
             int pageSize,
@@ -108,6 +126,9 @@ public static class UserEndpoints
             });
         });
 
+// -----------------------------------------------------------------------------
+// Einzelnen Benutzer anhand der ID laden
+// -----------------------------------------------------------------------------
         app.MapGet("/api/v1/users/{id:int}", async (int id, AppDbContext db) =>
         {
             var user = await db.Benutzer
@@ -125,6 +146,9 @@ public static class UserEndpoints
             return Results.Ok(UserMapper.CreateUserProfile(user));
         });
 
+// -----------------------------------------------------------------------------
+// Vollständiges Benutzerprofil inklusive Rollen, Initiative und Fahrer laden
+// -----------------------------------------------------------------------------
         app.MapGet("/api/v1/users/{id:int}/profile", async (int id, AppDbContext db) =>
         {
             var user = await db.Benutzer
@@ -138,10 +162,18 @@ public static class UserEndpoints
             {
                 return Results.NotFound("Benutzer wurde nicht gefunden.");
             }
+            
 
             return Results.Ok(UserMapper.CreateUserProfile(user));
         });
 
+// -----------------------------------------------------------------------------
+// Benutzerprofil aktualisieren
+// - Allgemeine Profildaten speichern
+// - Nutzername validieren (nicht leer, eindeutig)
+// - Führerschein- und G25-Daten speichern
+// - Optional Fahrer-Daten aktualisieren
+// -----------------------------------------------------------------------------
         app.MapPut("/api/v1/users/{id:int}/profile", async (
             int id,
             UpdateUserProfileRequest request,
@@ -159,15 +191,37 @@ public static class UserEndpoints
             {
                 return Results.NotFound("Benutzer wurde nicht gefunden.");
             }
+            // Benutzername prüfen und sicherstellen, dass er eindeutig ist
+            if (string.IsNullOrWhiteSpace(request.Username))
+            {
+                return Results.BadRequest("Benutzername darf nicht leer sein.");
+            }
 
+            var normalizedUsername = request.Username.Trim().ToLowerInvariant();
+
+            var usernameExists = await db.Benutzer.AnyAsync(b =>
+                b.Id != id && b.Nutzername.ToLower() == normalizedUsername);
+
+            if (usernameExists)
+            {
+                return Results.BadRequest("Benutzername ist bereits vergeben.");
+            }
+            // Allgemeine Profilfelder in das Benutzerobjekt übernehmen
             user.Vorname = request.Vorname;
             user.Nachname = request.Nachname;
-            user.Adresse = request.Adresse;
+            user.Nutzername = request.Username.Trim();
+            user.Strasse = request.Strasse;
+            user.Postleitzahl = request.Postleitzahl;
+            user.Ort = request.Ort;
+            user.Fuehrerscheinklasse = request.Fuehrerscheinklasse;
+            user.LetzteG25 = request.LetzteG25;
+            user.NaechsteG25 = request.NaechsteG25;
             user.Telefonnummer = request.Telefonnummer;
             user.Bemerkung = request.Bemerkung;
             user.Aktiv = request.Aktiv;
             user.GeaendertAm = DateTime.UtcNow;
 
+            // Prüfen, ob der Benutzer die Rolle "Fahrer" besitzt
             var hasFahrerRole = user.BenutzerRollen.Any(br =>
                 br.Rolle.Rollenname.ToLower() == "fahrer");
 
@@ -175,6 +229,7 @@ public static class UserEndpoints
             {
                 if (user.Fahrer == null)
                 {
+                    // Falls notwendig, Fahrer-Datensatz automatisch anlegen
                     user.Fahrer = new Fahrer
                     {
                         BenutzerId = user.Id,
@@ -182,15 +237,13 @@ public static class UserEndpoints
                         AngelegtAm = DateTime.UtcNow
                     };
                 }
-
-                user.Fahrer.Fuehrerscheinklasse = request.Fahrer.Fuehrerscheinklasse;
-                user.Fahrer.LetzteG25 = request.Fahrer.LetzteG25;
-                user.Fahrer.NaechsteG25 = request.Fahrer.NaechsteG25;
+                // Fahrerspezifische Zusatzdaten aktualisieren
                 user.Fahrer.Bemerkung = request.Fahrer.Bemerkung;
                 user.Fahrer.Aktiv = request.Fahrer.Aktiv;
                 user.Fahrer.GeaendertAm = DateTime.UtcNow;
             }
 
+            // Änderungen dauerhaft in der Datenbank speichern
             await db.SaveChangesAsync();
 
             return Results.Ok(UserMapper.CreateUserProfile(user));
@@ -199,6 +252,9 @@ public static class UserEndpoints
         .Produces<UserProfileDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound);
 
+// -----------------------------------------------------------------------------
+// Rollen eines Benutzers anzeigen
+// -----------------------------------------------------------------------------
         app.MapGet("/api/v1/users/{id:int}/roles", async (int id, AppDbContext db) =>
         {
             var user = await db.Benutzer
@@ -220,15 +276,22 @@ public static class UserEndpoints
             return Results.Ok(new UserRolesDto(id, roles));
         });
 
+// -----------------------------------------------------------------------------
+// Rollen eines Benutzers aktualisieren
+// - Neue Rollen automatisch anlegen
+// - Nicht mehr vorhandene Rollen entfernen
+// - Fahrer-Datensatz automatisch aktivieren/deaktivieren
+// -----------------------------------------------------------------------------
         app.MapPut("/api/v1/users/{id:int}/roles", async (
             int id,
             UpdateRolesRequest request,
             AppDbContext db
         ) =>
         {
+            // Benutzer inklusive aktueller Rollen und optionalem Fahrer-Datensatz laden
             var user = await db.Benutzer
                 .Include(u => u.BenutzerRollen)
-                    .ThenInclude(br => br.Rolle)
+                .ThenInclude(br => br.Rolle)
                 .Include(u => u.Fahrer)
                 .FirstOrDefaultAsync(u => u.Id == id);
 
@@ -237,25 +300,30 @@ public static class UserEndpoints
                 return Results.NotFound("Benutzer wurde nicht gefunden.");
             }
 
+            // Prüfen, ob überhaupt eine Rollenliste übergeben wurde
             if (request.Roles == null)
             {
                 return Results.BadRequest("Rollenliste fehlt.");
             }
-
+            
+            // Rollen bereinigen: Leerzeichen entfernen, leere Einträge ignorieren
             var requestedRoles = request.Roles
                 .Select(role => role?.Trim())
                 .Where(role => !string.IsNullOrWhiteSpace(role))
                 .ToList();
 
+            // Rollen für Vergleiche normalisieren und Duplikate entfernen
             var normalizedRoles = requestedRoles
                 .Select(role => role!.ToLowerInvariant())
                 .Distinct()
                 .ToList();
 
+            // Bereits vorhandene Rollen aus der Datenbank laden
             var rolesByName = await db.Rollen
                 .Where(r => normalizedRoles.Contains(r.Rollenname.ToLower()))
                 .ToDictionaryAsync(r => r.Rollenname.ToLower(), r => r);
-
+                
+            // Noch nicht vorhandene Rollen automatisch erstellen
             foreach (var roleName in requestedRoles)
             {
                 var normalizedRole = roleName!.ToLowerInvariant();
@@ -268,12 +336,14 @@ public static class UserEndpoints
                 db.Rollen.Add(newRole);
                 rolesByName[normalizedRole] = newRole;
             }
-
+            // Neu erstellte Rollen speichern, damit ihre IDs verfügbar sind
             await db.SaveChangesAsync();
 
+            // Rollen entfernen, die nicht mehr in der neuen Rollenliste enthalten sind
             user.BenutzerRollen.RemoveAll(br =>
                 !normalizedRoles.Contains(br.Rolle.Rollenname.ToLowerInvariant()));
 
+            // Neue Rollen dem Benutzer zuweisen
             foreach (var roleName in normalizedRoles)
             {
                 var role = rolesByName[roleName];
@@ -292,7 +362,7 @@ public static class UserEndpoints
             // Prüfen, ob Rolle "Fahrer" vorhanden ist
             var hasFahrerRole = normalizedRoles.Contains("fahrer");
 
-            // Wenn Benutzer jetzt Fahrer ist, aber noch keinen Fahrer-Datensatz besitzt
+            // Wenn die Rolle "Fahrer" neu vergeben wurde, Fahrer-Datensatz anlegen
             if (hasFahrerRole && user.Fahrer == null)
             {
                 db.Fahrer.Add(new Fahrer
@@ -303,13 +373,13 @@ public static class UserEndpoints
                 });
             }
 
-            // Wenn Rolle Fahrer entfernt wurde, Fahrer-Datensatz deaktivieren
+            // Wenn die Rolle "Fahrer" entfernt wurde, Fahrer-Datensatz deaktivieren
             if (!hasFahrerRole && user.Fahrer != null)
             {
                 user.Fahrer.Aktiv = false;
                 user.Fahrer.GeaendertAm = DateTime.UtcNow;
             }
-
+            // Rollenänderungen und Fahrerstatus dauerhaft speichern
             await db.SaveChangesAsync();
 
             return Results.Ok(new UserRolesDto(
@@ -319,7 +389,7 @@ public static class UserEndpoints
                     .Distinct()
                     .ToList()));
         });
-
+        // Alle Benutzer-Endpunkte wurden registriert
         return app;
     }
 }
