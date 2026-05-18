@@ -14,10 +14,6 @@ const fahrzeugSpeicher: Fahrzeug[] = [
     status: 'Einsatzbereit',
     aktiv: true,
     initiativeId: 1,
-    letzteWartung: '2026-01-15',
-    naechsteWartung: '2026-07-15',
-    schaeden: 'Keine',
-    reparaturtermin: null,
   },
 ]
 

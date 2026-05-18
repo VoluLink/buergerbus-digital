@@ -11,10 +11,6 @@ export interface Fahrzeug {
   status: string
   aktiv: boolean
   initiativeId: number
-  letzteWartung: string | null
-  naechsteWartung: string | null
-  schaeden: string | null
-  reparaturtermin: string | null
 }
 
 export type FahrzeugFormMode = 'create' | 'edit'
@@ -31,11 +27,6 @@ export interface FahrzeugFormData {
   bemerkung: string
   status: string
   aktiv: 'true' | 'false'
-  initiativeId: string
-  letzteWartung: string
-  naechsteWartung: string
-  schaeden: string
-  reparaturtermin: string
 }
 
 export type FahrzeugFieldType = 'text' | 'date' | 'textarea' | 'number' | 'select'

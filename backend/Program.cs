@@ -88,6 +88,7 @@ app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapRoleEndpoints();
 app.MapInitiativeEndpoints();
+app.MapFahrzeugServiceEndpoints();
 
 app.MapControllers();
 

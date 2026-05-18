@@ -8,12 +8,17 @@ import {
   getFahrzeuge,
   updateFahrzeug,
 } from '../services/fahrzeugApi'
+import { createSchaden, getSchaedenByFahrzeug } from '../services/schadenApi'
+import { createWartung, getWartungenByFahrzeug } from '../services/wartungApi'
 import type {
   Fahrzeug,
   FahrzeugFieldConfig,
   FahrzeugFormData,
   FahrzeugFormMode,
 } from '../types/Fahrzeug'
+import type { Schaden, SchadenFormData } from '../types/Schaden'
+import type { Wartung, WartungFormData } from '../types/Wartung'
+import { useAuth } from '../context/AuthContext'
 import UserMenuButton from '../components/UserMenuButton'
 
 const vehicleFormFields: FahrzeugFieldConfig[] = [
@@ -25,10 +30,6 @@ const vehicleFormFields: FahrzeugFieldConfig[] = [
   { name: 'kapazitaet', label: 'Kapazitaet', type: 'number' },
   { name: 'kilometerstand', label: 'Kilometerstand', type: 'number' },
   { name: 'betriebsaufnahme', label: 'Betriebsaufnahme', type: 'date' },
-  { name: 'letzteWartung', label: 'Letzte Wartung', type: 'date' },
-  { name: 'naechsteWartung', label: 'Naechste Wartung', type: 'date' },
-  { name: 'schaeden', label: 'Schaeden', type: 'text' },
-  { name: 'reparaturtermin', label: 'Reparaturtermin', type: 'date' },
   {
     name: 'aktiv',
     label: 'Aktiv',
@@ -39,7 +40,6 @@ const vehicleFormFields: FahrzeugFieldConfig[] = [
     ],
   },
   { name: 'status', label: 'Status', type: 'text' },
-  { name: 'initiativeId', label: 'Initiative-ID', type: 'number' },
   { name: 'bemerkung', label: 'Bemerkung', type: 'textarea' },
 ]
 
@@ -56,11 +56,6 @@ function createEmptyVehicleForm(): FahrzeugFormData {
     bemerkung: '',
     status: '',
     aktiv: 'true',
-    initiativeId: '1',
-    letzteWartung: '',
-    naechsteWartung: '',
-    schaeden: '',
-    reparaturtermin: '',
   }
 }
 
@@ -77,15 +72,10 @@ function toVehicleFormData(vehicle: Fahrzeug): FahrzeugFormData {
     bemerkung: vehicle.bemerkung ?? '',
     status: vehicle.status,
     aktiv: vehicle.aktiv ? 'true' : 'false',
-    initiativeId: String(vehicle.initiativeId),
-    letzteWartung: vehicle.letzteWartung ?? '',
-    naechsteWartung: vehicle.naechsteWartung ?? '',
-    schaeden: vehicle.schaeden ?? '',
-    reparaturtermin: vehicle.reparaturtermin ?? '',
   }
 }
 
-function toVehicleModel(formData: FahrzeugFormData): Fahrzeug {
+function toVehicleModel(formData: FahrzeugFormData, initiativeId: number): Fahrzeug {
   return {
     id: Number(formData.id),
     kennzeichen: formData.kennzeichen.trim(),
@@ -98,11 +88,7 @@ function toVehicleModel(formData: FahrzeugFormData): Fahrzeug {
     bemerkung: formData.bemerkung.trim() ? formData.bemerkung.trim() : null,
     status: formData.status.trim(),
     aktiv: formData.aktiv === 'true',
-    initiativeId: Number(formData.initiativeId),
-    letzteWartung: formData.letzteWartung || null,
-    naechsteWartung: formData.naechsteWartung || null,
-    schaeden: formData.schaeden.trim() ? formData.schaeden.trim() : null,
-    reparaturtermin: formData.reparaturtermin || null,
+    initiativeId,
   }
 }
 
@@ -119,8 +105,41 @@ function formatDisplayDate(value: string) {
   return new Intl.DateTimeFormat('de-DE').format(parsedDate)
 }
 
+type FahrzeugTab = 'stammdaten' | 'wartungen' | 'schaeden'
+
+const schadenStatusOptions = ['Offen', 'In Bearbeitung', 'Behoben', 'Nicht reparierbar']
+
+function createEmptyWartungForm(): WartungFormData {
+  return {
+    letzterTermin: '',
+    naechsterTermin: '',
+    grund: '',
+    ort: '',
+    kosten: '',
+  }
+}
+
+function createEmptySchadenForm(): SchadenFormData {
+  return {
+    beschreibung: '',
+    entstandenAm: '',
+    behobenAm: '',
+    status: 'Offen',
+  }
+}
+
+function parseDateValue(value: string | null | undefined): Date | null {
+  if (!value) {
+    return null
+  }
+
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
 function FahrzeuginfosPage() {
   const navigate = useNavigate()
+  const { currentUser } = useAuth()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [vehicles, setVehicles] = useState<Fahrzeug[]>([])
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null)
@@ -131,6 +150,21 @@ function FahrzeuginfosPage() {
   const [formData, setFormData] = useState<FahrzeugFormData>(createEmptyVehicleForm())
   const [formError, setFormError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [activeTab, setActiveTab] = useState<FahrzeugTab>('stammdaten')
+  const [wartungen, setWartungen] = useState<Wartung[]>([])
+  const [schaeden, setSchaeden] = useState<Schaden[]>([])
+  const [detailsLoading, setDetailsLoading] = useState(false)
+  const [detailsError, setDetailsError] = useState('')
+  const [wartungFormData, setWartungFormData] = useState<WartungFormData>(
+    createEmptyWartungForm(),
+  )
+  const [schadenFormData, setSchadenFormData] = useState<SchadenFormData>(
+    createEmptySchadenForm(),
+  )
+  const [wartungFormError, setWartungFormError] = useState('')
+  const [schadenFormError, setSchadenFormError] = useState('')
+  const [isWartungSaving, setIsWartungSaving] = useState(false)
+  const [isSchadenSaving, setIsSchadenSaving] = useState(false)
 
   const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? null
 
@@ -164,6 +198,50 @@ function FahrzeuginfosPage() {
     }
   }, [])
 
+  useEffect(() => {
+    let isActive = true
+
+    async function loadVehicleDetails(vehicleId: number, userId: number) {
+      setDetailsLoading(true)
+      setDetailsError('')
+
+      try {
+        const [loadedWartungen, loadedSchaeden] = await Promise.all([
+          getWartungenByFahrzeug(vehicleId, userId),
+          getSchaedenByFahrzeug(vehicleId, userId),
+        ])
+
+        if (isActive) {
+          setWartungen(loadedWartungen)
+          setSchaeden(loadedSchaeden)
+        }
+      } catch {
+        if (isActive) {
+          setDetailsError('Wartungen oder Schaeden konnten nicht geladen werden.')
+        }
+      } finally {
+        if (isActive) {
+          setDetailsLoading(false)
+        }
+      }
+    }
+
+    if (!selectedVehicleId || !currentUser?.id) {
+      setWartungen([])
+      setSchaeden([])
+      setDetailsError('')
+      return () => {
+        isActive = false
+      }
+    }
+
+    void loadVehicleDetails(selectedVehicleId, currentUser.id)
+
+    return () => {
+      isActive = false
+    }
+  }, [currentUser?.id, selectedVehicleId])
+
   function closeSideMenu() {
     setIsSideMenuOpen(false)
   }
@@ -181,6 +259,9 @@ function FahrzeuginfosPage() {
     setModalMode('create')
     setFormData(createEmptyVehicleForm())
     setFormError('')
+    setActiveTab('stammdaten')
+    setWartungFormData(createEmptyWartungForm())
+    setSchadenFormData(createEmptySchadenForm())
     setIsModalOpen(true)
   }
 
@@ -193,6 +274,11 @@ function FahrzeuginfosPage() {
     setModalMode('edit')
     setFormData(toVehicleFormData(selectedVehicle))
     setFormError('')
+    setActiveTab('stammdaten')
+    setWartungFormData(createEmptyWartungForm())
+    setSchadenFormData(createEmptySchadenForm())
+    setWartungFormError('')
+    setSchadenFormError('')
     setIsModalOpen(true)
   }
 
@@ -212,7 +298,6 @@ function FahrzeuginfosPage() {
     const vehicleId = Number(data.id)
     const kapazitaet = Number(data.kapazitaet)
     const kilometerstand = Number(data.kilometerstand)
-    const initiativeId = Number(data.initiativeId)
 
     if (!Number.isInteger(vehicleId) || vehicleId <= 0) {
       return 'Bitte eine gueltige Fahrzeug-ID eingeben.'
@@ -246,10 +331,6 @@ function FahrzeuginfosPage() {
       return 'Status ist erforderlich.'
     }
 
-    if (!Number.isInteger(initiativeId) || initiativeId <= 0) {
-      return 'Bitte eine gueltige Initiative-ID eingeben.'
-    }
-
     return ''
   }
 
@@ -263,7 +344,8 @@ function FahrzeuginfosPage() {
       return
     }
 
-    const model = toVehicleModel(formData)
+    const resolvedInitiativeId = selectedVehicle?.initiativeId ?? currentUser?.initiative?.id ?? 1
+    const model = toVehicleModel(formData, resolvedInitiativeId)
     setIsSaving(true)
 
     try {
@@ -311,6 +393,132 @@ function FahrzeuginfosPage() {
       setSelectedVehicleId(null)
     } catch {
       alert('Das Fahrzeug konnte nicht geloescht werden.')
+    }
+  }
+
+  function handleWartungFieldChange(fieldName: keyof WartungFormData, value: string) {
+    setWartungFormData((previous) => ({
+      ...previous,
+      [fieldName]: value,
+    }))
+  }
+
+  function handleSchadenFieldChange(fieldName: keyof SchadenFormData, value: string) {
+    setSchadenFormData((previous) => ({
+      ...previous,
+      [fieldName]: value,
+    }))
+  }
+
+  function getLatestWartungDate(items: Wartung[]) {
+    const sorted = [...items]
+      .map((item) => ({ ...item, parsed: parseDateValue(item.letzterTermin) }))
+      .filter((item) => item.parsed)
+      .sort((a, b) => (b.parsed as Date).getTime() - (a.parsed as Date).getTime())
+
+    return sorted.length > 0 ? sorted[0].letzterTermin : null
+  }
+
+  function getNextWartungDate(items: Wartung[]) {
+    const sorted = [...items]
+      .map((item) => ({ ...item, parsed: parseDateValue(item.naechsterTermin) }))
+      .filter((item) => item.parsed)
+      .sort((a, b) => (a.parsed as Date).getTime() - (b.parsed as Date).getTime())
+
+    return sorted.length > 0 ? sorted[0].naechsterTermin ?? null : null
+  }
+
+  const letzteWartung = getLatestWartungDate(wartungen)
+  const naechsteWartung = getNextWartungDate(wartungen)
+  const offeneSchaeden = schaeden.filter((item) => item.status !== 'Behoben').length
+  const fahrzeugStatus = offeneSchaeden > 0 ? 'Defekt' : 'Einsatzbereit'
+
+  async function handleAddWartung(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setWartungFormError('')
+
+    if (!selectedVehicle || !currentUser?.id) {
+      setWartungFormError('Kein Fahrzeug oder Benutzerkontext verfuegbar.')
+      return
+    }
+
+    if (!wartungFormData.letzterTermin) {
+      setWartungFormError('Letzter Termin ist erforderlich.')
+      return
+    }
+
+    if (!wartungFormData.ort.trim()) {
+      setWartungFormError('Ort ist erforderlich.')
+      return
+    }
+
+    const kostenValue = wartungFormData.kosten.trim()
+    const kosten = kostenValue ? Number(kostenValue) : null
+    if (kostenValue && Number.isNaN(kosten)) {
+      setWartungFormError('Kosten muessen eine Zahl sein.')
+      return
+    }
+
+    setIsWartungSaving(true)
+
+    try {
+      const newWartung = await createWartung(selectedVehicle.id, currentUser.id, {
+        letzterTermin: wartungFormData.letzterTermin,
+        naechsterTermin: wartungFormData.naechsterTermin || null,
+        grund: wartungFormData.grund.trim() ? wartungFormData.grund.trim() : null,
+        ort: wartungFormData.ort.trim(),
+        kosten,
+      })
+
+      setWartungen((previous) => [newWartung, ...previous])
+      setWartungFormData(createEmptyWartungForm())
+    } catch {
+      setWartungFormError('Wartung konnte nicht gespeichert werden.')
+    } finally {
+      setIsWartungSaving(false)
+    }
+  }
+
+  async function handleAddSchaden(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSchadenFormError('')
+
+    if (!selectedVehicle || !currentUser?.id) {
+      setSchadenFormError('Kein Fahrzeug oder Benutzerkontext verfuegbar.')
+      return
+    }
+
+    if (!schadenFormData.beschreibung.trim()) {
+      setSchadenFormError('Beschreibung ist erforderlich.')
+      return
+    }
+
+    if (!schadenFormData.entstandenAm) {
+      setSchadenFormError('Entstanden am ist erforderlich.')
+      return
+    }
+
+    if (!schadenFormData.status) {
+      setSchadenFormError('Status ist erforderlich.')
+      return
+    }
+
+    setIsSchadenSaving(true)
+
+    try {
+      const newSchaden = await createSchaden(selectedVehicle.id, currentUser.id, {
+        beschreibung: schadenFormData.beschreibung.trim(),
+        entstandenAm: schadenFormData.entstandenAm,
+        behobenAm: schadenFormData.behobenAm || null,
+        status: schadenFormData.status,
+      })
+
+      setSchaeden((previous) => [newSchaden, ...previous])
+      setSchadenFormData(createEmptySchadenForm())
+    } catch {
+      setSchadenFormError('Schaden konnte nicht gespeichert werden.')
+    } finally {
+      setIsSchadenSaving(false)
     }
   }
 
@@ -362,6 +570,27 @@ function FahrzeuginfosPage() {
   }
 
   function renderVehicleModal(mode: FahrzeugFormMode, title: string, submitLabel: string) {
+    const isCreateMode = mode === 'create'
+
+    const renderTabButton = (tab: FahrzeugTab, label: string) => (
+      <button
+        type="button"
+        onClick={() => {
+          if (!isCreateMode || tab === 'stammdaten') {
+            setActiveTab(tab)
+          }
+        }}
+        className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+          activeTab === tab
+            ? 'bg-[#0053a0] text-white'
+            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+        } ${isCreateMode && tab !== 'stammdaten' ? 'cursor-not-allowed opacity-60' : ''}`}
+        disabled={isCreateMode && tab !== 'stammdaten'}
+      >
+        {label}
+      </button>
+    )
+
     return (
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
@@ -382,37 +611,335 @@ function FahrzeuginfosPage() {
             </button>
           </div>
 
-          <form
-            onSubmit={handleSaveVehicle}
-            className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3"
-          >
-            {renderVehicleFields(mode)}
-
-            {formError ? (
-              <p className="col-span-1 text-sm text-red-600 sm:col-span-2 md:col-span-3">
-                {formError}
-              </p>
-            ) : null}
-
-            <div className="col-span-1 mt-2 flex justify-end gap-2 sm:col-span-2 md:col-span-3">
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
-              >
-                Abbrechen
-              </button>
-              <button
-                type="submit"
-                disabled={isSaving}
-                className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
-                  isSaving ? 'cursor-not-allowed bg-blue-400' : 'bg-blue-500 hover:bg-blue-600'
-                }`}
-              >
-                {isSaving ? 'Speichern...' : submitLabel}
-              </button>
+          <div className="mt-4">
+            <div className="flex flex-wrap gap-2 border-b pb-3">
+              {renderTabButton('stammdaten', 'Stammdaten')}
+              {renderTabButton('wartungen', 'Wartungen')}
+              {renderTabButton('schaeden', 'Schaeden')}
             </div>
-          </form>
+
+            <div className="mt-4">
+              {activeTab === 'stammdaten' ? (
+                <form
+                  onSubmit={handleSaveVehicle}
+                  className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3"
+                >
+                  {renderVehicleFields(mode)}
+
+                  {formError ? (
+                    <p className="col-span-1 text-sm text-red-600 sm:col-span-2 md:col-span-3">
+                      {formError}
+                    </p>
+                  ) : null}
+
+                  <div className="col-span-1 mt-2 flex justify-end gap-2 sm:col-span-2 md:col-span-3">
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                    >
+                      Abbrechen
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSaving}
+                      className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
+                        isSaving
+                          ? 'cursor-not-allowed bg-blue-400'
+                          : 'bg-blue-500 hover:bg-blue-600'
+                      }`}
+                    >
+                      {isSaving ? 'Speichern...' : submitLabel}
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+
+              {activeTab === 'wartungen' ? (
+                <div className="space-y-4">
+                  {isCreateMode ? (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                      Wartungen koennen erst nach dem Speichern des Fahrzeugs erfasst werden.
+                    </div>
+                  ) : (
+                    <>
+                      {detailsError ? (
+                        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                          {detailsError}
+                        </div>
+                      ) : null}
+
+                      <div className="overflow-x-auto rounded-lg border border-slate-200">
+                        {detailsLoading ? (
+                          <div className="px-4 py-6 text-sm text-slate-500">
+                            Wartungen werden geladen...
+                          </div>
+                        ) : wartungen.length === 0 ? (
+                          <div className="px-4 py-6 text-sm text-slate-500">
+                            Noch keine Wartungen vorhanden.
+                          </div>
+                        ) : (
+                          <table className="w-full border-collapse text-sm">
+                            <thead>
+                              <tr className="border-b border-slate-200 bg-slate-50">
+                                <th className="px-4 py-2 text-left font-semibold text-slate-700">
+                                  Letzter Termin
+                                </th>
+                                <th className="px-4 py-2 text-left font-semibold text-slate-700">
+                                  Naechster Termin
+                                </th>
+                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Grund</th>
+                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Ort</th>
+                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Kosten</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {wartungen.map((wartung) => (
+                                <tr key={wartung.id} className="border-b border-slate-100">
+                                  <td className="px-4 py-2 text-slate-700">
+                                    {formatDisplayDate(wartung.letzterTermin)}
+                                  </td>
+                                  <td className="px-4 py-2 text-slate-700">
+                                    {formatDisplayDate(wartung.naechsterTermin ?? '')}
+                                  </td>
+                                  <td className="px-4 py-2 text-slate-700">
+                                    {wartung.grund ?? '-'}
+                                  </td>
+                                  <td className="px-4 py-2 text-slate-700">{wartung.ort}</td>
+                                  <td className="px-4 py-2 text-slate-700">
+                                    {wartung.kosten === null
+                                      ? '-'
+                                      : new Intl.NumberFormat('de-DE', {
+                                          style: 'currency',
+                                          currency: 'EUR',
+                                        }).format(wartung.kosten)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+
+                      <form
+                        onSubmit={handleAddWartung}
+                        className="grid grid-cols-1 gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2"
+                      >
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">
+                            Letzter Termin
+                          </label>
+                          <input
+                            type="date"
+                            value={wartungFormData.letzterTermin}
+                            onChange={(event) =>
+                              handleWartungFieldChange('letzterTermin', event.target.value)
+                            }
+                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">
+                            Naechster Termin
+                          </label>
+                          <input
+                            type="date"
+                            value={wartungFormData.naechsterTermin}
+                            onChange={(event) =>
+                              handleWartungFieldChange('naechsterTermin', event.target.value)
+                            }
+                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Grund</label>
+                          <input
+                            type="text"
+                            value={wartungFormData.grund}
+                            onChange={(event) => handleWartungFieldChange('grund', event.target.value)}
+                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Ort</label>
+                          <input
+                            type="text"
+                            value={wartungFormData.ort}
+                            onChange={(event) => handleWartungFieldChange('ort', event.target.value)}
+                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Kosten</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={wartungFormData.kosten}
+                            onChange={(event) => handleWartungFieldChange('kosten', event.target.value)}
+                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                          />
+                        </div>
+
+                        {wartungFormError ? (
+                          <p className="text-sm text-red-600 sm:col-span-2">{wartungFormError}</p>
+                        ) : null}
+
+                        <div className="flex justify-end sm:col-span-2">
+                          <button
+                            type="submit"
+                            disabled={isWartungSaving}
+                            className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
+                              isWartungSaving
+                                ? 'cursor-not-allowed bg-blue-400'
+                                : 'bg-blue-500 hover:bg-blue-600'
+                            }`}
+                          >
+                            {isWartungSaving ? 'Speichern...' : 'Wartung hinzufuegen'}
+                          </button>
+                        </div>
+                      </form>
+                    </>
+                  )}
+                </div>
+              ) : null}
+
+              {activeTab === 'schaeden' ? (
+                <div className="space-y-4">
+                  {isCreateMode ? (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                      Schaeden koennen erst nach dem Speichern des Fahrzeugs erfasst werden.
+                    </div>
+                  ) : (
+                    <>
+                      {detailsError ? (
+                        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                          {detailsError}
+                        </div>
+                      ) : null}
+
+                      <div className="overflow-x-auto rounded-lg border border-slate-200">
+                        {detailsLoading ? (
+                          <div className="px-4 py-6 text-sm text-slate-500">
+                            Schaeden werden geladen...
+                          </div>
+                        ) : schaeden.length === 0 ? (
+                          <div className="px-4 py-6 text-sm text-slate-500">
+                            Noch keine Schaeden vorhanden.
+                          </div>
+                        ) : (
+                          <table className="w-full border-collapse text-sm">
+                            <thead>
+                              <tr className="border-b border-slate-200 bg-slate-50">
+                                <th className="px-4 py-2 text-left font-semibold text-slate-700">
+                                  Beschreibung
+                                </th>
+                                <th className="px-4 py-2 text-left font-semibold text-slate-700">
+                                  Entstanden am
+                                </th>
+                                <th className="px-4 py-2 text-left font-semibold text-slate-700">
+                                  Behoben am
+                                </th>
+                                <th className="px-4 py-2 text-left font-semibold text-slate-700">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {schaeden.map((schaden) => (
+                                <tr key={schaden.id} className="border-b border-slate-100">
+                                  <td className="px-4 py-2 text-slate-700">
+                                    {schaden.beschreibung}
+                                  </td>
+                                  <td className="px-4 py-2 text-slate-700">
+                                    {formatDisplayDate(schaden.entstandenAm)}
+                                  </td>
+                                  <td className="px-4 py-2 text-slate-700">
+                                    {formatDisplayDate(schaden.behobenAm ?? '')}
+                                  </td>
+                                  <td className="px-4 py-2 text-slate-700">{schaden.status}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+
+                      <form
+                        onSubmit={handleAddSchaden}
+                        className="grid grid-cols-1 gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2"
+                      >
+                        <div className="sm:col-span-2">
+                          <label className="block text-sm font-medium text-slate-700">Beschreibung</label>
+                          <textarea
+                            value={schadenFormData.beschreibung}
+                            onChange={(event) =>
+                              handleSchadenFieldChange('beschreibung', event.target.value)
+                            }
+                            rows={3}
+                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Entstanden am</label>
+                          <input
+                            type="date"
+                            value={schadenFormData.entstandenAm}
+                            onChange={(event) =>
+                              handleSchadenFieldChange('entstandenAm', event.target.value)
+                            }
+                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Behoben am</label>
+                          <input
+                            type="date"
+                            value={schadenFormData.behobenAm}
+                            onChange={(event) =>
+                              handleSchadenFieldChange('behobenAm', event.target.value)
+                            }
+                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Status</label>
+                          <select
+                            value={schadenFormData.status}
+                            onChange={(event) =>
+                              handleSchadenFieldChange('status', event.target.value)
+                            }
+                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                          >
+                            {schadenStatusOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {schadenFormError ? (
+                          <p className="text-sm text-red-600 sm:col-span-2">{schadenFormError}</p>
+                        ) : null}
+
+                        <div className="flex justify-end sm:col-span-2">
+                          <button
+                            type="submit"
+                            disabled={isSchadenSaving}
+                            className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
+                              isSchadenSaving
+                                ? 'cursor-not-allowed bg-blue-400'
+                                : 'bg-blue-500 hover:bg-blue-600'
+                            }`}
+                          >
+                            {isSchadenSaving ? 'Speichern...' : 'Schaden hinzufuegen'}
+                          </button>
+                        </div>
+                      </form>
+                    </>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -467,19 +994,12 @@ function FahrzeuginfosPage() {
                     <th className="px-4 py-3 text-left font-semibold text-slate-700">Fahrzeug-ID</th>
                     <th className="px-4 py-3 text-left font-semibold text-slate-700">Kennzeichen</th>
                     <th className="px-4 py-3 text-left font-semibold text-slate-700">Bezeichnung</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Marke/Typ</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Fahrzeugart</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Kapazitaet</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Kilometerstand</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Betriebsaufnahme</th>
                     <th className="px-4 py-3 text-left font-semibold text-slate-700">Letzte Wartung</th>
                     <th className="px-4 py-3 text-left font-semibold text-slate-700">Naechste Wartung</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Schaeden</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Reparaturtermin</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Aktiv</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Initiative-ID</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Bemerkung</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">
+                      Offene Schaeden
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Fahrzeugstatus</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -502,35 +1022,75 @@ function FahrzeuginfosPage() {
                       <td className="px-4 py-3 text-slate-700 truncate">{vehicle.id}</td>
                       <td className="px-4 py-3 text-slate-700 truncate">{vehicle.kennzeichen}</td>
                       <td className="px-4 py-3 text-slate-700 truncate">{vehicle.bezeichnung}</td>
-                      <td className="px-4 py-3 text-slate-700 truncate">{vehicle.markeTyp}</td>
-                      <td className="px-4 py-3 text-slate-700 truncate">{vehicle.fahrzeugart}</td>
-                      <td className="px-4 py-3 text-slate-700 truncate">{vehicle.kapazitaet}</td>
-                      <td className="px-4 py-3 text-slate-700 truncate">{vehicle.kilometerstand}</td>
                       <td className="px-4 py-3 text-slate-700 truncate">
-                        {formatDisplayDate(vehicle.betriebsaufnahme)}
+                        {selectedVehicleId === vehicle.id
+                          ? formatDisplayDate(letzteWartung ?? '')
+                          : '-'}
                       </td>
                       <td className="px-4 py-3 text-slate-700 truncate">
-                        {formatDisplayDate(vehicle.letzteWartung ?? '')}
+                        {selectedVehicleId === vehicle.id
+                          ? formatDisplayDate(naechsteWartung ?? '')
+                          : '-'}
                       </td>
                       <td className="px-4 py-3 text-slate-700 truncate">
-                        {formatDisplayDate(vehicle.naechsteWartung ?? '')}
+                        {selectedVehicleId === vehicle.id ? offeneSchaeden : '-'}
                       </td>
-                      <td className="px-4 py-3 text-slate-700 truncate">{vehicle.schaeden ?? '-'}</td>
                       <td className="px-4 py-3 text-slate-700 truncate">
-                        {formatDisplayDate(vehicle.reparaturtermin ?? '')}
+                        {selectedVehicleId === vehicle.id ? fahrzeugStatus : '-'}
                       </td>
-                      <td className="px-4 py-3 text-slate-700 truncate">{vehicle.status}</td>
-                      <td className="px-4 py-3 text-slate-700 truncate">
-                        {vehicle.aktiv ? 'Ja' : 'Nein'}
-                      </td>
-                      <td className="px-4 py-3 text-slate-700 truncate">{vehicle.initiativeId}</td>
-                      <td className="px-4 py-3 text-slate-700 truncate">{vehicle.bemerkung ?? '-'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
           </div>
+
+          {selectedVehicle ? (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800">
+                    Zusammenfassung fuer {selectedVehicle.kennzeichen}
+                  </h3>
+                  <p className="text-sm text-slate-600">
+                    Wartungen und Schaeden fuer das ausgewaehlte Fahrzeug.
+                  </p>
+                </div>
+                {detailsLoading ? (
+                  <span className="text-sm text-slate-500">Daten werden geladen...</span>
+                ) : null}
+              </div>
+
+              {detailsError ? (
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {detailsError}
+                </div>
+              ) : null}
+
+              <dl className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                  <dt className="text-xs font-semibold uppercase text-slate-500">Letzte Wartung</dt>
+                  <dd className="mt-2 text-base font-semibold text-slate-800">
+                    {formatDisplayDate(letzteWartung ?? '')}
+                  </dd>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                  <dt className="text-xs font-semibold uppercase text-slate-500">Naechste Wartung</dt>
+                  <dd className="mt-2 text-base font-semibold text-slate-800">
+                    {formatDisplayDate(naechsteWartung ?? '')}
+                  </dd>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                  <dt className="text-xs font-semibold uppercase text-slate-500">Offene Schaeden</dt>
+                  <dd className="mt-2 text-base font-semibold text-slate-800">{offeneSchaeden}</dd>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                  <dt className="text-xs font-semibold uppercase text-slate-500">Fahrzeugstatus</dt>
+                  <dd className="mt-2 text-base font-semibold text-slate-800">{fahrzeugStatus}</dd>
+                </div>
+              </dl>
+            </div>
+          ) : null}
 
           <div className="mt-4 flex w-full justify-end gap-2">
             <button
