@@ -1,16 +1,13 @@
 ﻿/// <summary>
-/// Enthält zusätzliche fahrerspezifische Daten eines Benutzers,
-/// z. B. Führerscheinklasse und G25-Untersuchungen.
+/// Enthält fahrerspezifische Verknüpfungen eines Benutzers,
+/// z. B. zu Fahrten und Fahrzeugen.
 /// </summary>
 namespace BuergerbusAPI.Models
 {
     public class Fahrer
     {
         public int Id { get; set; }
-        public string? Fuehrerscheinklasse { get; set; }
-        public DateTime? LetzteG25 { get; set; }
-        public DateTime? NaechsteG25 { get; set; }
-        public string? Bemerkung {  get; set; }
+        public string? Bemerkung { get; set; }
         public DateTime AngelegtAm {  get; set; }
         public DateTime? GeaendertAm { get; set; }
         public bool Aktiv {  get; set; }

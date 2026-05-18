@@ -10,7 +10,6 @@
 
         //Listen aller Hauptentitäten
         public List<Benutzer> Benutzer { get; set; } = new();
-        public List<Fahrer> Fahrer { get; set; } = new();
         public List<Fahrgast> Fahrgaeste { get; set; } = new();
         public List<Fahrzeug> Fahrzeuge { get; set; } = new();
         public List<Fahrten> Fahrten { get; set; } = new();

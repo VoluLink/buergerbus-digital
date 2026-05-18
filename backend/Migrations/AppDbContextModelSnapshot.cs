@@ -170,27 +170,13 @@ namespace BuergerbusAPI.Migrations
                     b.Property<int>("BenutzerId")
                         .HasColumnType("int");
 
-                    b.Property<string>("Fuehrerscheinklasse")
-                        .HasColumnType("longtext");
-
                     b.Property<DateTime?>("GeaendertAm")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("InitiativeId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("LetzteG25")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime?>("NaechsteG25")
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("BenutzerId")
                         .IsUnique();
-
-                    b.HasIndex("InitiativeId");
 
                     b.ToTable("Fahrer");
                 });
@@ -627,12 +613,6 @@ namespace BuergerbusAPI.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("BuergerbusAPI.Models.Initiativen", null)
-                        .WithMany("Fahrer")
-                        .HasForeignKey("InitiativeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("Benutzer");
                 });
 
@@ -832,8 +812,6 @@ namespace BuergerbusAPI.Migrations
                     b.Navigation("Benachrichtigungen");
 
                     b.Navigation("Benutzer");
-
-                    b.Navigation("Fahrer");
 
                     b.Navigation("Fahrgaeste");
 
