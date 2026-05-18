@@ -19,7 +19,12 @@ public record UserProfileDto(
     string Email,
     string? Vorname,
     string? Nachname,
-    string? Adresse,
+    string? Strasse,
+    string? Postleitzahl,
+    string? Ort,
+    string? Fuehrerscheinklasse,
+    DateTime? LetzteG25,
+    DateTime? NaechsteG25,
     string? Telefonnummer,
     string? Bemerkung,
     bool Aktiv,
@@ -32,9 +37,6 @@ public record UserRolesDto(int UserId, List<string> Roles);
 
 public record FahrerProfileDto(
     int Id,
-    string? Fuehrerscheinklasse,
-    DateTime? LetzteG25,
-    DateTime? NaechsteG25,
     string? Bemerkung,
     bool Aktiv
 );
@@ -42,7 +44,13 @@ public record FahrerProfileDto(
 public record UpdateUserProfileRequest(
     string? Vorname,
     string? Nachname,
-    string? Adresse,
+    string Username,
+    string? Strasse,
+    string? Postleitzahl,
+    string? Ort,
+    string? Fuehrerscheinklasse,
+    DateTime? LetzteG25,
+    DateTime? NaechsteG25,
     string? Telefonnummer,
     string? Bemerkung,
     bool Aktiv,
@@ -50,9 +58,6 @@ public record UpdateUserProfileRequest(
 );
 
 public record UpdateFahrerProfileRequest(
-    string? Fuehrerscheinklasse,
-    DateTime? LetzteG25,
-    DateTime? NaechsteG25,
     string? Bemerkung,
     bool Aktiv
 );

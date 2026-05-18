@@ -13,8 +13,13 @@ namespace BuergerbusAPI.Models
 
         public string? Vorname { get; set; }
         public string? Nachname { get; set; }
-        public string? Adresse { get; set; }
+        public string? Strasse { get; set; }
+        public string? Postleitzahl { get; set; }
+        public string? Ort { get; set; }
         public string? Telefonnummer { get; set; }
+        public string? Fuehrerscheinklasse { get; set; }
+        public DateTime? LetzteG25 { get; set; }
+        public DateTime? NaechsteG25 { get; set; }
         public string? Bemerkung { get; set; }
         public DateTime AngelegtAm { get; set; }
         public DateTime? GeaendertAm { get; set; }

@@ -74,9 +74,6 @@ namespace BuergerbusAPI.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Adresse")
-                        .HasColumnType("longtext");
-
                     b.Property<bool>("Aktiv")
                         .HasColumnType("tinyint(1)");
 
@@ -90,21 +87,39 @@ namespace BuergerbusAPI.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("Fuehrerscheinklasse")
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime?>("GeaendertAm")
                         .HasColumnType("datetime(6)");
 
                     b.Property<int>("InitiativeId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("LetzteG25")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("Nachname")
                         .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("NaechsteG25")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Nutzername")
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("Ort")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("PasswortHash")
                         .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Postleitzahl")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Strasse")
                         .HasColumnType("longtext");
 
                     b.Property<string>("Telefonnummer")

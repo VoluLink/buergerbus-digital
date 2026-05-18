@@ -22,9 +22,6 @@ public static class UserMapper
         {
             fahrer = new FahrerProfileDto(
                 user.Fahrer.Id,
-                user.Fahrer.Fuehrerscheinklasse,
-                user.Fahrer.LetzteG25,
-                user.Fahrer.NaechsteG25,
                 user.Fahrer.Bemerkung,
                 user.Fahrer.Aktiv
             );
@@ -40,7 +37,12 @@ public static class UserMapper
             user.Email,
             user.Vorname,
             user.Nachname,
-            user.Adresse,
+            user.Strasse,
+            user.Postleitzahl,
+            user.Ort,
+            user.Fuehrerscheinklasse,
+            user.LetzteG25,
+            user.NaechsteG25,
             user.Telefonnummer,
             user.Bemerkung,
             user.Aktiv,
