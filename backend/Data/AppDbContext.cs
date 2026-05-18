@@ -154,16 +154,6 @@ namespace BuergerbusAPI.Data
                 .WithMany(i => i.Benutzer)
                 .HasForeignKey(b => b.InitiativeId);
 
-            // Initiative -> Fahrer (1:n)
-
-            modelBuilder.Entity<Fahrer>()
-                .Property<int>("InitiativeId");
-
-            modelBuilder.Entity<Fahrer>()
-                .HasOne<Initiativen>()
-                .WithMany(i => i.Fahrer)
-                .HasForeignKey("InitiativeId");
-
             // Initiative -> Fahrten (1:n)
 
             modelBuilder.Entity<Fahrten>()
