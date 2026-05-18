@@ -51,6 +51,7 @@ function ProfilePage() {
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
+    username: '',
     email: '',
     firstName: '',
     lastName: '',
@@ -72,20 +73,19 @@ function ProfilePage() {
       return
     }
 
-    const fahrer = currentUser.fahrer
-
     setFormData({
+      username: currentUser.username ?? '',
       email: currentUser.email ?? '',
       firstName: currentUser.vorname ?? '',
       lastName: currentUser.nachname ?? '',
       phone: currentUser.telefonnummer ?? '',
-      driverLicense: fahrer?.fuehrerscheinklasse ?? '',
-      lastG2s: formatDateInput(fahrer?.letzteG25),
-      nextG2s: formatDateInput(fahrer?.naechsteG25),
-      street: currentUser.adresse ?? '',
-      postCode: '',
-      city: '',
-      remarks: currentUser.bemerkung ?? fahrer?.bemerkung ?? '',
+      driverLicense: currentUser.fuehrerscheinklasse ?? '',
+      lastG2s: formatDateInput(currentUser.letzteG25),
+      nextG2s: formatDateInput(currentUser.naechsteG25),
+      street: currentUser.strasse ?? '',
+      postCode: currentUser.postleitzahl ?? '',
+      city: currentUser.ort ?? '',
+      remarks: currentUser.bemerkung ?? '',
     })
 
     setIsAccountActive(currentUser.aktiv ?? true)
@@ -95,7 +95,6 @@ function ProfilePage() {
 
   const userRoles = currentUser?.roles ?? []
   const userId = currentUser ? String(currentUser.id) : '-'
-  const username = currentUser?.username ?? ''
   const initiativeName = currentUser?.initiative?.name ?? ''
 
   function closeSideMenu() {
@@ -142,36 +141,40 @@ function ProfilePage() {
 
     try {
       const updatedProfile = await updateUserProfile(currentUser.id, {
+        username: normalizeNullable(formData.username) ?? '',
         vorname: normalizeNullable(formData.firstName),
         nachname: normalizeNullable(formData.lastName),
-        adresse: normalizeNullable(formData.street),
+        strasse: normalizeNullable(formData.street),
+        postleitzahl: normalizeNullable(formData.postCode),
+        ort: normalizeNullable(formData.city),
         telefonnummer: normalizeNullable(formData.phone),
+        fuehrerscheinklasse: normalizeNullable(formData.driverLicense),
+        letzteG25: formData.lastG2s ? formData.lastG2s : null,
+        naechsteG25: formData.nextG2s ? formData.nextG2s : null,
         bemerkung: normalizeNullable(formData.remarks),
         aktiv: isAccountActive,
         fahrer: hasFahrerRole
           ? {
-              fuehrerscheinklasse: normalizeNullable(formData.driverLicense),
-              letzteG25: formData.lastG2s ? formData.lastG2s : null,
-              naechsteG25: formData.nextG2s ? formData.nextG2s : null,
               bemerkung: normalizeNullable(formData.remarks),
               aktiv: isAccountActive,
             }
           : null,
       })
 
-      const fahrer = updatedProfile.fahrer
-
       setFormData((prev) => ({
         ...prev,
+        username: updatedProfile.username ?? '',
         email: updatedProfile.email ?? '',
         firstName: updatedProfile.vorname ?? '',
         lastName: updatedProfile.nachname ?? '',
         phone: updatedProfile.telefonnummer ?? '',
-        driverLicense: fahrer?.fuehrerscheinklasse ?? '',
-        lastG2s: formatDateInput(fahrer?.letzteG25),
-        nextG2s: formatDateInput(fahrer?.naechsteG25),
-        street: updatedProfile.adresse ?? '',
-        remarks: updatedProfile.bemerkung ?? fahrer?.bemerkung ?? '',
+        driverLicense: updatedProfile.fuehrerscheinklasse ?? '',
+        lastG2s: formatDateInput(updatedProfile.letzteG25),
+        nextG2s: formatDateInput(updatedProfile.naechsteG25),
+        street: updatedProfile.strasse ?? '',
+        postCode: updatedProfile.postleitzahl ?? '',
+        city: updatedProfile.ort ?? '',
+        remarks: updatedProfile.bemerkung ?? '',
       }))
 
       setIsAccountActive(updatedProfile.aktiv ?? true)
@@ -291,9 +294,9 @@ function ProfilePage() {
               <input
                 id="username"
                 type="text"
-                value={username}
-                disabled
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none cursor-not-allowed"
+                value={formData.username}
+                onChange={(e) => handleInputChange('username', e.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
               />
             </div>
 
@@ -421,7 +424,7 @@ function ProfilePage() {
           {/* Adresse - Full width */}
           <div className="mt-4">
             <label htmlFor="street" className="block text-xs font-semibold text-slate-700">
-              Adresse
+              Straße
             </label>
             <input
               id="street"
@@ -451,7 +454,7 @@ function ProfilePage() {
 
             <div>
               <label htmlFor="city" className="block text-xs font-semibold text-slate-700">
-                Stadt
+                Ort
               </label>
               <input
                 id="city"
