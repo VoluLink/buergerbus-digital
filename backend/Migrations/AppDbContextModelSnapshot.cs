@@ -74,12 +74,30 @@ namespace BuergerbusAPI.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Adresse")
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("Aktiv")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("AngelegtAm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Bemerkung")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<DateTime?>("GeaendertAm")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<int>("InitiativeId")
                         .HasColumnType("int");
+
+                    b.Property<string>("Nachname")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Nutzername")
                         .IsRequired()
@@ -87,6 +105,12 @@ namespace BuergerbusAPI.Migrations
 
                     b.Property<string>("PasswortHash")
                         .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Telefonnummer")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Vorname")
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");
@@ -119,10 +143,6 @@ namespace BuergerbusAPI.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Adresse")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
                     b.Property<bool>("Aktiv")
                         .HasColumnType("tinyint(1)");
 
@@ -136,7 +156,6 @@ namespace BuergerbusAPI.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Fuehrerscheinklasse")
-                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<DateTime?>("GeaendertAm")
@@ -145,22 +164,11 @@ namespace BuergerbusAPI.Migrations
                     b.Property<int>("InitiativeId")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("LetzteG25")
+                    b.Property<DateTime?>("LetzteG25")
                         .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Nachname")
-                        .IsRequired()
-                        .HasColumnType("longtext");
 
                     b.Property<DateTime?>("NaechsteG25")
                         .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Telefonnummer")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Vorname")
-                        .IsRequired()
-                        .HasColumnType("longtext");
 
                     b.HasKey("Id");
 
@@ -604,15 +612,13 @@ namespace BuergerbusAPI.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("BuergerbusAPI.Models.Initiativen", "Initiative")
+                    b.HasOne("BuergerbusAPI.Models.Initiativen", null)
                         .WithMany("Fahrer")
                         .HasForeignKey("InitiativeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Benutzer");
-
-                    b.Navigation("Initiative");
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.FahrerFahrzeug", b =>
