@@ -32,8 +32,8 @@ function UserMenuButton({ onClick, icon, className }: UserMenuButtonProps) {
     return buildDisplayName(
       currentUser.username,
       currentUser.email,
-      currentUser.fahrer?.vorname,
-      currentUser.fahrer?.nachname,
+      currentUser.vorname ?? undefined,
+      currentUser.nachname ?? undefined,
     )
   }, [currentUser])
 

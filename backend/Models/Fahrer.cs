@@ -1,14 +1,14 @@
-﻿namespace BuergerbusAPI.Models
+﻿/// <summary>
+/// Enthält zusätzliche fahrerspezifische Daten eines Benutzers,
+/// z. B. Führerscheinklasse und G25-Untersuchungen.
+/// </summary>
+namespace BuergerbusAPI.Models
 {
     public class Fahrer
     {
         public int Id { get; set; }
-        public string Vorname { get; set; }
-        public string Nachname { get; set; }
-        public string  Adresse { get; set; }
-        public string? Telefonnummer { get; set; }
-        public string Fuehrerscheinklasse { get; set; }
-        public DateTime LetzteG25 { get; set; }
+        public string? Fuehrerscheinklasse { get; set; }
+        public DateTime? LetzteG25 { get; set; }
         public DateTime? NaechsteG25 { get; set; }
         public string? Bemerkung {  get; set; }
         public DateTime AngelegtAm {  get; set; }
@@ -18,10 +18,6 @@
         // 1..n - Benutzer..Fahrer
         public int BenutzerId { get; set; }
         public Benutzer Benutzer { get; set; }
-
-        // Initiative muss in jeder Tabelle sein (Multi-Tenant System) => Landkreis als Datengrenze
-        public int InitiativeId { get; set; }
-        public Initiativen Initiative { get; set; }
 
         //Liste für Fahrten
         public List<Fahrten> Fahrten { get; set; } = new();
