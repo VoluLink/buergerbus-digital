@@ -109,6 +109,26 @@ function parseDateValue(value: string | null | undefined): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
+function toDateInputValue(value: string | null | undefined): string {
+  if (!value) {
+    return ''
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return ''
+  }
+
+  const year = parsed.getFullYear()
+  const month = String(parsed.getMonth() + 1).padStart(2, '0')
+  const day = String(parsed.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function FahrzeuginfosPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
@@ -682,7 +702,7 @@ function FahrzeuginfosPage() {
         onClick={closeModal}
       >
         <div
-          className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-lg"
+          className="flex w-full max-w-2xl flex-col rounded-lg bg-white p-6 shadow-lg max-h-[85vh]"
           onClick={(event) => event.stopPropagation()}
         >
           <div className="flex items-center justify-between border-b pb-4">
@@ -696,20 +716,22 @@ function FahrzeuginfosPage() {
             </button>
           </div>
 
-          <div className="mt-4">
+          <div className="mt-4 flex min-h-[520px] flex-1 flex-col">
             <div className="flex flex-wrap gap-2 border-b pb-3">
               {renderTabButton('stammdaten', 'Stammdaten')}
               {renderTabButton('wartungen', 'Wartungen')}
               {renderTabButton('schaeden', 'Schaeden')}
             </div>
 
-            <div className="mt-4">
+            <div className="mt-4 flex flex-1 flex-col">
               {activeTab === 'stammdaten' ? (
                 <form
                   onSubmit={handleSaveVehicle}
-                  className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3"
+                  className="flex flex-1 flex-col"
                 >
-                  {renderVehicleFields()}
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+                    {renderVehicleFields()}
+                  </div>
 
                   {formError ? (
                     <p className="col-span-1 text-sm text-red-600 sm:col-span-2 md:col-span-3">
@@ -717,7 +739,7 @@ function FahrzeuginfosPage() {
                     </p>
                   ) : null}
 
-                  <div className="col-span-1 mt-2 flex justify-end gap-2 sm:col-span-2 md:col-span-3">
+                  <div className="mt-auto flex justify-end gap-2 pt-4">
                     <button
                       type="button"
                       onClick={closeModal}
@@ -823,6 +845,16 @@ function FahrzeuginfosPage() {
                                         className="text-sm font-semibold text-[#0053a0] hover:underline"
                                       >
                                         Bearbeiten
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(event) => {
+                                          event.stopPropagation()
+                                          void handleDeleteWartung(wartung)
+                                        }}
+                                        className="ml-3 text-sm font-semibold text-red-600 hover:underline"
+                                      >
+                                        Loeschen
                                       </button>
                                     </td>
                                   </tr>
@@ -1040,6 +1072,16 @@ function FahrzeuginfosPage() {
                                         className="text-sm font-semibold text-[#0053a0] hover:underline"
                                       >
                                         Bearbeiten
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(event) => {
+                                          event.stopPropagation()
+                                          void handleDeleteSchaden(schaden)
+                                        }}
+                                        className="ml-3 text-sm font-semibold text-red-600 hover:underline"
+                                      >
+                                        Loeschen
                                       </button>
                                     </td>
                                   </tr>
