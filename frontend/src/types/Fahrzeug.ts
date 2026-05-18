@@ -2,8 +2,6 @@ export interface Fahrzeug {
   id: number
   kennzeichen: string
   bezeichnung: string
-  markeTyp: string
-  fahrzeugart: string
   kapazitaet: number
   kilometerstand: number
   betriebsaufnahme: string
@@ -16,17 +14,13 @@ export interface Fahrzeug {
 export type FahrzeugFormMode = 'create' | 'edit'
 
 export interface FahrzeugFormData {
-  id: string
   kennzeichen: string
   bezeichnung: string
-  markeTyp: string
-  fahrzeugart: string
   kapazitaet: string
   kilometerstand: string
   betriebsaufnahme: string
   bemerkung: string
   status: string
-  aktiv: 'true' | 'false'
 }
 
 export type FahrzeugFieldType = 'text' | 'date' | 'textarea' | 'number' | 'select'

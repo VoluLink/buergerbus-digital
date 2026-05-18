@@ -22,73 +22,36 @@ import { useAuth } from '../context/AuthContext'
 import UserMenuButton from '../components/UserMenuButton'
 
 const vehicleFormFields: FahrzeugFieldConfig[] = [
-  { name: 'id', label: 'Fahrzeug-ID', type: 'number' },
   { name: 'kennzeichen', label: 'Kennzeichen', type: 'text' },
   { name: 'bezeichnung', label: 'Bezeichnung', type: 'text' },
-  { name: 'markeTyp', label: 'Marke/Typ', type: 'text' },
-  { name: 'fahrzeugart', label: 'Fahrzeugart', type: 'text' },
   { name: 'kapazitaet', label: 'Kapazitaet', type: 'number' },
   { name: 'kilometerstand', label: 'Kilometerstand', type: 'number' },
   { name: 'betriebsaufnahme', label: 'Betriebsaufnahme', type: 'date' },
-  {
-    name: 'aktiv',
-    label: 'Aktiv',
-    type: 'select',
-    options: [
-      { label: 'Ja', value: 'true' },
-      { label: 'Nein', value: 'false' },
-    ],
-  },
   { name: 'status', label: 'Status', type: 'text' },
   { name: 'bemerkung', label: 'Bemerkung', type: 'textarea' },
 ]
 
 function createEmptyVehicleForm(): FahrzeugFormData {
   return {
-    id: '',
     kennzeichen: '',
     bezeichnung: '',
-    markeTyp: '',
-    fahrzeugart: '',
     kapazitaet: '',
     kilometerstand: '',
     betriebsaufnahme: '',
     bemerkung: '',
     status: '',
-    aktiv: 'true',
   }
 }
 
 function toVehicleFormData(vehicle: Fahrzeug): FahrzeugFormData {
   return {
-    id: String(vehicle.id),
     kennzeichen: vehicle.kennzeichen,
     bezeichnung: vehicle.bezeichnung,
-    markeTyp: vehicle.markeTyp,
-    fahrzeugart: vehicle.fahrzeugart,
     kapazitaet: String(vehicle.kapazitaet),
     kilometerstand: String(vehicle.kilometerstand),
     betriebsaufnahme: vehicle.betriebsaufnahme,
     bemerkung: vehicle.bemerkung ?? '',
     status: vehicle.status,
-    aktiv: vehicle.aktiv ? 'true' : 'false',
-  }
-}
-
-function toVehicleModel(formData: FahrzeugFormData, initiativeId: number): Fahrzeug {
-  return {
-    id: Number(formData.id),
-    kennzeichen: formData.kennzeichen.trim(),
-    bezeichnung: formData.bezeichnung.trim(),
-    markeTyp: formData.markeTyp.trim(),
-    fahrzeugart: formData.fahrzeugart.trim(),
-    kapazitaet: Number(formData.kapazitaet),
-    kilometerstand: Number(formData.kilometerstand),
-    betriebsaufnahme: formData.betriebsaufnahme,
-    bemerkung: formData.bemerkung.trim() ? formData.bemerkung.trim() : null,
-    status: formData.status.trim(),
-    aktiv: formData.aktiv === 'true',
-    initiativeId,
   }
 }
 
@@ -149,6 +112,7 @@ function FahrzeuginfosPage() {
   const [modalMode, setModalMode] = useState<FahrzeugFormMode>('create')
   const [formData, setFormData] = useState<FahrzeugFormData>(createEmptyVehicleForm())
   const [formError, setFormError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<FahrzeugTab>('stammdaten')
   const [wartungen, setWartungen] = useState<Wartung[]>([])
@@ -172,11 +136,18 @@ function FahrzeuginfosPage() {
     let isActive = true
 
     async function loadVehicles() {
+      if (!currentUser?.id) {
+        setVehicles([])
+        setLoadError('Benutzerkontext fehlt.')
+        setIsLoading(false)
+        return
+      }
+
       setIsLoading(true)
       setLoadError('')
 
       try {
-        const loadedVehicles = await getFahrzeuge()
+        const loadedVehicles = await getFahrzeuge(currentUser.id)
         if (isActive) {
           setVehicles(loadedVehicles)
         }
@@ -196,7 +167,7 @@ function FahrzeuginfosPage() {
     return () => {
       isActive = false
     }
-  }, [])
+  }, [currentUser?.id])
 
   useEffect(() => {
     let isActive = true
@@ -259,6 +230,7 @@ function FahrzeuginfosPage() {
     setModalMode('create')
     setFormData(createEmptyVehicleForm())
     setFormError('')
+    setSuccessMessage('')
     setActiveTab('stammdaten')
     setWartungFormData(createEmptyWartungForm())
     setSchadenFormData(createEmptySchadenForm())
@@ -274,6 +246,7 @@ function FahrzeuginfosPage() {
     setModalMode('edit')
     setFormData(toVehicleFormData(selectedVehicle))
     setFormError('')
+    setSuccessMessage('')
     setActiveTab('stammdaten')
     setWartungFormData(createEmptyWartungForm())
     setSchadenFormData(createEmptySchadenForm())
@@ -294,18 +267,9 @@ function FahrzeuginfosPage() {
     }))
   }
 
-  function validateVehicleForm(data: FahrzeugFormData, mode: FahrzeugFormMode) {
-    const vehicleId = Number(data.id)
+  function validateVehicleForm(data: FahrzeugFormData) {
     const kapazitaet = Number(data.kapazitaet)
     const kilometerstand = Number(data.kilometerstand)
-
-    if (!Number.isInteger(vehicleId) || vehicleId <= 0) {
-      return 'Bitte eine gueltige Fahrzeug-ID eingeben.'
-    }
-
-    if (mode === 'create' && vehicles.some((vehicle) => vehicle.id === vehicleId)) {
-      return 'Diese Fahrzeug-ID existiert bereits.'
-    }
 
     if (!data.kennzeichen.trim()) {
       return 'Kennzeichen ist erforderlich.'
@@ -327,40 +291,50 @@ function FahrzeuginfosPage() {
       return 'Betriebsaufnahme ist erforderlich.'
     }
 
-    if (!data.status.trim()) {
-      return 'Status ist erforderlich.'
-    }
-
     return ''
   }
 
   async function handleSaveVehicle(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setFormError('')
+    setSuccessMessage('')
 
-    const validationError = validateVehicleForm(formData, modalMode)
+    if (!currentUser?.id) {
+      setFormError('Benutzerkontext fehlt.')
+      return
+    }
+
+    const validationError = validateVehicleForm(formData)
     if (validationError) {
       setFormError(validationError)
       return
     }
 
-    const resolvedInitiativeId = selectedVehicle?.initiativeId ?? currentUser?.initiative?.id ?? 1
-    const model = toVehicleModel(formData, resolvedInitiativeId)
+    const request = {
+      kennzeichen: formData.kennzeichen.trim(),
+      bezeichnung: formData.bezeichnung.trim(),
+      kapazitaet: Number(formData.kapazitaet),
+      kilometerstand: Number(formData.kilometerstand),
+      betriebsaufnahme: formData.betriebsaufnahme,
+      bemerkung: formData.bemerkung.trim() ? formData.bemerkung.trim() : null,
+      status: formData.status.trim() ? formData.status.trim() : null,
+    }
+
     setIsSaving(true)
 
     try {
       if (modalMode === 'create') {
-        const createdVehicle = await createFahrzeug(model)
-        setVehicles((previousVehicles) => [...previousVehicles, createdVehicle])
+        const createdVehicle = await createFahrzeug(currentUser.id, request)
+        const refreshedVehicles = await getFahrzeuge(currentUser.id)
+        setVehicles(refreshedVehicles)
         setSelectedVehicleId(createdVehicle.id)
+        setSuccessMessage('Fahrzeug wurde erfolgreich angelegt.')
       } else if (selectedVehicle) {
-        const updatedVehicle = await updateFahrzeug(selectedVehicle.id, model)
-        setVehicles((previousVehicles) =>
-          previousVehicles.map((vehicle) =>
-            vehicle.id === selectedVehicle.id ? updatedVehicle : vehicle,
-          ),
-        )
+        const updatedVehicle = await updateFahrzeug(selectedVehicle.id, currentUser.id, request)
+        const refreshedVehicles = await getFahrzeuge(currentUser.id)
+        setVehicles(refreshedVehicles)
         setSelectedVehicleId(updatedVehicle.id)
+        setSuccessMessage('Fahrzeug wurde erfolgreich gespeichert.')
       }
 
       closeModal()
@@ -377,6 +351,11 @@ function FahrzeuginfosPage() {
       return
     }
 
+    if (!currentUser?.id) {
+      alert('Benutzerkontext fehlt.')
+      return
+    }
+
     const shouldDelete = window.confirm(
       `Sind Sie sicher, dass Sie das Fahrzeug ${selectedVehicle.id} loeschen moechten?`,
     )
@@ -386,11 +365,11 @@ function FahrzeuginfosPage() {
     }
 
     try {
-      await deleteFahrzeug(selectedVehicle.id)
-      setVehicles((previousVehicles) =>
-        previousVehicles.filter((vehicle) => vehicle.id !== selectedVehicle.id),
-      )
+      await deleteFahrzeug(selectedVehicle.id, currentUser.id)
+      const refreshedVehicles = await getFahrzeuge(currentUser.id)
+      setVehicles(refreshedVehicles)
       setSelectedVehicleId(null)
+      setSuccessMessage('Fahrzeug wurde geloescht.')
     } catch {
       alert('Das Fahrzeug konnte nicht geloescht werden.')
     }
@@ -522,13 +501,12 @@ function FahrzeuginfosPage() {
     }
   }
 
-  function renderVehicleFields(mode: FahrzeugFormMode) {
+  function renderVehicleFields() {
     return vehicleFormFields.map((field) => {
       const fieldValue = formData[field.name]
       const isTextarea = field.type === 'textarea'
       const isSelect = field.type === 'select'
       const fieldSpan = isTextarea ? 'col-span-1 sm:col-span-2 md:col-span-3' : ''
-      const isIdField = field.name === 'id'
 
       return (
         <div key={field.name} className={fieldSpan}>
@@ -558,10 +536,7 @@ function FahrzeuginfosPage() {
               type={field.type}
               value={fieldValue}
               onChange={(event) => handleFieldChange(field.name, event.target.value)}
-              disabled={mode === 'edit' && isIdField}
-              className={`mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm ${
-                mode === 'edit' && isIdField ? 'bg-slate-50 text-slate-500' : 'bg-white'
-              }`}
+              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
           )}
         </div>
@@ -624,7 +599,7 @@ function FahrzeuginfosPage() {
                   onSubmit={handleSaveVehicle}
                   className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3"
                 >
-                  {renderVehicleFields(mode)}
+                  {renderVehicleFields()}
 
                   {formError ? (
                     <p className="col-span-1 text-sm text-red-600 sm:col-span-2 md:col-span-3">
@@ -977,6 +952,12 @@ function FahrzeuginfosPage() {
             </div>
           ) : null}
 
+          {successMessage ? (
+            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              {successMessage}
+            </div>
+          ) : null}
+
           <div className="overflow-x-auto">
             {isLoading ? (
               <div className="flex items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-sm text-slate-500">
@@ -1098,7 +1079,7 @@ function FahrzeuginfosPage() {
               onClick={openCreateVehicleModal}
               className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
             >
-              Fahrzeug erstellen
+              Fahrzeug hinzufuegen
             </button>
             <button
               type="button"
@@ -1199,7 +1180,7 @@ function FahrzeuginfosPage() {
       ) : null}
 
       {isModalOpen && modalMode === 'create'
-        ? renderVehicleModal('create', 'Fahrzeug erstellen', 'Fahrzeug erstellen')
+        ? renderVehicleModal('create', 'Fahrzeug hinzufuegen', 'Fahrzeug hinzufuegen')
         : null}
 
       {isModalOpen && modalMode === 'edit'

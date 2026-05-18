@@ -17,6 +17,185 @@ public static class FahrzeugServiceEndpoints
 
     public static IEndpointRouteBuilder MapFahrzeugServiceEndpoints(this IEndpointRouteBuilder app)
     {
+        app.MapGet("/api/v1/fahrzeuge", async (
+            int? userId,
+            AppDbContext db
+        ) =>
+        {
+            var userResult = await LoadUserWithInitiativeAsync(userId, db);
+            if (userResult.Error != null)
+            {
+                return userResult.Error;
+            }
+
+            var fahrzeuge = await db.Fahrzeuge
+                .AsNoTracking()
+                .Where(f => f.InitiativeId == userResult.User!.InitiativeId)
+                .OrderBy(f => f.Kennzeichen)
+                .Select(f => new FahrzeugDto(
+                    f.Id,
+                    f.Kennzeichen,
+                    f.Bezeichnung,
+                    f.Kapazitaet,
+                    f.Kilometerstand,
+                    f.Betriebsaufnahme,
+                    f.Bemerkung,
+                    f.Status,
+                    f.Aktiv,
+                    f.InitiativeId
+                ))
+                .ToListAsync();
+
+            return Results.Ok(fahrzeuge);
+        });
+
+        app.MapPost("/api/v1/fahrzeuge", async (
+            int? userId,
+            CreateFahrzeugRequest request,
+            AppDbContext db
+        ) =>
+        {
+            var userResult = await LoadUserWithInitiativeAsync(userId, db);
+            if (userResult.Error != null)
+            {
+                return userResult.Error;
+            }
+
+            var validationError = ValidateFahrzeugRequest(
+                request.Kennzeichen,
+                request.Bezeichnung,
+                request.Kapazitaet,
+                request.Kilometerstand,
+                request.Betriebsaufnahme
+            );
+
+            if (validationError != null)
+            {
+                return validationError;
+            }
+
+            var status = string.IsNullOrWhiteSpace(request.Status)
+                ? "Einsatzbereit"
+                : request.Status.Trim();
+
+            var fahrzeug = new Fahrzeug
+            {
+                Kennzeichen = request.Kennzeichen.Trim(),
+                Bezeichnung = request.Bezeichnung.Trim(),
+                Kapazitaet = request.Kapazitaet,
+                Kilometerstand = request.Kilometerstand,
+                Betriebsaufnahme = request.Betriebsaufnahme,
+                Bemerkung = string.IsNullOrWhiteSpace(request.Bemerkung) ? null : request.Bemerkung.Trim(),
+                Status = status,
+                Aktiv = true,
+                InitiativeId = userResult.User!.InitiativeId,
+            };
+
+            db.Fahrzeuge.Add(fahrzeug);
+            await db.SaveChangesAsync();
+
+            return Results.Created($"/api/v1/fahrzeuge/{fahrzeug.Id}", new FahrzeugDto(
+                fahrzeug.Id,
+                fahrzeug.Kennzeichen,
+                fahrzeug.Bezeichnung,
+                fahrzeug.Kapazitaet,
+                fahrzeug.Kilometerstand,
+                fahrzeug.Betriebsaufnahme,
+                fahrzeug.Bemerkung,
+                fahrzeug.Status,
+                fahrzeug.Aktiv,
+                fahrzeug.InitiativeId
+            ));
+        })
+        .Accepts<CreateFahrzeugRequest>("application/json")
+        .Produces<FahrzeugDto>(StatusCodes.Status201Created);
+
+        app.MapPut("/api/v1/fahrzeuge/{id:int}", async (
+            int id,
+            int? userId,
+            UpdateFahrzeugRequest request,
+            AppDbContext db
+        ) =>
+        {
+            var fahrzeug = await db.Fahrzeuge.FirstOrDefaultAsync(f => f.Id == id);
+            if (fahrzeug == null)
+            {
+                return Results.NotFound("Fahrzeug wurde nicht gefunden.");
+            }
+
+            var authResult = await EnsureUserCanAccessVehicleAsync(id, userId, db, fahrzeug);
+            if (authResult != null)
+            {
+                return authResult;
+            }
+
+            var validationError = ValidateFahrzeugRequest(
+                request.Kennzeichen,
+                request.Bezeichnung,
+                request.Kapazitaet,
+                request.Kilometerstand,
+                request.Betriebsaufnahme
+            );
+
+            if (validationError != null)
+            {
+                return validationError;
+            }
+
+            fahrzeug.Kennzeichen = request.Kennzeichen.Trim();
+            fahrzeug.Bezeichnung = request.Bezeichnung.Trim();
+            fahrzeug.Kapazitaet = request.Kapazitaet;
+            fahrzeug.Kilometerstand = request.Kilometerstand;
+            fahrzeug.Betriebsaufnahme = request.Betriebsaufnahme;
+            fahrzeug.Bemerkung = string.IsNullOrWhiteSpace(request.Bemerkung)
+                ? null
+                : request.Bemerkung.Trim();
+            fahrzeug.Status = string.IsNullOrWhiteSpace(request.Status)
+                ? "Einsatzbereit"
+                : request.Status.Trim();
+
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new FahrzeugDto(
+                fahrzeug.Id,
+                fahrzeug.Kennzeichen,
+                fahrzeug.Bezeichnung,
+                fahrzeug.Kapazitaet,
+                fahrzeug.Kilometerstand,
+                fahrzeug.Betriebsaufnahme,
+                fahrzeug.Bemerkung,
+                fahrzeug.Status,
+                fahrzeug.Aktiv,
+                fahrzeug.InitiativeId
+            ));
+        })
+        .Accepts<UpdateFahrzeugRequest>("application/json")
+        .Produces<FahrzeugDto>(StatusCodes.Status200OK);
+
+        app.MapDelete("/api/v1/fahrzeuge/{id:int}", async (
+            int id,
+            int? userId,
+            AppDbContext db
+        ) =>
+        {
+            var fahrzeug = await db.Fahrzeuge.FirstOrDefaultAsync(f => f.Id == id);
+            if (fahrzeug == null)
+            {
+                return Results.NotFound("Fahrzeug wurde nicht gefunden.");
+            }
+
+            var authResult = await EnsureUserCanAccessVehicleAsync(id, userId, db, fahrzeug);
+            if (authResult != null)
+            {
+                return authResult;
+            }
+
+            db.Fahrzeuge.Remove(fahrzeug);
+            await db.SaveChangesAsync();
+
+            return Results.NoContent();
+        });
+
         app.MapGet("/api/v1/fahrzeuge/{fahrzeugId:int}/wartungen", async (
             int fahrzeugId,
             int? userId,
@@ -361,18 +540,10 @@ public static class FahrzeugServiceEndpoints
         Fahrzeug? fahrzeug = null
     )
     {
-        if (!userId.HasValue)
+        var userResult = await LoadUserWithInitiativeAsync(userId, db);
+        if (userResult.Error != null)
         {
-            return Results.BadRequest("userId ist erforderlich.");
-        }
-
-        var user = await db.Benutzer
-            .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == userId.Value);
-
-        if (user == null)
-        {
-            return Results.NotFound("Benutzer wurde nicht gefunden.");
+            return userResult.Error;
         }
 
         var resolvedFahrzeug = fahrzeug ?? await db.Fahrzeuge.FirstOrDefaultAsync(f => f.Id == fahrzeugId);
@@ -381,9 +552,78 @@ public static class FahrzeugServiceEndpoints
             return Results.NotFound("Fahrzeug wurde nicht gefunden.");
         }
 
-        if (resolvedFahrzeug.InitiativeId != user.InitiativeId)
+        if (resolvedFahrzeug.InitiativeId != userResult.User!.InitiativeId)
         {
             return Results.Forbid();
+        }
+
+        return null;
+    }
+
+    private static async Task<(Benutzer? User, IResult? Error)> LoadUserWithInitiativeAsync(
+        int? userId,
+        AppDbContext db
+    )
+    {
+        if (!userId.HasValue)
+        {
+            return (null, Results.BadRequest("userId ist erforderlich."));
+        }
+
+        var user = await db.Benutzer
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId.Value);
+
+        if (user == null)
+        {
+            return (null, Results.NotFound("Benutzer wurde nicht gefunden."));
+        }
+
+        if (user.InitiativeId <= 0)
+        {
+            return (null, Results.BadRequest("Benutzer hat keine gueltige Initiative."));
+        }
+
+        var initiativeExists = await db.Initiativen.AnyAsync(i => i.Id == user.InitiativeId);
+        if (!initiativeExists)
+        {
+            return (null, Results.BadRequest("Benutzer hat keine gueltige Initiative."));
+        }
+
+        return (user, null);
+    }
+
+    private static IResult? ValidateFahrzeugRequest(
+        string kennzeichen,
+        string bezeichnung,
+        byte kapazitaet,
+        int kilometerstand,
+        DateTime betriebsaufnahme
+    )
+    {
+        if (string.IsNullOrWhiteSpace(kennzeichen))
+        {
+            return Results.BadRequest("Kennzeichen ist erforderlich.");
+        }
+
+        if (string.IsNullOrWhiteSpace(bezeichnung))
+        {
+            return Results.BadRequest("Bezeichnung ist erforderlich.");
+        }
+
+        if (kapazitaet <= 0)
+        {
+            return Results.BadRequest("Kapazitaet muss groesser als 0 sein.");
+        }
+
+        if (kilometerstand < 0)
+        {
+            return Results.BadRequest("Kilometerstand darf nicht negativ sein.");
+        }
+
+        if (betriebsaufnahme == default)
+        {
+            return Results.BadRequest("Betriebsaufnahme ist erforderlich.");
         }
 
         return null;
