@@ -23,6 +23,7 @@ export interface FahrzeugFormData {
   kapazitaet: string
   kilometerstand: string
   betriebsaufnahme: string
+  initiativeId: string
   bemerkung: string
   status: string
 }

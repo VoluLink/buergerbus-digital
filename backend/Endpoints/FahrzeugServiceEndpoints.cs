@@ -28,6 +28,8 @@ public static class FahrzeugServiceEndpoints
                 return userResult.Error;
             }
 
+            var today = DateTime.Today;
+
             var fahrzeuge = await db.Fahrzeuge
                 .AsNoTracking()
                 .Where(f => f.InitiativeId == userResult.User!.InitiativeId)
@@ -45,17 +47,20 @@ public static class FahrzeugServiceEndpoints
                     f.InitiativeId,
                     f.Initiative != null ? f.Initiative.Name : null,
                     db.Wartungen
-                        .Where(w => w.FahrzeugId == f.Id)
+                        .Where(w => w.FahrzeugId == f.Id && w.LetzterTermin <= today)
                         .OrderByDescending(w => w.LetzterTermin)
                         .Select(w => (DateTime?)w.LetzterTermin)
                         .FirstOrDefault(),
                     db.Wartungen
-                        .Where(w => w.FahrzeugId == f.Id && w.NaechsterTermin != null)
+                        .Where(w =>
+                            w.FahrzeugId == f.Id &&
+                            w.NaechsterTermin != null &&
+                            w.NaechsterTermin >= today)
                         .OrderBy(w => w.NaechsterTermin)
                         .Select(w => w.NaechsterTermin)
                         .FirstOrDefault(),
                     db.Schaeden
-                        .Where(s => s.FahrzeugId == f.Id && s.Status != "Behoben")
+                        .Where(s => s.FahrzeugId == f.Id && s.Status == "Offen")
                         .Count()
                 ))
                 .ToListAsync();
@@ -80,12 +85,19 @@ public static class FahrzeugServiceEndpoints
                 request.Bezeichnung,
                 request.Kapazitaet,
                 request.Kilometerstand,
-                request.Betriebsaufnahme
+                request.Betriebsaufnahme,
+                request.InitiativeId
             );
 
             if (validationError != null)
             {
                 return validationError;
+            }
+
+            var initiativeExists = await db.Initiativen.AnyAsync(i => i.Id == request.InitiativeId);
+            if (!initiativeExists)
+            {
+                return Results.BadRequest("Initiative ist ungueltig.");
             }
 
             var status = string.IsNullOrWhiteSpace(request.Status)
@@ -102,7 +114,7 @@ public static class FahrzeugServiceEndpoints
                 Bemerkung = string.IsNullOrWhiteSpace(request.Bemerkung) ? null : request.Bemerkung.Trim(),
                 Status = status,
                 Aktiv = true,
-                InitiativeId = userResult.User!.InitiativeId,
+                InitiativeId = request.InitiativeId,
             };
 
             db.Fahrzeuge.Add(fahrzeug);
@@ -157,12 +169,19 @@ public static class FahrzeugServiceEndpoints
                 request.Bezeichnung,
                 request.Kapazitaet,
                 request.Kilometerstand,
-                request.Betriebsaufnahme
+                request.Betriebsaufnahme,
+                request.InitiativeId
             );
 
             if (validationError != null)
             {
                 return validationError;
+            }
+
+            var initiativeExists = await db.Initiativen.AnyAsync(i => i.Id == request.InitiativeId);
+            if (!initiativeExists)
+            {
+                return Results.BadRequest("Initiative ist ungueltig.");
             }
 
             fahrzeug.Kennzeichen = request.Kennzeichen.Trim();
@@ -176,6 +195,7 @@ public static class FahrzeugServiceEndpoints
             fahrzeug.Status = string.IsNullOrWhiteSpace(request.Status)
                 ? "Einsatzbereit"
                 : request.Status.Trim();
+            fahrzeug.InitiativeId = request.InitiativeId;
 
             await db.SaveChangesAsync();
 
@@ -185,19 +205,22 @@ public static class FahrzeugServiceEndpoints
                 .FirstOrDefaultAsync();
 
             var letzteWartung = await db.Wartungen
-                .Where(w => w.FahrzeugId == fahrzeug.Id)
+                .Where(w => w.FahrzeugId == fahrzeug.Id && w.LetzterTermin <= DateTime.Today)
                 .OrderByDescending(w => w.LetzterTermin)
                 .Select(w => (DateTime?)w.LetzterTermin)
                 .FirstOrDefaultAsync();
 
             var naechsteWartung = await db.Wartungen
-                .Where(w => w.FahrzeugId == fahrzeug.Id && w.NaechsterTermin != null)
+                .Where(w =>
+                    w.FahrzeugId == fahrzeug.Id &&
+                    w.NaechsterTermin != null &&
+                    w.NaechsterTermin >= DateTime.Today)
                 .OrderBy(w => w.NaechsterTermin)
                 .Select(w => w.NaechsterTermin)
                 .FirstOrDefaultAsync();
 
             var offeneSchaeden = await db.Schaeden
-                .Where(s => s.FahrzeugId == fahrzeug.Id && s.Status != "Behoben")
+                .Where(s => s.FahrzeugId == fahrzeug.Id && s.Status == "Offen")
                 .CountAsync();
 
             return Results.Ok(new FahrzeugDto(
@@ -646,7 +669,8 @@ public static class FahrzeugServiceEndpoints
         string bezeichnung,
         byte kapazitaet,
         int kilometerstand,
-        DateTime betriebsaufnahme
+        DateTime betriebsaufnahme,
+        int initiativeId
     )
     {
         if (string.IsNullOrWhiteSpace(kennzeichen))
@@ -659,9 +683,9 @@ public static class FahrzeugServiceEndpoints
             return Results.BadRequest("Bezeichnung ist erforderlich.");
         }
 
-        if (kapazitaet <= 0)
+        if (kapazitaet < 1 || kapazitaet > 8)
         {
-            return Results.BadRequest("Kapazitaet muss groesser als 0 sein.");
+            return Results.BadRequest("Kapazitaet muss zwischen 1 und 8 liegen.");
         }
 
         if (kilometerstand < 0)
@@ -672,6 +696,11 @@ public static class FahrzeugServiceEndpoints
         if (betriebsaufnahme == default)
         {
             return Results.BadRequest("Betriebsaufnahme ist erforderlich.");
+        }
+
+        if (initiativeId <= 0)
+        {
+            return Results.BadRequest("Initiative ist erforderlich.");
         }
 
         return null;

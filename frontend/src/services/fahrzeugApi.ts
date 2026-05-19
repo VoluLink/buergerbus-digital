@@ -7,6 +7,7 @@ export type CreateFahrzeugRequest = {
   kapazitaet: number
   kilometerstand: number
   betriebsaufnahme: string
+  initiativeId: number
   bemerkung?: string | null
   status?: string | null
 }

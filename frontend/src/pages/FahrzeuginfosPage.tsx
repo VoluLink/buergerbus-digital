@@ -8,6 +8,7 @@ import {
   getFahrzeuge,
   updateFahrzeug,
 } from '../services/fahrzeugApi'
+import { fetchInitiatives } from '../services/users'
 import {
   createSchaden,
   getSchaedenByFahrzeug,
@@ -26,12 +27,14 @@ import type {
 } from '../types/Fahrzeug'
 import type { Schaden, SchadenFormData } from '../types/Schaden'
 import type { Wartung, WartungFormData } from '../types/Wartung'
+import type { InitiativeSummary } from '../types/UserProfile'
 import { useAuth } from '../context/AuthContext'
 import UserMenuButton from '../components/UserMenuButton'
 
 const vehicleFormFields: FahrzeugFieldConfig[] = [
   { name: 'kennzeichen', label: 'Kennzeichen', type: 'text' },
   { name: 'bezeichnung', label: 'Bezeichnung', type: 'text' },
+  { name: 'initiativeId', label: 'Initiative', type: 'select' },
   { name: 'kapazitaet', label: 'Kapazitaet', type: 'number' },
   { name: 'kilometerstand', label: 'Kilometerstand', type: 'number' },
   { name: 'betriebsaufnahme', label: 'Betriebsaufnahme', type: 'date' },
@@ -46,6 +49,7 @@ function createEmptyVehicleForm(): FahrzeugFormData {
     kapazitaet: '',
     kilometerstand: '',
     betriebsaufnahme: '',
+    initiativeId: '',
     bemerkung: '',
     status: '',
   }
@@ -57,7 +61,8 @@ function toVehicleFormData(vehicle: Fahrzeug): FahrzeugFormData {
     bezeichnung: vehicle.bezeichnung,
     kapazitaet: String(vehicle.kapazitaet),
     kilometerstand: String(vehicle.kilometerstand),
-    betriebsaufnahme: vehicle.betriebsaufnahme,
+    betriebsaufnahme: toDateInputValue(vehicle.betriebsaufnahme),
+    initiativeId: String(vehicle.initiativeId),
     bemerkung: vehicle.bemerkung ?? '',
     status: vehicle.status,
   }
@@ -195,6 +200,7 @@ function FahrzeuginfosPage() {
   const { currentUser } = useAuth()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [vehicles, setVehicles] = useState<Fahrzeug[]>([])
+  const [initiativen, setInitiativen] = useState<InitiativeSummary[]>([])
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -250,9 +256,13 @@ function FahrzeuginfosPage() {
       setLoadError('')
 
       try {
-        const loadedVehicles = await getFahrzeuge(currentUser.id)
+        const [loadedVehicles, loadedInitiativen] = await Promise.all([
+          getFahrzeuge(currentUser.id),
+          fetchInitiatives().catch(() => [] as InitiativeSummary[]),
+        ])
         if (isActive) {
           setVehicles(loadedVehicles)
+          setInitiativen(loadedInitiativen)
         }
       } catch {
         if (isActive) {
@@ -330,8 +340,12 @@ function FahrzeuginfosPage() {
   }
 
   function openCreateVehicleModal() {
+    const defaultInitiativeId = currentUser?.initiative?.id ?? initiativen[0]?.id ?? null
     setModalMode('create')
-    setFormData(createEmptyVehicleForm())
+    setFormData({
+      ...createEmptyVehicleForm(),
+      initiativeId: defaultInitiativeId ? String(defaultInitiativeId) : '',
+    })
     setFormError('')
     setSuccessMessage('')
     setActiveTab('stammdaten')
@@ -373,6 +387,7 @@ function FahrzeuginfosPage() {
   function validateVehicleForm(data: FahrzeugFormData) {
     const kapazitaet = Number(data.kapazitaet)
     const kilometerstand = Number(data.kilometerstand)
+    const initiativeId = Number(data.initiativeId)
 
     if (!data.kennzeichen.trim()) {
       return 'Kennzeichen ist erforderlich.'
@@ -382,8 +397,8 @@ function FahrzeuginfosPage() {
       return 'Bezeichnung ist erforderlich.'
     }
 
-    if (!Number.isFinite(kapazitaet) || kapazitaet <= 0) {
-      return 'Kapazitaet muss groesser als 0 sein.'
+    if (!Number.isFinite(kapazitaet) || kapazitaet < 1 || kapazitaet > 8) {
+      return 'Kapazitaet muss zwischen 1 und 8 liegen.'
     }
 
     if (!Number.isFinite(kilometerstand) || kilometerstand < 0) {
@@ -392,6 +407,10 @@ function FahrzeuginfosPage() {
 
     if (!data.betriebsaufnahme) {
       return 'Betriebsaufnahme ist erforderlich.'
+    }
+
+    if (!Number.isFinite(initiativeId) || initiativeId <= 0) {
+      return 'Initiative ist erforderlich.'
     }
 
     return ''
@@ -419,6 +438,7 @@ function FahrzeuginfosPage() {
       kapazitaet: Number(formData.kapazitaet),
       kilometerstand: Number(formData.kilometerstand),
       betriebsaufnahme: formData.betriebsaufnahme,
+      initiativeId: Number(formData.initiativeId),
       bemerkung: formData.bemerkung.trim() ? formData.bemerkung.trim() : null,
       status: formData.status.trim() ? formData.status.trim() : null,
     }
@@ -661,6 +681,14 @@ function FahrzeuginfosPage() {
       const fieldValue = formData[field.name]
       const isTextarea = field.type === 'textarea'
       const isSelect = field.type === 'select'
+      const isKapazitaet = field.name === 'kapazitaet'
+      const selectOptions =
+        field.name === 'initiativeId'
+          ? initiativen.map((initiative) => ({
+              label: initiative.name,
+              value: String(initiative.id),
+            }))
+          : field.options ?? []
       const fieldSpan = isTextarea ? 'col-span-1 sm:col-span-2 md:col-span-3' : ''
 
       return (
@@ -680,7 +708,10 @@ function FahrzeuginfosPage() {
               onChange={(event) => handleFieldChange(field.name, event.target.value)}
               className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             >
-              {field.options?.map((option) => (
+              {field.name === 'initiativeId' ? (
+                <option value="">Keine Initiative ausgewählt</option>
+              ) : null}
+              {selectOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -690,7 +721,28 @@ function FahrzeuginfosPage() {
             <input
               type={field.type}
               value={fieldValue}
-              onChange={(event) => handleFieldChange(field.name, event.target.value)}
+              min={isKapazitaet ? 1 : undefined}
+              max={isKapazitaet ? 8 : undefined}
+              onChange={(event) => {
+                if (isKapazitaet) {
+                  const rawValue = event.target.value
+                  if (!rawValue) {
+                    handleFieldChange(field.name, '')
+                    return
+                  }
+
+                  const numericValue = Number(rawValue)
+                  if (Number.isNaN(numericValue)) {
+                    return
+                  }
+
+                  const clampedValue = Math.min(Math.max(numericValue, 1), 8)
+                  handleFieldChange(field.name, String(clampedValue))
+                  return
+                }
+
+                handleFieldChange(field.name, event.target.value)
+              }}
               className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
           )}

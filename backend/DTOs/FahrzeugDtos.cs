@@ -26,6 +26,7 @@ public record CreateFahrzeugRequest(
     byte Kapazitaet,
     int Kilometerstand,
     DateTime Betriebsaufnahme,
+    int InitiativeId,
     string? Bemerkung,
     string? Status
 );
@@ -36,6 +37,7 @@ public record UpdateFahrzeugRequest(
     byte Kapazitaet,
     int Kilometerstand,
     DateTime Betriebsaufnahme,
+    int InitiativeId,
     string? Bemerkung,
     string? Status
 );
