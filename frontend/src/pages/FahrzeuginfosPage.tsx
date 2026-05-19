@@ -133,15 +133,42 @@ function formatKilometerstand(value: number | null | undefined) {
   return `${new Intl.NumberFormat('de-DE').format(value)} km`
 }
 
-function getWartungBadgeClass(naechsteWartung?: string | null): string {
-  if (!naechsteWartung) {
+function getWartungBadgeClass(value?: string | Date | null): string {
+  if (!value) {
     return ''
   }
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const wartungDate = new Date(naechsteWartung)
+  let wartungDate: Date
+
+  if (value instanceof Date) {
+    wartungDate = new Date(value.getFullYear(), value.getMonth(), value.getDate())
+  } else {
+    const text = value.trim()
+
+    if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
+      const [year, month, day] = text.substring(0, 10).split('-').map(Number)
+      wartungDate = new Date(year, month - 1, day)
+    } else {
+      const match = text.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})$/)
+      if (!match) {
+        return ''
+      }
+
+      const day = Number(match[1])
+      const month = Number(match[2])
+      let year = Number(match[3])
+
+      if (year < 100) {
+        year += 2000
+      }
+
+      wartungDate = new Date(year, month - 1, day)
+    }
+  }
+
   if (Number.isNaN(wartungDate.getTime())) {
     return ''
   }

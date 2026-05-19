@@ -28,8 +28,6 @@ public static class FahrzeugServiceEndpoints
                 return userResult.Error;
             }
 
-            var today = DateTime.Today;
-
             var fahrzeuge = await db.Fahrzeuge
                 .AsNoTracking()
                 .Where(f => f.InitiativeId == userResult.User!.InitiativeId)
@@ -47,15 +45,12 @@ public static class FahrzeugServiceEndpoints
                     f.InitiativeId,
                     f.Initiative != null ? f.Initiative.Name : null,
                     db.Wartungen
-                        .Where(w => w.FahrzeugId == f.Id && w.LetzterTermin <= today)
+                        .Where(w => w.FahrzeugId == f.Id && w.LetzterTermin <= DateTime.Today)
                         .OrderByDescending(w => w.LetzterTermin)
                         .Select(w => (DateTime?)w.LetzterTermin)
                         .FirstOrDefault(),
                     db.Wartungen
-                        .Where(w =>
-                            w.FahrzeugId == f.Id &&
-                            w.NaechsterTermin != null &&
-                            w.NaechsterTermin >= today)
+                        .Where(w => w.FahrzeugId == f.Id && w.NaechsterTermin != null)
                         .OrderBy(w => w.NaechsterTermin)
                         .Select(w => w.NaechsterTermin)
                         .FirstOrDefault(),
@@ -217,10 +212,7 @@ public static class FahrzeugServiceEndpoints
                 .FirstOrDefaultAsync();
 
             var naechsteWartung = await db.Wartungen
-                .Where(w =>
-                    w.FahrzeugId == fahrzeug.Id &&
-                    w.NaechsterTermin != null &&
-                    w.NaechsterTermin >= DateTime.Today)
+                .Where(w => w.FahrzeugId == fahrzeug.Id && w.NaechsterTermin != null)
                 .OrderBy(w => w.NaechsterTermin)
                 .Select(w => w.NaechsterTermin)
                 .FirstOrDefaultAsync();
