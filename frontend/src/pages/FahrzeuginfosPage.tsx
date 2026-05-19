@@ -76,6 +76,22 @@ function formatDisplayDate(value: string) {
   return new Intl.DateTimeFormat('de-DE').format(parsedDate)
 }
 
+function toDateInputValue(value: string | null | undefined) {
+  if (!value) {
+    return ''
+  }
+
+  const parsedDate = new Date(value)
+  if (Number.isNaN(parsedDate.getTime())) {
+    return ''
+  }
+
+  const year = parsedDate.getFullYear()
+  const month = String(parsedDate.getMonth() + 1).padStart(2, '0')
+  const day = String(parsedDate.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function formatKilometerstand(value: number | null | undefined) {
   if (value === null || value === undefined) {
     return '-'
@@ -126,7 +142,6 @@ function getAktivBadgeClasses(isAktiv: boolean) {
 type FahrzeugTab = 'stammdaten' | 'wartungen' | 'schaeden'
 
 const schadenStatusOptions = ['Offen', 'In Bearbeitung', 'Behoben', 'Nicht reparierbar']
-const entriesPerPage = 10
 
 function createEmptyWartungForm(): WartungFormData {
   return {
@@ -178,8 +193,6 @@ function FahrzeuginfosPage() {
   const [schadenSuccessMessage, setSchadenSuccessMessage] = useState('')
   const [isWartungSaving, setIsWartungSaving] = useState(false)
   const [isSchadenSaving, setIsSchadenSaving] = useState(false)
-  const [wartungPage, setWartungPage] = useState(1)
-  const [schadenPage, setSchadenPage] = useState(1)
   const [editingWartungId, setEditingWartungId] = useState<number | null>(null)
   const [editingSchadenId, setEditingSchadenId] = useState<number | null>(null)
 
@@ -188,8 +201,6 @@ function FahrzeuginfosPage() {
   useEffect(() => {
     let isActive = true
 
-    setWartungPage(1)
-    setSchadenPage(1)
     setEditingWartungId(null)
     setEditingSchadenId(null)
     setWartungFormData(createEmptyWartungForm())
@@ -478,8 +489,8 @@ function FahrzeuginfosPage() {
     setSchadenSuccessMessage('')
     setSchadenFormData({
       beschreibung: schaden.beschreibung,
-      entstandenAm: schaden.entstandenAm,
-      behobenAm: schaden.behobenAm ?? '',
+      entstandenAm: toDateInputValue(schaden.entstandenAm),
+      behobenAm: toDateInputValue(schaden.behobenAm),
       status: schaden.status,
     })
   }
@@ -490,27 +501,17 @@ function FahrzeuginfosPage() {
     setSchadenFormError('')
   }
 
-  const wartungTotalPages = Math.max(1, Math.ceil(wartungen.length / entriesPerPage))
-  const schadenTotalPages = Math.max(1, Math.ceil(schaeden.length / entriesPerPage))
-  const wartungPageStart = (wartungPage - 1) * entriesPerPage
-  const schadenPageStart = (schadenPage - 1) * entriesPerPage
-  const pagedWartungen = wartungen.slice(wartungPageStart, wartungPageStart + entriesPerPage)
-  const pagedSchaeden = schaeden.slice(schadenPageStart, schadenPageStart + entriesPerPage)
   const sortedVehicles = [...vehicles].sort((a, b) =>
     a.kennzeichen.localeCompare(b.kennzeichen, 'de'),
   )
+  const sortedSchaeden = [...schaeden].sort((first, second) => {
+    const firstDate = new Date(first.entstandenAm)
+    const secondDate = new Date(second.entstandenAm)
+    const firstValue = Number.isNaN(firstDate.getTime()) ? 0 : firstDate.getTime()
+    const secondValue = Number.isNaN(secondDate.getTime()) ? 0 : secondDate.getTime()
 
-  useEffect(() => {
-    if (wartungPage > wartungTotalPages) {
-      setWartungPage(wartungTotalPages)
-    }
-  }, [wartungPage, wartungTotalPages])
-
-  useEffect(() => {
-    if (schadenPage > schadenTotalPages) {
-      setSchadenPage(schadenTotalPages)
-    }
-  }, [schadenPage, schadenTotalPages])
+    return secondValue - firstValue
+  })
 
   async function handleSaveWartung(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -559,7 +560,6 @@ function FahrzeuginfosPage() {
       } else {
         const newWartung = await createWartung(selectedVehicle.id, currentUser.id, request)
         setWartungen((previous) => [newWartung, ...previous])
-        setWartungPage(1)
         setWartungSuccessMessage('Wartung wurde erfolgreich angelegt.')
       }
 
@@ -616,7 +616,6 @@ function FahrzeuginfosPage() {
       } else {
         const newSchaden = await createSchaden(selectedVehicle.id, currentUser.id, request)
         setSchaeden((previous) => [newSchaden, ...previous])
-        setSchadenPage(1)
         setSchadenSuccessMessage('Schaden wurde erfolgreich angelegt.')
       }
 
@@ -788,24 +787,24 @@ function FahrzeuginfosPage() {
                             Noch keine Wartungen vorhanden.
                           </div>
                         ) : (
-                          <div className="max-h-64 overflow-x-auto overflow-y-auto">
+                          <div className="max-h-[350px] overflow-x-hidden overflow-y-auto">
                             <table className="w-full border-collapse text-sm">
-                              <thead>
-                                <tr className="border-b border-slate-200 bg-slate-50">
-                                  <th className="px-4 py-2 text-left font-semibold text-slate-700">
+                              <thead className="bg-slate-50">
+                                <tr className="border-b border-slate-200">
+                                  <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 text-left font-semibold text-slate-700">
                                     Letzter Termin
                                   </th>
-                                  <th className="px-4 py-2 text-left font-semibold text-slate-700">
+                                  <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 text-left font-semibold text-slate-700">
                                     Nächster Termin
                                   </th>
-                                  <th className="px-4 py-2 text-left font-semibold text-slate-700">Grund</th>
-                                  <th className="px-4 py-2 text-left font-semibold text-slate-700">Ort</th>
-                                  <th className="px-4 py-2 text-left font-semibold text-slate-700">Kosten</th>
-                                  <th className="px-4 py-2 text-left font-semibold text-slate-700">Aktion</th>
+                                  <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 text-left font-semibold text-slate-700">Grund</th>
+                                  <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 text-left font-semibold text-slate-700">Ort</th>
+                                  <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 text-left font-semibold text-slate-700">Kosten</th>
+                                  <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 text-left font-semibold text-slate-700">Aktion</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {pagedWartungen.map((wartung) => (
+                                {wartungen.map((wartung) => (
                                   <tr
                                     key={wartung.id}
                                     onClick={() => startEditWartung(wartung)}
@@ -850,42 +849,6 @@ function FahrzeuginfosPage() {
                           </div>
                         )}
                       </div>
-
-                      {wartungen.length > entriesPerPage ? (
-                        <div className="flex items-center justify-between text-sm text-slate-600">
-                          <button
-                            type="button"
-                            onClick={() => setWartungPage((previous) => Math.max(1, previous - 1))}
-                            disabled={wartungPage === 1}
-                            className={`rounded-lg border border-slate-200 px-3 py-1.5 ${
-                              wartungPage === 1
-                                ? 'cursor-not-allowed text-slate-400'
-                                : 'hover:bg-slate-100'
-                            }`}
-                          >
-                            Zurueck
-                          </button>
-                          <span>
-                            Seite {wartungPage} von {wartungTotalPages}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setWartungPage((previous) =>
-                                Math.min(wartungTotalPages, previous + 1),
-                              )
-                            }
-                            disabled={wartungPage === wartungTotalPages}
-                            className={`rounded-lg border border-slate-200 px-3 py-1.5 ${
-                              wartungPage === wartungTotalPages
-                                ? 'cursor-not-allowed text-slate-400'
-                                : 'hover:bg-slate-100'
-                            }`}
-                          >
-                            Weiter
-                          </button>
-                        </div>
-                      ) : null}
 
                       <form
                         onSubmit={handleSaveWartung}
@@ -1012,25 +975,24 @@ function FahrzeuginfosPage() {
                             Noch keine Schäden vorhanden.
                           </div>
                         ) : (
-                          <div className="max-h-64 overflow-x-auto overflow-y-auto">
+                          <div className="max-h-[350px] overflow-x-hidden overflow-y-auto">
                             <table className="w-full border-collapse text-sm">
-                              <thead>
-                                <tr className="border-b border-slate-200 bg-slate-50">
-                                  <th className="px-4 py-2 text-left font-semibold text-slate-700">
+                              <thead className="bg-slate-50">
+                                <tr className="border-b border-slate-200">
+                                  <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 text-left font-semibold text-slate-700">
                                     Beschreibung
                                   </th>
-                                  <th className="px-4 py-2 text-left font-semibold text-slate-700">
+                                  <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 text-left font-semibold text-slate-700">
                                     Entstanden am
                                   </th>
-                                  <th className="px-4 py-2 text-left font-semibold text-slate-700">
+                                  <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 text-left font-semibold text-slate-700">
                                     Behoben am
                                   </th>
-                                  <th className="px-4 py-2 text-left font-semibold text-slate-700">Status</th>
-                                  <th className="px-4 py-2 text-left font-semibold text-slate-700">Aktion</th>
+                                  <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 text-left font-semibold text-slate-700">Status</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {pagedSchaeden.map((schaden) => (
+                                {sortedSchaeden.map((schaden) => (
                                   <tr
                                     key={schaden.id}
                                     onClick={() => startEditSchaden(schaden)}
@@ -1038,7 +1000,7 @@ function FahrzeuginfosPage() {
                                       editingSchadenId === schaden.id ? 'bg-[#0053a0]/10' : ''
                                     }`}
                                   >
-                                    <td className="px-4 py-2 text-slate-700">
+                                    <td className="px-4 py-2 text-slate-700 max-w-[220px] truncate">
                                       {schaden.beschreibung}
                                     </td>
                                     <td className="px-4 py-2 text-slate-700">
@@ -1048,18 +1010,6 @@ function FahrzeuginfosPage() {
                                       {formatDisplayDate(schaden.behobenAm ?? '')}
                                     </td>
                                     <td className="px-4 py-2 text-slate-700">{schaden.status}</td>
-                                    <td className="px-4 py-2 text-slate-700">
-                                      <button
-                                        type="button"
-                                        onClick={(event) => {
-                                          event.stopPropagation()
-                                          startEditSchaden(schaden)
-                                        }}
-                                        className="text-sm font-semibold text-[#0053a0] hover:underline"
-                                      >
-                                        Bearbeiten
-                                      </button>
-                                    </td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -1067,42 +1017,6 @@ function FahrzeuginfosPage() {
                           </div>
                         )}
                       </div>
-
-                      {schaeden.length > entriesPerPage ? (
-                        <div className="flex items-center justify-between text-sm text-slate-600">
-                          <button
-                            type="button"
-                            onClick={() => setSchadenPage((previous) => Math.max(1, previous - 1))}
-                            disabled={schadenPage === 1}
-                            className={`rounded-lg border border-slate-200 px-3 py-1.5 ${
-                              schadenPage === 1
-                                ? 'cursor-not-allowed text-slate-400'
-                                : 'hover:bg-slate-100'
-                            }`}
-                          >
-                            Zurueck
-                          </button>
-                          <span>
-                            Seite {schadenPage} von {schadenTotalPages}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setSchadenPage((previous) =>
-                                Math.min(schadenTotalPages, previous + 1),
-                              )
-                            }
-                            disabled={schadenPage === schadenTotalPages}
-                            className={`rounded-lg border border-slate-200 px-3 py-1.5 ${
-                              schadenPage === schadenTotalPages
-                                ? 'cursor-not-allowed text-slate-400'
-                                : 'hover:bg-slate-100'
-                            }`}
-                          >
-                            Weiter
-                          </button>
-                        </div>
-                      ) : null}
 
                       <form
                         onSubmit={handleSaveSchaden}
@@ -1184,8 +1098,8 @@ function FahrzeuginfosPage() {
                             {isSchadenSaving
                               ? 'Speichern...'
                               : editingSchadenId
-                                ? 'Aenderungen speichern'
-                                : 'Schaden hinzufuegen'}
+                                ? 'Änderungen speichern'
+                                : 'Schaden anlegen'}
                           </button>
                         </div>
                       </form>
