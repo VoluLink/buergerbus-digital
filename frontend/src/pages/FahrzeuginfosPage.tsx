@@ -95,11 +95,15 @@ function toDateInputValue(value?: string | Date | null): string {
     return ''
   }
 
-  const year = value.getFullYear()
-  const month = String(value.getMonth() + 1).padStart(2, '0')
-  const day = String(value.getDate()).padStart(2, '0')
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const year = value.getFullYear()
+    const month = String(value.getMonth() + 1).padStart(2, '0')
+    const day = String(value.getDate()).padStart(2, '0')
 
-  return `${year}-${month}-${day}`
+    return `${year}-${month}-${day}`
+  }
+
+  return ''
 }
 
 function formatKilometerstand(value: number | null | undefined) {
