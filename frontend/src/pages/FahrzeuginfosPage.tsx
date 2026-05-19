@@ -133,18 +133,33 @@ function formatKilometerstand(value: number | null | undefined) {
   return `${new Intl.NumberFormat('de-DE').format(value)} km`
 }
 
-function isWartungDueSoon(value: string | null | undefined) {
-  if (!value) {
-    return false
+function getWartungBadgeClass(naechsteWartung?: string | null): string {
+  if (!naechsteWartung) {
+    return ''
   }
 
-  const parsedDate = new Date(value)
-  if (Number.isNaN(parsedDate.getTime())) {
-    return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const wartungDate = new Date(naechsteWartung)
+  if (Number.isNaN(wartungDate.getTime())) {
+    return ''
   }
 
-  const diffDays = (parsedDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-  return diffDays >= 0 && diffDays <= 30
+  wartungDate.setHours(0, 0, 0, 0)
+
+  const diffMs = wartungDate.getTime() - today.getTime()
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffDays <= 0) {
+    return 'badge bg-danger'
+  }
+
+  if (diffDays <= 30) {
+    return 'badge bg-warning text-dark'
+  }
+
+  return ''
 }
 
 function getStatusBadgeClasses(status: string) {
@@ -1287,19 +1302,13 @@ function FahrzeuginfosPage() {
                   {sortedVehicles.map((vehicle) => {
                     const isSelected = selectedVehicleId === vehicle.id
                     const hasOffeneSchaeden = vehicle.offeneSchaeden > 0
-                    const isDueSoon = isWartungDueSoon(vehicle.naechsteWartung)
-                    const rowRing = hasOffeneSchaeden
-                      ? 'ring-1 ring-inset ring-rose-200'
-                      : isDueSoon
-                        ? 'ring-1 ring-inset ring-amber-200'
-                        : ''
 
                     return (
                       <tr
                         key={vehicle.id}
                         className={`border-b border-slate-100 transition hover:bg-slate-50 ${
                           isSelected ? 'bg-[#0053a0]/5' : ''
-                        } ${rowRing}`}
+                        }`}
                       >
                         <td className="px-3 py-3 text-slate-700">
                           <input
@@ -1322,10 +1331,10 @@ function FahrzeuginfosPage() {
                         <td className="px-3 py-3 text-slate-700 max-w-[180px] truncate">
                           {vehicle.initiativeName ?? '-'}
                         </td>
-                        <td className="px-3 py-3 text-right text-slate-700 tabular-nums whitespace-nowrap">
+                        <td className="px-3 py-3 text-start text-slate-700 tabular-nums whitespace-nowrap">
                           {vehicle.kapazitaet}
                         </td>
-                        <td className="px-3 py-3 text-right text-slate-700 tabular-nums whitespace-nowrap">
+                        <td className="px-3 py-3 text-start text-slate-700 tabular-nums whitespace-nowrap">
                           {formatKilometerstand(vehicle.kilometerstand)}
                         </td>
                         <td className="px-3 py-3 text-slate-700 tabular-nums whitespace-nowrap">
@@ -1335,7 +1344,20 @@ function FahrzeuginfosPage() {
                           {formatDisplayDate(vehicle.letzteWartung ?? '')}
                         </td>
                         <td className="px-3 py-3 text-slate-700 tabular-nums whitespace-nowrap">
-                          {formatDisplayDate(vehicle.naechsteWartung ?? '')}
+                          {vehicle.naechsteWartung ? (
+                            (() => {
+                              const badgeClass = getWartungBadgeClass(vehicle.naechsteWartung)
+                              const formattedDate = formatDisplayDate(vehicle.naechsteWartung)
+
+                              return badgeClass ? (
+                                <span className={badgeClass}>{formattedDate}</span>
+                              ) : (
+                                formattedDate
+                              )
+                            })()
+                          ) : (
+                            '-'
+                          )}
                         </td>
                         <td className="px-3 py-3 text-slate-700 tabular-nums whitespace-nowrap">
                           <span
