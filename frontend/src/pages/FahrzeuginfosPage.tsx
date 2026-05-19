@@ -86,10 +86,24 @@ function toDateInputValue(value?: string | Date | null): string {
       return value
     }
 
+    const dateTimeMatch = value.match(/^(\d{4}-\d{2}-\d{2})\s/)
+    if (dateTimeMatch) {
+      return dateTimeMatch[1]
+    }
+
     const germanDate = value.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/)
     if (germanDate) {
       const [, day, month, year] = germanDate
       return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+    }
+
+    const parsedDate = new Date(value)
+    if (!Number.isNaN(parsedDate.getTime())) {
+      const year = parsedDate.getFullYear()
+      const month = String(parsedDate.getMonth() + 1).padStart(2, '0')
+      const day = String(parsedDate.getDate()).padStart(2, '0')
+
+      return `${year}-${month}-${day}`
     }
 
     return ''
