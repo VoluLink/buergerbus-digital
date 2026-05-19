@@ -76,20 +76,29 @@ function formatDisplayDate(value: string) {
   return new Intl.DateTimeFormat('de-DE').format(parsedDate)
 }
 
-function toDateInputValue(value: string | null | undefined) {
+function toDateInputValue(value?: string | Date | null): string {
   if (!value) {
     return ''
   }
 
-  const parsedDate = new Date(value)
-  if (Number.isNaN(parsedDate.getTime())) {
+  if (typeof value === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return value
+    }
+
+    const date = new Date(value)
+    if (!Number.isNaN(date.getTime())) {
+      return date.toISOString().split('T')[0]
+    }
+
     return ''
   }
 
-  const year = parsedDate.getFullYear()
-  const month = String(parsedDate.getMonth() + 1).padStart(2, '0')
-  const day = String(parsedDate.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().split('T')[0]
+  }
+
+  return ''
 }
 
 function formatKilometerstand(value: number | null | undefined) {
@@ -469,8 +478,8 @@ function FahrzeuginfosPage() {
     setWartungFormError('')
     setWartungSuccessMessage('')
     setWartungFormData({
-      letzterTermin: wartung.letzterTermin,
-      naechsterTermin: wartung.naechsterTermin ?? '',
+      letzterTermin: toDateInputValue(wartung.letzterTermin),
+      naechsterTermin: toDateInputValue(wartung.naechsterTermin),
       grund: wartung.grund ?? '',
       ort: wartung.ort,
       kosten: wartung.kosten === null ? '' : String(wartung.kosten),
@@ -800,7 +809,6 @@ function FahrzeuginfosPage() {
                                   <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 text-left font-semibold text-slate-700">Grund</th>
                                   <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 text-left font-semibold text-slate-700">Ort</th>
                                   <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 text-left font-semibold text-slate-700">Kosten</th>
-                                  <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 text-left font-semibold text-slate-700">Aktion</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -808,9 +816,10 @@ function FahrzeuginfosPage() {
                                   <tr
                                     key={wartung.id}
                                     onClick={() => startEditWartung(wartung)}
-                                    className={`cursor-pointer border-b border-slate-100 transition hover:bg-slate-50 ${
-                                      editingWartungId === wartung.id ? 'bg-[#0053a0]/10' : ''
+                                    className={`border-b border-slate-100 transition hover:bg-slate-50 ${
+                                      editingWartungId === wartung.id ? 'table-primary' : ''
                                     }`}
+                                    style={{ cursor: 'pointer' }}
                                   >
                                     <td className="px-4 py-2 text-slate-700">
                                       {formatDisplayDate(wartung.letzterTermin)}
@@ -829,18 +838,6 @@ function FahrzeuginfosPage() {
                                             style: 'currency',
                                             currency: 'EUR',
                                           }).format(wartung.kosten)}
-                                    </td>
-                                    <td className="px-4 py-2 text-slate-700">
-                                      <button
-                                        type="button"
-                                        onClick={(event) => {
-                                          event.stopPropagation()
-                                          startEditWartung(wartung)
-                                        }}
-                                        className="text-sm font-semibold text-[#0053a0] hover:underline"
-                                      >
-                                        Bearbeiten
-                                      </button>
                                     </td>
                                   </tr>
                                 ))}
@@ -935,8 +932,8 @@ function FahrzeuginfosPage() {
                             {isWartungSaving
                               ? 'Speichern...'
                               : editingWartungId
-                                ? 'Aenderungen speichern'
-                                : 'Wartung hinzufuegen'}
+                                ? 'Änderungen speichern'
+                                : 'Wartung anlegen'}
                           </button>
                         </div>
                       </form>
