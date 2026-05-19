@@ -9,6 +9,10 @@ export interface Fahrzeug {
   status: string
   aktiv: boolean
   initiativeId: number
+  initiativeName: string | null
+  letzteWartung: string | null
+  naechsteWartung: string | null
+  offeneSchaeden: number
 }
 
 export type FahrzeugFormMode = 'create' | 'edit'

@@ -42,7 +42,21 @@ public static class FahrzeugServiceEndpoints
                     f.Bemerkung,
                     f.Status,
                     f.Aktiv,
-                    f.InitiativeId
+                    f.InitiativeId,
+                    f.Initiative != null ? f.Initiative.Name : null,
+                    db.Wartungen
+                        .Where(w => w.FahrzeugId == f.Id)
+                        .OrderByDescending(w => w.LetzterTermin)
+                        .Select(w => (DateTime?)w.LetzterTermin)
+                        .FirstOrDefault(),
+                    db.Wartungen
+                        .Where(w => w.FahrzeugId == f.Id && w.NaechsterTermin != null)
+                        .OrderBy(w => w.NaechsterTermin)
+                        .Select(w => w.NaechsterTermin)
+                        .FirstOrDefault(),
+                    db.Schaeden
+                        .Where(s => s.FahrzeugId == f.Id && s.Status != "Behoben")
+                        .Count()
                 ))
                 .ToListAsync();
 
@@ -94,6 +108,11 @@ public static class FahrzeugServiceEndpoints
             db.Fahrzeuge.Add(fahrzeug);
             await db.SaveChangesAsync();
 
+            var initiativeName = await db.Initiativen
+                .Where(i => i.Id == fahrzeug.InitiativeId)
+                .Select(i => i.Name)
+                .FirstOrDefaultAsync();
+
             return Results.Created($"/api/v1/fahrzeuge/{fahrzeug.Id}", new FahrzeugDto(
                 fahrzeug.Id,
                 fahrzeug.Kennzeichen,
@@ -104,7 +123,11 @@ public static class FahrzeugServiceEndpoints
                 fahrzeug.Bemerkung,
                 fahrzeug.Status,
                 fahrzeug.Aktiv,
-                fahrzeug.InitiativeId
+                fahrzeug.InitiativeId,
+                initiativeName,
+                null,
+                null,
+                0
             ));
         })
         .Accepts<CreateFahrzeugRequest>("application/json")
@@ -156,6 +179,27 @@ public static class FahrzeugServiceEndpoints
 
             await db.SaveChangesAsync();
 
+            var initiativeName = await db.Initiativen
+                .Where(i => i.Id == fahrzeug.InitiativeId)
+                .Select(i => i.Name)
+                .FirstOrDefaultAsync();
+
+            var letzteWartung = await db.Wartungen
+                .Where(w => w.FahrzeugId == fahrzeug.Id)
+                .OrderByDescending(w => w.LetzterTermin)
+                .Select(w => (DateTime?)w.LetzterTermin)
+                .FirstOrDefaultAsync();
+
+            var naechsteWartung = await db.Wartungen
+                .Where(w => w.FahrzeugId == fahrzeug.Id && w.NaechsterTermin != null)
+                .OrderBy(w => w.NaechsterTermin)
+                .Select(w => w.NaechsterTermin)
+                .FirstOrDefaultAsync();
+
+            var offeneSchaeden = await db.Schaeden
+                .Where(s => s.FahrzeugId == fahrzeug.Id && s.Status != "Behoben")
+                .CountAsync();
+
             return Results.Ok(new FahrzeugDto(
                 fahrzeug.Id,
                 fahrzeug.Kennzeichen,
@@ -166,7 +210,11 @@ public static class FahrzeugServiceEndpoints
                 fahrzeug.Bemerkung,
                 fahrzeug.Status,
                 fahrzeug.Aktiv,
-                fahrzeug.InitiativeId
+                fahrzeug.InitiativeId,
+                initiativeName,
+                letzteWartung,
+                naechsteWartung,
+                offeneSchaeden
             ));
         })
         .Accepts<UpdateFahrzeugRequest>("application/json")

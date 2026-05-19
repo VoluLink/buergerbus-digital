@@ -13,7 +13,11 @@ public record FahrzeugDto(
     string? Bemerkung,
     string Status,
     bool Aktiv,
-    int InitiativeId
+    int InitiativeId,
+    string? InitiativeName,
+    DateTime? LetzteWartung,
+    DateTime? NaechsteWartung,
+    int OffeneSchaeden
 );
 
 public record CreateFahrzeugRequest(

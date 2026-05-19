@@ -76,6 +76,53 @@ function formatDisplayDate(value: string) {
   return new Intl.DateTimeFormat('de-DE').format(parsedDate)
 }
 
+function formatKilometerstand(value: number | null | undefined) {
+  if (value === null || value === undefined) {
+    return '-'
+  }
+
+  return `${new Intl.NumberFormat('de-DE').format(value)} km`
+}
+
+function isWartungDueSoon(value: string | null | undefined) {
+  if (!value) {
+    return false
+  }
+
+  const parsedDate = new Date(value)
+  if (Number.isNaN(parsedDate.getTime())) {
+    return false
+  }
+
+  const diffDays = (parsedDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  return diffDays >= 0 && diffDays <= 30
+}
+
+function getStatusBadgeClasses(status: string) {
+  const base = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold'
+
+  switch (status) {
+    case 'Einsatzbereit':
+      return `${base} bg-emerald-100 text-emerald-700`
+    case 'Wartung fällig':
+    case 'Wartung faellig':
+      return `${base} bg-amber-100 text-amber-700`
+    case 'Werkstatt':
+      return `${base} bg-orange-100 text-orange-700`
+    case 'Außer Betrieb':
+    case 'Ausser Betrieb':
+      return `${base} bg-rose-100 text-rose-700`
+    default:
+      return `${base} bg-slate-100 text-slate-600`
+  }
+}
+
+function getAktivBadgeClasses(isAktiv: boolean) {
+  return isAktiv
+    ? 'inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700'
+    : 'inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600'
+}
+
 type FahrzeugTab = 'stammdaten' | 'wartungen' | 'schaeden'
 
 const schadenStatusOptions = ['Offen', 'In Bearbeitung', 'Behoben', 'Nicht reparierbar']
@@ -98,15 +145,6 @@ function createEmptySchadenForm(): SchadenFormData {
     behobenAm: '',
     status: 'Offen',
   }
-}
-
-function parseDateValue(value: string | null | undefined): Date | null {
-  if (!value) {
-    return null
-  }
-
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
 function FahrzeuginfosPage() {
@@ -214,7 +252,7 @@ function FahrzeuginfosPage() {
         }
       } catch {
         if (isActive) {
-          setDetailsError('Wartungen oder Schaeden konnten nicht geladen werden.')
+          setDetailsError('Wartungen oder Schäden konnten nicht geladen werden.')
         }
       } finally {
         if (isActive) {
@@ -452,35 +490,15 @@ function FahrzeuginfosPage() {
     setSchadenFormError('')
   }
 
-  function getLatestWartungDate(items: Wartung[]) {
-    const sorted = [...items]
-      .map((item) => ({ ...item, parsed: parseDateValue(item.letzterTermin) }))
-      .filter((item) => item.parsed)
-      .sort((a, b) => (b.parsed as Date).getTime() - (a.parsed as Date).getTime())
-
-    return sorted.length > 0 ? sorted[0].letzterTermin : null
-  }
-
-  function getNextWartungDate(items: Wartung[]) {
-    const sorted = [...items]
-      .map((item) => ({ ...item, parsed: parseDateValue(item.naechsterTermin) }))
-      .filter((item) => item.parsed)
-      .sort((a, b) => (a.parsed as Date).getTime() - (b.parsed as Date).getTime())
-
-    return sorted.length > 0 ? sorted[0].naechsterTermin ?? null : null
-  }
-
-  const letzteWartung = getLatestWartungDate(wartungen)
-  const naechsteWartung = getNextWartungDate(wartungen)
-  const offeneSchaeden = schaeden.filter((item) => item.status !== 'Behoben').length
-  const fahrzeugStatus = offeneSchaeden > 0 ? 'Defekt' : 'Einsatzbereit'
-
   const wartungTotalPages = Math.max(1, Math.ceil(wartungen.length / entriesPerPage))
   const schadenTotalPages = Math.max(1, Math.ceil(schaeden.length / entriesPerPage))
   const wartungPageStart = (wartungPage - 1) * entriesPerPage
   const schadenPageStart = (schadenPage - 1) * entriesPerPage
   const pagedWartungen = wartungen.slice(wartungPageStart, wartungPageStart + entriesPerPage)
   const pagedSchaeden = schaeden.slice(schadenPageStart, schadenPageStart + entriesPerPage)
+  const sortedVehicles = [...vehicles].sort((a, b) =>
+    a.kennzeichen.localeCompare(b.kennzeichen, 'de'),
+  )
 
   useEffect(() => {
     if (wartungPage > wartungTotalPages) {
@@ -700,7 +718,7 @@ function FahrzeuginfosPage() {
             <div className="flex flex-wrap gap-2 border-b pb-3">
               {renderTabButton('stammdaten', 'Stammdaten')}
               {renderTabButton('wartungen', 'Wartungen')}
-              {renderTabButton('schaeden', 'Schaeden')}
+              {renderTabButton('schaeden', 'Schäden')}
             </div>
 
             <div className="mt-4">
@@ -778,7 +796,7 @@ function FahrzeuginfosPage() {
                                     Letzter Termin
                                   </th>
                                   <th className="px-4 py-2 text-left font-semibold text-slate-700">
-                                    Naechster Termin
+                                    Nächster Termin
                                   </th>
                                   <th className="px-4 py-2 text-left font-semibold text-slate-700">Grund</th>
                                   <th className="px-4 py-2 text-left font-semibold text-slate-700">Ort</th>
@@ -888,7 +906,7 @@ function FahrzeuginfosPage() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-slate-700">
-                            Naechster Termin
+                            Nächster Termin
                           </label>
                           <input
                             type="date"
@@ -968,7 +986,7 @@ function FahrzeuginfosPage() {
                 <div className="space-y-4">
                   {isCreateMode ? (
                     <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                      Schaeden koennen erst nach dem Speichern des Fahrzeugs erfasst werden.
+                      Schäden koennen erst nach dem Speichern des Fahrzeugs erfasst werden.
                     </div>
                   ) : (
                     <>
@@ -987,11 +1005,11 @@ function FahrzeuginfosPage() {
                       <div className="rounded-lg border border-slate-200">
                         {detailsLoading ? (
                           <div className="px-4 py-6 text-sm text-slate-500">
-                            Schaeden werden geladen...
+                            Schäden werden geladen...
                           </div>
                         ) : schaeden.length === 0 ? (
                           <div className="px-4 py-6 text-sm text-slate-500">
-                            Noch keine Schaeden vorhanden.
+                            Noch keine Schäden vorhanden.
                           </div>
                         ) : (
                           <div className="max-h-64 overflow-x-auto overflow-y-auto">
@@ -1230,110 +1248,106 @@ function FahrzeuginfosPage() {
                 Noch keine Fahrzeuge vorhanden.
               </div>
             ) : (
-              <table className="w-full border-collapse text-sm">
+              <table className="w-full min-w-[1200px] border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-slate-200">
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Auswahl</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Fahrzeug-ID</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Kennzeichen</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Bezeichnung</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Letzte Wartung</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Naechste Wartung</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">
-                      Offene Schaeden
-                    </th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Fahrzeugstatus</th>
+                    <th className="px-3 py-3 text-left font-semibold text-slate-700">Auswahl</th>
+                    <th className="px-3 py-3 text-left font-semibold text-slate-700">Fahrzeug-ID</th>
+                    <th className="px-3 py-3 text-left font-semibold text-slate-700">Kennzeichen</th>
+                    <th className="px-3 py-3 text-left font-semibold text-slate-700">Bezeichnung</th>
+                    <th className="px-3 py-3 text-left font-semibold text-slate-700">Initiative</th>
+                    <th className="px-3 py-3 text-left font-semibold text-slate-700">Kapazität</th>
+                    <th className="px-3 py-3 text-left font-semibold text-slate-700">Kilometerstand</th>
+                    <th className="px-3 py-3 text-left font-semibold text-slate-700">Betriebsaufnahme</th>
+                    <th className="px-3 py-3 text-left font-semibold text-slate-700">Letzte Wartung</th>
+                    <th className="px-3 py-3 text-left font-semibold text-slate-700">Nächste Wartung</th>
+                    <th className="px-3 py-3 text-left font-semibold text-slate-700">Offene Schäden</th>
+                    <th className="px-3 py-3 text-left font-semibold text-slate-700">Fahrzeugstatus</th>
+                    <th className="px-3 py-3 text-left font-semibold text-slate-700">Aktiv</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {vehicles.map((vehicle) => (
-                    <tr
-                      key={vehicle.id}
-                      className={`border-b border-slate-100 transition hover:bg-slate-50 ${
-                        selectedVehicleId === vehicle.id ? 'bg-[#0053a0]/5' : ''
-                      }`}
-                    >
-                      <td className="px-4 py-3 text-slate-700">
-                        <input
-                          type="checkbox"
-                          checked={selectedVehicleId === vehicle.id}
-                          onChange={(event) =>
-                            handleVehicleSelection(vehicle.id, event.target.checked)
-                          }
-                        />
-                      </td>
-                      <td className="px-4 py-3 text-slate-700 truncate">{vehicle.id}</td>
-                      <td className="px-4 py-3 text-slate-700 truncate">{vehicle.kennzeichen}</td>
-                      <td className="px-4 py-3 text-slate-700 truncate">{vehicle.bezeichnung}</td>
-                      <td className="px-4 py-3 text-slate-700 truncate">
-                        {selectedVehicleId === vehicle.id
-                          ? formatDisplayDate(letzteWartung ?? '')
-                          : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-slate-700 truncate">
-                        {selectedVehicleId === vehicle.id
-                          ? formatDisplayDate(naechsteWartung ?? '')
-                          : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-slate-700 truncate">
-                        {selectedVehicleId === vehicle.id ? offeneSchaeden : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-slate-700 truncate">
-                        {selectedVehicleId === vehicle.id ? fahrzeugStatus : '-'}
-                      </td>
-                    </tr>
-                  ))}
+                  {sortedVehicles.map((vehicle) => {
+                    const isSelected = selectedVehicleId === vehicle.id
+                    const hasOffeneSchaeden = vehicle.offeneSchaeden > 0
+                    const isDueSoon = isWartungDueSoon(vehicle.naechsteWartung)
+                    const rowRing = hasOffeneSchaeden
+                      ? 'ring-1 ring-inset ring-rose-200'
+                      : isDueSoon
+                        ? 'ring-1 ring-inset ring-amber-200'
+                        : ''
+
+                    return (
+                      <tr
+                        key={vehicle.id}
+                        className={`border-b border-slate-100 transition hover:bg-slate-50 ${
+                          isSelected ? 'bg-[#0053a0]/5' : ''
+                        } ${rowRing}`}
+                      >
+                        <td className="px-3 py-3 text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(event) =>
+                              handleVehicleSelection(vehicle.id, event.target.checked)
+                            }
+                          />
+                        </td>
+                        <td className="px-3 py-3 text-slate-700 tabular-nums whitespace-nowrap">
+                          {vehicle.id}
+                        </td>
+                        <td className="px-3 py-3 text-slate-700 font-medium whitespace-nowrap">
+                          {vehicle.kennzeichen}
+                        </td>
+                        <td className="px-3 py-3 text-slate-700 max-w-[200px] truncate">
+                          {vehicle.bezeichnung}
+                        </td>
+                        <td className="px-3 py-3 text-slate-700 max-w-[180px] truncate">
+                          {vehicle.initiativeName ?? '-'}
+                        </td>
+                        <td className="px-3 py-3 text-right text-slate-700 tabular-nums whitespace-nowrap">
+                          {vehicle.kapazitaet}
+                        </td>
+                        <td className="px-3 py-3 text-right text-slate-700 tabular-nums whitespace-nowrap">
+                          {formatKilometerstand(vehicle.kilometerstand)}
+                        </td>
+                        <td className="px-3 py-3 text-slate-700 tabular-nums whitespace-nowrap">
+                          {formatDisplayDate(vehicle.betriebsaufnahme)}
+                        </td>
+                        <td className="px-3 py-3 text-slate-700 tabular-nums whitespace-nowrap">
+                          {formatDisplayDate(vehicle.letzteWartung ?? '')}
+                        </td>
+                        <td className="px-3 py-3 text-slate-700 tabular-nums whitespace-nowrap">
+                          {formatDisplayDate(vehicle.naechsteWartung ?? '')}
+                        </td>
+                        <td className="px-3 py-3 text-slate-700 tabular-nums whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                              hasOffeneSchaeden
+                                ? 'bg-rose-100 text-rose-700'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {vehicle.offeneSchaeden}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-slate-700 whitespace-nowrap">
+                          <span className={getStatusBadgeClasses(vehicle.status)}>
+                            {vehicle.status}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-slate-700 whitespace-nowrap">
+                          <span className={getAktivBadgeClasses(vehicle.aktiv)}>
+                            {vehicle.aktiv ? 'Ja' : 'Nein'}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             )}
           </div>
-
-          {selectedVehicle ? (
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-800">
-                    Zusammenfassung fuer {selectedVehicle.kennzeichen}
-                  </h3>
-                  <p className="text-sm text-slate-600">
-                    Wartungen und Schaeden fuer das ausgewaehlte Fahrzeug.
-                  </p>
-                </div>
-                {detailsLoading ? (
-                  <span className="text-sm text-slate-500">Daten werden geladen...</span>
-                ) : null}
-              </div>
-
-              {detailsError ? (
-                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {detailsError}
-                </div>
-              ) : null}
-
-              <dl className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-                  <dt className="text-xs font-semibold uppercase text-slate-500">Letzte Wartung</dt>
-                  <dd className="mt-2 text-base font-semibold text-slate-800">
-                    {formatDisplayDate(letzteWartung ?? '')}
-                  </dd>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-                  <dt className="text-xs font-semibold uppercase text-slate-500">Naechste Wartung</dt>
-                  <dd className="mt-2 text-base font-semibold text-slate-800">
-                    {formatDisplayDate(naechsteWartung ?? '')}
-                  </dd>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-                  <dt className="text-xs font-semibold uppercase text-slate-500">Offene Schaeden</dt>
-                  <dd className="mt-2 text-base font-semibold text-slate-800">{offeneSchaeden}</dd>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-                  <dt className="text-xs font-semibold uppercase text-slate-500">Fahrzeugstatus</dt>
-                  <dd className="mt-2 text-base font-semibold text-slate-800">{fahrzeugStatus}</dd>
-                </div>
-              </dl>
-            </div>
-          ) : null}
 
           <div className="mt-4 flex w-full justify-end gap-2">
             <button
