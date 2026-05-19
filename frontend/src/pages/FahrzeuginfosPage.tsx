@@ -444,11 +444,6 @@ function FahrzeuginfosPage() {
     setFormError('')
     setSuccessMessage('')
 
-    if (!currentUser?.id) {
-      setFormError('Benutzerkontext fehlt.')
-      return
-    }
-
     const validationError = validateVehicleForm(formData)
     if (validationError) {
       setFormError(validationError)
@@ -470,16 +465,28 @@ function FahrzeuginfosPage() {
 
     try {
       if (modalMode === 'create') {
-        const createdVehicle = await createFahrzeug(currentUser.id, request)
-        const refreshedVehicles = await getFahrzeuge(currentUser.id)
-        setVehicles(refreshedVehicles)
-        setSelectedVehicleId(createdVehicle.id)
+        const createdVehicle = await createFahrzeug(currentUser?.id, request)
+        if (currentUser?.id) {
+          const refreshedVehicles = await getFahrzeuge(currentUser.id)
+          setVehicles(refreshedVehicles)
+          setSelectedVehicleId(createdVehicle.id)
+        } else {
+          setVehicles((previous) => [createdVehicle, ...previous])
+          setSelectedVehicleId(createdVehicle.id)
+        }
         setSuccessMessage('Fahrzeug wurde erfolgreich angelegt.')
       } else if (selectedVehicle) {
-        const updatedVehicle = await updateFahrzeug(selectedVehicle.id, currentUser.id, request)
-        const refreshedVehicles = await getFahrzeuge(currentUser.id)
-        setVehicles(refreshedVehicles)
-        setSelectedVehicleId(updatedVehicle.id)
+        const updatedVehicle = await updateFahrzeug(selectedVehicle.id, currentUser?.id, request)
+        if (currentUser?.id) {
+          const refreshedVehicles = await getFahrzeuge(currentUser.id)
+          setVehicles(refreshedVehicles)
+          setSelectedVehicleId(updatedVehicle.id)
+        } else {
+          setVehicles((previous) =>
+            previous.map((item) => (item.id === updatedVehicle.id ? updatedVehicle : item)),
+          )
+          setSelectedVehicleId(updatedVehicle.id)
+        }
         setSuccessMessage('Fahrzeug wurde erfolgreich gespeichert.')
       }
 

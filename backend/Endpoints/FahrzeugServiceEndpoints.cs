@@ -74,10 +74,13 @@ public static class FahrzeugServiceEndpoints
             AppDbContext db
         ) =>
         {
-            var userResult = await LoadUserWithInitiativeAsync(userId, db);
-            if (userResult.Error != null)
+            if (userId.HasValue)
             {
-                return userResult.Error;
+                var userResult = await LoadUserWithInitiativeAsync(userId, db);
+                if (userResult.Error != null)
+                {
+                    return userResult.Error;
+                }
             }
 
             var validationError = ValidateFahrzeugRequest(
@@ -158,10 +161,13 @@ public static class FahrzeugServiceEndpoints
                 return Results.NotFound("Fahrzeug wurde nicht gefunden.");
             }
 
-            var authResult = await EnsureUserCanAccessVehicleAsync(id, userId, db, fahrzeug);
-            if (authResult != null)
+            if (userId.HasValue)
             {
-                return authResult;
+                var authResult = await EnsureUserCanAccessVehicleAsync(id, userId, db, fahrzeug);
+                if (authResult != null)
+                {
+                    return authResult;
+                }
             }
 
             var validationError = ValidateFahrzeugRequest(

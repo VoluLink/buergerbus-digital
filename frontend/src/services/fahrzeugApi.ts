@@ -23,8 +23,12 @@ async function parseResponse<T>(response: Response, fallbackMessage: string): Pr
   return response.json()
 }
 
-export async function getFahrzeuge(userId: number): Promise<Fahrzeug[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/fahrzeuge?userId=${userId}`, {
+function buildUserQuery(userId?: number) {
+  return userId ? `?userId=${userId}` : ''
+}
+
+export async function getFahrzeuge(userId?: number): Promise<Fahrzeug[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/fahrzeuge${buildUserQuery(userId)}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -35,10 +39,10 @@ export async function getFahrzeuge(userId: number): Promise<Fahrzeug[]> {
 }
 
 export async function createFahrzeug(
-  userId: number,
+  userId: number | undefined,
   request: CreateFahrzeugRequest,
 ): Promise<Fahrzeug> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/fahrzeuge?userId=${userId}`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/fahrzeuge${buildUserQuery(userId)}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -51,11 +55,11 @@ export async function createFahrzeug(
 
 export async function updateFahrzeug(
   vehicleId: number,
-  userId: number,
+  userId: number | undefined,
   request: UpdateFahrzeugRequest,
 ): Promise<Fahrzeug> {
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/fahrzeuge/${vehicleId}?userId=${userId}`,
+    `${API_BASE_URL}/api/v1/fahrzeuge/${vehicleId}${buildUserQuery(userId)}`,
     {
       method: 'PUT',
       headers: {
@@ -68,9 +72,9 @@ export async function updateFahrzeug(
   return parseResponse<Fahrzeug>(response, 'Das Fahrzeug konnte nicht gespeichert werden.')
 }
 
-export async function deleteFahrzeug(vehicleId: number, userId: number): Promise<void> {
+export async function deleteFahrzeug(vehicleId: number, userId?: number): Promise<void> {
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/fahrzeuge/${vehicleId}?userId=${userId}`,
+    `${API_BASE_URL}/api/v1/fahrzeuge/${vehicleId}${buildUserQuery(userId)}`,
     {
       method: 'DELETE',
     },
