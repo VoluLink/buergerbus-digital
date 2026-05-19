@@ -178,13 +178,28 @@ function getWartungBadgeClass(value?: string | Date | null): string {
   const diffMs = wartungDate.getTime() - today.getTime()
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
 
-  if (diffDays <= 0) {
-    return 'badge bg-danger'
+    if (diffDays <= 0) {
+      return 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-rose-100 text-rose-700'
+    }
+
+    if (diffDays <= 30) {
+      return 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-800'
+    }
+
+function renderNaechsteWartung(value?: string | Date | null) {
+  if (!value) {
+    return '-'
   }
 
-  if (diffDays <= 30) {
-    return 'badge bg-warning text-dark'
+  const badgeClass = getWartungBadgeClass(value)
+  const formattedDate = formatDisplayDate(String(value))
+
+  if (!badgeClass) {
+    return formattedDate
   }
+
+  return <span className={badgeClass}>{formattedDate}</span>
+}
 
   return ''
 }
@@ -1371,20 +1386,7 @@ function FahrzeuginfosPage() {
                           {formatDisplayDate(vehicle.letzteWartung ?? '')}
                         </td>
                         <td className="px-3 py-3 text-slate-700 tabular-nums whitespace-nowrap">
-                          {vehicle.naechsteWartung ? (
-                            (() => {
-                              const badgeClass = getWartungBadgeClass(vehicle.naechsteWartung)
-                              const formattedDate = formatDisplayDate(vehicle.naechsteWartung)
-
-                              return badgeClass ? (
-                                <span className={badgeClass}>{formattedDate}</span>
-                              ) : (
-                                formattedDate
-                              )
-                            })()
-                          ) : (
-                            '-'
-                          )}
+                          {renderNaechsteWartung(vehicle.naechsteWartung)}
                         </td>
                         <td className="px-3 py-3 text-slate-700 tabular-nums whitespace-nowrap">
                           <span
