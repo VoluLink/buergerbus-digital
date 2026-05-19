@@ -86,19 +86,20 @@ function toDateInputValue(value?: string | Date | null): string {
       return value
     }
 
-    const date = new Date(value)
-    if (!Number.isNaN(date.getTime())) {
-      return date.toISOString().split('T')[0]
+    const germanDate = value.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/)
+    if (germanDate) {
+      const [, day, month, year] = germanDate
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
     }
 
     return ''
   }
 
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value.toISOString().split('T')[0]
-  }
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
 
-  return ''
+  return `${year}-${month}-${day}`
 }
 
 function formatKilometerstand(value: number | null | undefined) {
