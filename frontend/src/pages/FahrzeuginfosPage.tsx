@@ -235,6 +235,29 @@ function FahrzeuginfosPage() {
   useEffect(() => {
     let isActive = true
 
+    async function loadInitiativen() {
+      try {
+        const loadedInitiativen = await fetchInitiatives()
+        if (isActive) {
+          setInitiativen(loadedInitiativen)
+        }
+      } catch {
+        if (isActive) {
+          setInitiativen([])
+        }
+      }
+    }
+
+    void loadInitiativen()
+
+    return () => {
+      isActive = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let isActive = true
+
     setEditingWartungId(null)
     setEditingSchadenId(null)
     setWartungFormData(createEmptyWartungForm())
@@ -710,6 +733,11 @@ function FahrzeuginfosPage() {
             >
               {field.name === 'initiativeId' ? (
                 <option value="">Keine Initiative ausgewählt</option>
+              ) : null}
+              {field.name === 'initiativeId' && selectOptions.length === 0 ? (
+                <option value="" disabled>
+                  Keine Initiativen gefunden
+                </option>
               ) : null}
               {selectOptions.map((option) => (
                 <option key={option.value} value={option.value}>
