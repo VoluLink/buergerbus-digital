@@ -4,6 +4,9 @@ using BuergerbusAPI.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 /// <summary>
 /// Einstiegspunkt der Anwendung.
@@ -64,6 +67,24 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+
+            ValidIssuer = builder.Configuration["JWT_ISSUER"],
+            ValidAudience = builder.Configuration["JWT_AUDIENCE"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["JWT_SECRET"]!)
+            )
+        };
+    });
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -82,6 +103,7 @@ app.UseRouting();
 
 app.UseCors("FrontendCors");
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapAuthEndpoints();
