@@ -1,6 +1,7 @@
 using BuergerbusAPI.Data;
 using BuergerbusAPI.Endpoints;
 using BuergerbusAPI.Models;
+using BuergerbusAPI.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
@@ -28,7 +29,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     ));
 
 builder.Services.AddScoped<IPasswordHasher<Benutzer>, PasswordHasher<Benutzer>>();
-
+builder.Services.AddScoped<JwtService>();
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
