@@ -140,6 +140,7 @@ app.MapUserEndpoints();
 app.MapRoleEndpoints();
 app.MapInitiativeEndpoints();
 app.MapFahrzeugServiceEndpoints();
+app.MapFahrgastEndpoints();
 
 app.MapControllers();
 
