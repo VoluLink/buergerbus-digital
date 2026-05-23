@@ -1,3 +1,4 @@
+import { API_BASE_URL } from './api'
 import type { Fahrgast, FahrgastBackendDto } from '../types/Fahrgast'
 import { mapDtoToFahrgast, mapFahrgastToDto } from '../types/Fahrgast'
 
@@ -28,8 +29,21 @@ export async function getFahrgaeste(): Promise<Fahrgast[]> {
 
 export async function createFahrgast(fahrgast: Fahrgast): Promise<Fahrgast> {
   const dto = mapFahrgastToDto(fahrgast)
-  fahrgastSpeicher.push(cloneDto(dto))
-  return mapDtoToFahrgast(dto)
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/fahrgaeste`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(dto),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Fehler beim Erstellen')
+  }
+
+  return response.json()
 }
 
 export async function updateFahrgast(fahrgastId: number, fahrgast: Fahrgast): Promise<Fahrgast> {
