@@ -73,6 +73,17 @@ public static class AuthEndpoints
             );
         });
 
+        app.MapGet("/api/v1/test", (HttpContext httpContext) =>
+        {
+            var userName = httpContext.User.Identity?.Name;
+
+            return Results.Ok(new
+            {
+                Message = "Du bist eingeloggt!",
+                User = userName
+            });
+        }).RequireAuthorization();
+
         return app;
     }
 }
