@@ -24,7 +24,13 @@ function cloneDto(dto: FahrgastBackendDto): FahrgastBackendDto {
 }
 
 export async function getFahrgaeste(): Promise<Fahrgast[]> {
-  return fahrgastSpeicher.map(cloneDto).map(mapDtoToFahrgast)
+  const response = await fetch(`${API_BASE_URL}/api/v1/fahrgaeste`)
+
+  if (!response.ok) {
+    throw new Error('Fehler beim Laden der Fahrgäste')
+  }
+
+  return response.json()
 }
 
 export async function createFahrgast(fahrgast: Fahrgast): Promise<Fahrgast> {
