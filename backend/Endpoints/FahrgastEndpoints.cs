@@ -88,6 +88,46 @@ public static class FahrgastEndpoints
             );
         });
 
+
+        app.MapPut("/api/v1/fahrgaeste/{id:int}", async (
+            int id,
+            CreateFahrgastDto request,
+            AppDbContext db
+        ) =>
+        {
+            var fahrgast = await db.Fahrgaeste
+                .Include(f => f.Initiative)
+                .FirstOrDefaultAsync(f => f.Id == id);
+
+            if (fahrgast is null)
+            {
+                return Results.NotFound("Fahrgast wurde nicht gefunden.");
+            }
+
+            var initiative = await db.Initiativen
+                .FirstOrDefaultAsync(i => i.Id == request.InitiativeId);
+
+            if (initiative is null)
+            {
+                return Results.NotFound("Initiative wurde nicht gefunden.");
+            }
+
+            fahrgast.Vorname = request.Vorname;
+            fahrgast.Nachname = request.Nachname;
+            fahrgast.Adresse = request.Adresse;
+            fahrgast.Email = request.Email;
+            fahrgast.Telefonnummer = request.Telefonnummer;
+            fahrgast.Bemerkung = request.Bemerkung;
+            fahrgast.GeaendertAm = DateTime.UtcNow;
+            fahrgast.InitiativeId = initiative.Id;
+
+            await db.SaveChangesAsync();
+
+            fahrgast.Initiative = initiative;
+
+            return Results.Ok(FahrgastMapper.CreateFahrgast(fahrgast));
+        });
+
         // Fahrgast löschen
         app.MapDelete("/api/v1/fahrgaeste/{id:int}", async (
             int id,
