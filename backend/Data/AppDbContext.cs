@@ -80,14 +80,16 @@ namespace BuergerbusAPI.Data
             modelBuilder.Entity<Fahrten>()
                 .HasOne(f => f.Fahrer)
                 .WithMany(f => f.Fahrten)
-                .HasForeignKey(f => f.FahrerId);
+                .HasForeignKey(f => f.FahrerId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             // Fahrzeug -> Fahrten (1:n)
 
             modelBuilder.Entity<Fahrten>()
                 .HasOne(f => f.Fahrzeug)
                 .WithMany(fz => fz.Fahrten)
-                .HasForeignKey(f => f.FahrzeugId);
+                .HasForeignKey(f => f.FahrzeugId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             // Fahrer <-> Fahrzeug (n:m)
 

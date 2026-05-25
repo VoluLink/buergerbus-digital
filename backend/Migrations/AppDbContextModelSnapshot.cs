@@ -271,14 +271,14 @@ namespace BuergerbusAPI.Migrations
                     b.Property<DateTime?>("Endzeit")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<int>("FahrerId")
+                    b.Property<int?>("FahrerId")
                         .HasColumnType("int");
 
                     b.Property<string>("Fahrttyp")
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<int>("FahrzeugId")
+                    b.Property<int?>("FahrzeugId")
                         .HasColumnType("int");
 
                     b.Property<int>("InitiativeId")
@@ -651,14 +651,12 @@ namespace BuergerbusAPI.Migrations
                     b.HasOne("BuergerbusAPI.Models.Fahrer", "Fahrer")
                         .WithMany("Fahrten")
                         .HasForeignKey("FahrerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("BuergerbusAPI.Models.Fahrzeug", "Fahrzeug")
                         .WithMany("Fahrten")
                         .HasForeignKey("FahrzeugId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("BuergerbusAPI.Models.Initiativen", "Initiative")
                         .WithMany("Fahrten")
