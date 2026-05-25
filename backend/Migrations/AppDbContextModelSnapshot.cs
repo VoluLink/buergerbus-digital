@@ -226,7 +226,7 @@ namespace BuergerbusAPI.Migrations
                     b.Property<int>("InitiativeId")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("LetzteNutzung")
+                    b.Property<DateTime?>("LetzteNutzung")
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("Nachname")

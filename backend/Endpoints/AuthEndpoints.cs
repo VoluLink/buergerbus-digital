@@ -2,6 +2,7 @@ using BuergerbusAPI.Data;
 using BuergerbusAPI.DTOs;
 using BuergerbusAPI.Mappers;
 using BuergerbusAPI.Models;
+using BuergerbusAPI.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 /// <summary>
@@ -17,7 +18,8 @@ public static class AuthEndpoints
         app.MapPost("/api/v1/auth/login", async (
             LoginRequest request,
             AppDbContext db,
-            IPasswordHasher<Benutzer> passwordHasher
+            IPasswordHasher<Benutzer> passwordHasher,
+            JwtService jwtService
         ) =>
         {
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
@@ -61,12 +63,26 @@ public static class AuthEndpoints
                 await db.SaveChangesAsync();
             }
 
+            var token = jwtService.CreateToken(user);
+
             return Results.Ok(new LoginResponseDto(
                 true,
                 "Login erfolgreich.",
+                token,
                 UserMapper.CreateUserProfile(user))
             );
         });
+
+        app.MapGet("/api/v1/test", (HttpContext httpContext) =>
+        {
+            var userName = httpContext.User.Identity?.Name;
+
+            return Results.Ok(new
+            {
+                Message = "Du bist eingeloggt!",
+                User = userName
+            });
+        }).RequireAuthorization();
 
         return app;
     }

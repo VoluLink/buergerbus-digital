@@ -1,54 +1,87 @@
+import { API_BASE_URL } from './api'
 import type { Fahrzeug } from '../types/Fahrzeug'
 
-const fahrzeugSpeicher: Fahrzeug[] = [
-  {
-    id: 1,
-    kennzeichen: 'B-AB 1234',
-    bezeichnung: 'Stadtfahrzeug 1',
-    markeTyp: 'VW Golf 8',
-    fahrzeugart: 'PKW',
-    kapazitaet: 5,
-    kilometerstand: 45320,
-    betriebsaufnahme: '2021-04-12',
-    bemerkung: 'Firmenwagen',
-    status: 'Einsatzbereit',
-    aktiv: true,
-    initiativeId: 1,
-    letzteWartung: '2026-01-15',
-    naechsteWartung: '2026-07-15',
-    schaeden: 'Keine',
-    reparaturtermin: null,
-  },
-]
-
-function cloneVehicle(vehicle: Fahrzeug): Fahrzeug {
-  return { ...vehicle }
+export type CreateFahrzeugRequest = {
+  kennzeichen: string
+  bezeichnung: string
+  kapazitaet: number
+  kilometerstand: number
+  betriebsaufnahme: string
+  initiativeId: number
+  bemerkung?: string | null
+  status?: string | null
 }
 
-export async function getFahrzeuge(): Promise<Fahrzeug[]> {
-  return fahrzeugSpeicher.map(cloneVehicle)
-}
+export type UpdateFahrzeugRequest = CreateFahrzeugRequest
 
-export async function createFahrzeug(vehicle: Fahrzeug): Promise<Fahrzeug> {
-  const newVehicle = cloneVehicle(vehicle)
-  fahrzeugSpeicher.push(newVehicle)
-  return newVehicle
-}
-
-export async function updateFahrzeug(vehicleId: number, vehicle: Fahrzeug): Promise<Fahrzeug> {
-  const updatedVehicle = cloneVehicle(vehicle)
-
-  const index = fahrzeugSpeicher.findIndex((entry) => entry.id === vehicleId)
-  if (index !== -1) {
-    fahrzeugSpeicher[index] = updatedVehicle
+async function parseResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || fallbackMessage)
   }
 
-  return updatedVehicle
+  return response.json()
 }
 
-export async function deleteFahrzeug(vehicleId: number): Promise<void> {
-  const index = fahrzeugSpeicher.findIndex((entry) => entry.id === vehicleId)
-  if (index !== -1) {
-    fahrzeugSpeicher.splice(index, 1)
+function buildUserQuery(userId?: number) {
+  return userId ? `?userId=${userId}` : ''
+}
+
+export async function getFahrzeuge(userId?: number): Promise<Fahrzeug[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/fahrzeuge${buildUserQuery(userId)}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  return parseResponse<Fahrzeug[]>(response, 'Fahrzeugdaten konnten nicht geladen werden.')
+}
+
+export async function createFahrzeug(
+  userId: number | undefined,
+  request: CreateFahrzeugRequest,
+): Promise<Fahrzeug> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/fahrzeuge${buildUserQuery(userId)}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  })
+
+  return parseResponse<Fahrzeug>(response, 'Das Fahrzeug konnte nicht gespeichert werden.')
+}
+
+export async function updateFahrzeug(
+  vehicleId: number,
+  userId: number | undefined,
+  request: UpdateFahrzeugRequest,
+): Promise<Fahrzeug> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/fahrzeuge/${vehicleId}${buildUserQuery(userId)}`,
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    },
+  )
+
+  return parseResponse<Fahrzeug>(response, 'Das Fahrzeug konnte nicht gespeichert werden.')
+}
+
+export async function deleteFahrzeug(vehicleId: number, userId?: number): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/fahrzeuge/${vehicleId}${buildUserQuery(userId)}`,
+    {
+      method: 'DELETE',
+    },
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Das Fahrzeug konnte nicht geloescht werden.')
   }
 }

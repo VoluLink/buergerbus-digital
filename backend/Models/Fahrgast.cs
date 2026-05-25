@@ -13,7 +13,7 @@ namespace BuergerbusAPI.Models
         public string? Bemerkung { get; set; }
         public DateTime AngelegtAm {  get; set; }
         public DateTime? GeaendertAm { get; set; }
-        public DateTime LetzteNutzung { get; set; }
+        public DateTime? LetzteNutzung { get; set; }
         public bool Aktiv {  get; set; }
 
         // Initiative muss in jeder Tabelle sein (Multi-Tenant System) => Landkreis als Datengrenze
