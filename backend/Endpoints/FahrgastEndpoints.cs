@@ -73,8 +73,10 @@ public static class FahrgastEndpoints
                 Telefonnummer = request.Telefonnummer,
                 Bemerkung = request.Bemerkung,
                 AngelegtAm = DateTime.UtcNow,
-                Aktiv = true,
-                InitiativeId = initiative.Id
+                GeaendertAm = null,
+                LetzteNutzung = request.LetzteNutzung,
+                Aktiv = request.Aktiv,
+                InitiativeId = request.InitiativeId
             };
 
             db.Fahrgaeste.Add(fahrgast);
@@ -120,6 +122,8 @@ public static class FahrgastEndpoints
             fahrgast.Bemerkung = request.Bemerkung;
             fahrgast.GeaendertAm = DateTime.UtcNow;
             fahrgast.InitiativeId = initiative.Id;
+            fahrgast.LetzteNutzung = request.LetzteNutzung;
+            fahrgast.Aktiv = request.Aktiv;
 
             await db.SaveChangesAsync();
 

@@ -26,7 +26,7 @@ public static class FahrgastMapper
             f.GeaendertAm,
             f.LetzteNutzung,
             f.Aktiv,
-            initiative
+            f.InitiativeId
         );
     }
 }

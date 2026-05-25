@@ -12,7 +12,7 @@ public record FahrgastDto(
     DateTime? GeaendertAm,
     DateTime? LetzteNutzung,
     bool Aktiv,
-    InitiativeDto? Initiative
+    int InitiativeId
 );
 
 public record CreateFahrgastDto(
@@ -22,5 +22,7 @@ public record CreateFahrgastDto(
     string? Email,
     string? Telefonnummer,
     string? Bemerkung,
+    DateTime? LetzteNutzung,
+    bool Aktiv,
     int InitiativeId
 );
