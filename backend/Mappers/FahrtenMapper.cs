@@ -1,0 +1,116 @@
+﻿using BuergerbusAPI.DTOs;
+using BuergerbusAPI.Models;
+
+namespace BuergerbusAPI.Mappers;
+
+public static class FahrtenMapper
+{
+    // =========================================================
+    // ENTITY -> DTO
+    // =========================================================
+    public static FahrtenDto ToDto(Fahrten f)
+    {
+        return new FahrtenDto(
+            f.Id,
+            f.Titel,
+            f.Datum,
+            f.Zielort,
+            f.Fahrttyp,
+            f.Startzeit,
+            f.Endzeit,
+            f.Bemerkung,
+            f.Status,
+            f.AngelegtAm,
+            f.AngelegtVon,
+
+            f.FahrerId,
+            f.FahrzeugId,
+
+            f.InitiativeId,
+            f.Teilstrecken.Select(ToDto).ToList()
+        );
+    }
+
+    // =========================================================
+    // TEILSTRECKE ENTITY -> DTO
+    // =========================================================
+    public static TeilstreckeDto ToDto(Teilstrecke t)
+    {
+        return new TeilstreckeDto(
+            t.Id,
+            t.Abholadresse,
+            t.Zieladresse,
+            t.Startzeit,
+            t.Endzeit,
+            t.Reihenfolge,
+            t.Status,
+            t.FahrgastId,
+            t.FahrtId
+        );
+    }
+
+    // =========================================================
+    // CREATE DTO -> ENTITY
+    // =========================================================
+    public static Fahrten ToEntity(CreateFahrtenDto dto)
+    {
+        return new Fahrten
+        {
+            Titel = dto.Titel,
+            Datum = dto.Datum,
+            Zielort = dto.Zielort,
+            Fahrttyp = dto.Fahrttyp,
+            Startzeit = dto.Startzeit,
+            Endzeit = dto.Endzeit,
+            Bemerkung = dto.Bemerkung,
+            Status = dto.Status,
+            AngelegtVon = dto.AngelegtVon,
+            AngelegtAm = DateTime.UtcNow,
+
+            FahrerId = dto.FahrerId,
+            FahrzeugId = dto.FahrzeugId,
+
+            InitiativeId = dto.InitiativeId,
+
+            Teilstrecken = dto.Teilstrecken?
+                .Select(ToEntity)
+                .ToList() ?? new List<Teilstrecke>()
+        };
+    }
+
+    // =========================================================
+    // CREATE TEILSTRECKE DTO -> ENTITY
+    // =========================================================
+    public static Teilstrecke ToEntity(CreateTeilstreckeDto dto)
+    {
+        return new Teilstrecke
+        {
+            Abholadresse = dto.Abholadresse,
+            Zieladresse = dto.Zieladresse,
+            Startzeit = dto.Startzeit,
+            Endzeit = dto.Endzeit,
+            Reihenfolge = dto.Reihenfolge,
+            Status = dto.Status,
+            FahrgastId = dto.FahrgastId
+        };
+    }
+
+    // =========================================================
+    // UPDATE (partiell auf Entity anwenden)
+    // =========================================================
+    public static void ApplyUpdate(Fahrten f, UpdateFahrtenDto dto)
+    {
+        f.Titel = dto.Titel;
+        f.Datum = dto.Datum;
+        f.Zielort = dto.Zielort;
+        f.Fahrttyp = dto.Fahrttyp;
+        f.Startzeit = dto.Startzeit;
+        f.Endzeit = dto.Endzeit;
+        f.Bemerkung = dto.Bemerkung;
+        f.Status = dto.Status;
+
+        f.FahrerId = dto.FahrerId;
+        f.FahrzeugId = dto.FahrzeugId;
+        f.InitiativeId = dto.InitiativeId;
+    }
+}
