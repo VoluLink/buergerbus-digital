@@ -142,6 +142,7 @@ app.MapInitiativeEndpoints();
 app.MapFahrzeugServiceEndpoints();
 app.MapFahrgastEndpoints();
 
+app.MapFahrtenEndpoints();
 app.MapControllers();
 
 try

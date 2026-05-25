@@ -45,6 +45,7 @@ type BackendFahrtWriteDto = {
   endzeit: string | null
   bemerkung: string | null
   status: string
+  initiativeId: number
   teilstrecken: Array<{
     abholadresse: string
     zieladresse: string
@@ -57,10 +58,7 @@ type BackendFahrtWriteDto = {
 const DASHBOARD_STORAGE_KEY = 'bb.dashboard.state.v1'
 
 function extractHourMinute(value?: string | null) {
-  if (!value) {
-    return ''
-  }
-
+  if (!value) return ''
   const match = value.match(/(\d{2}:\d{2})/)
   return match ? match[1] : ''
 }
@@ -68,39 +66,20 @@ function extractHourMinute(value?: string | null) {
 function mapBackendTypeToRideType(fahrttyp: string): RideType {
   const normalized = fahrttyp.trim().toLowerCase()
 
-  if (normalized.includes('theme')) {
-    return 'theme'
-  }
-
-  if (normalized.includes('vermiet')) {
-    return 'rental'
-  }
-
+  if (normalized.includes('theme')) return 'theme'
+  if (normalized.includes('vermiet')) return 'rental'
   return 'standard'
 }
 
 function mapBackendStatusToRideStatus(status: string, type: RideType): RideStatus {
   const normalized = status.trim().toLowerCase()
 
-  if (normalized.includes('abgeschlossen') || normalized.includes('completed')) {
-    return 'completed'
-  }
+  if (normalized.includes('abgeschlossen') || normalized.includes('completed')) return 'completed'
+  if (normalized.includes('zugewiesen') || normalized.includes('assigned')) return 'assigned'
+  if (normalized.includes('gespeichert') || normalized.includes('saved')) return 'saved'
 
-  if (normalized.includes('zugewiesen') || normalized.includes('assigned')) {
-    return 'assigned'
-  }
-
-  if (normalized.includes('gespeichert') || normalized.includes('saved')) {
-    return 'saved'
-  }
-
-  if (type === 'theme') {
-    return 'theme'
-  }
-
-  if (type === 'rental') {
-    return 'rental'
-  }
+  if (type === 'theme') return 'theme'
+  if (type === 'rental') return 'rental'
 
   return 'open'
 }
@@ -119,9 +98,7 @@ function mapRideStatusToBackendStatus(status: RideStatus): string {
 }
 
 function mapTeilstreckenToPassengers(teilstrecken?: BackendTeilstreckeDto[] | null): PassengerForm[] {
-  if (!teilstrecken || teilstrecken.length === 0) {
-    return []
-  }
+  if (!teilstrecken) return []
 
   return teilstrecken.map((item, index) => ({
     id: index + 1,
@@ -138,7 +115,6 @@ function mapTeilstreckenToPassengers(teilstrecken?: BackendTeilstreckeDto[] | nu
 
 function mapBackendRideToCalendarRide(dto: BackendFahrtDto): CalendarRide {
   const type = mapBackendTypeToRideType(dto.fahrttyp)
-  const passengers = mapTeilstreckenToPassengers(dto.teilstrecken)
 
   return {
     id: dto.id,
@@ -148,7 +124,7 @@ function mapBackendRideToCalendarRide(dto: BackendFahrtDto): CalendarRide {
     title: dto.titel,
     time: extractHourMinute(dto.startzeit),
     driverName: '',
-    passengers,
+    passengers: mapTeilstreckenToPassengers(dto.teilstrecken),
     remarks: dto.bemerkung ?? '',
   }
 }
@@ -165,111 +141,91 @@ function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFahrtWrite
     endzeit: null,
     bemerkung: ride.remarks || null,
     status: mapRideStatusToBackendStatus(ride.status),
-    teilstrecken: ride.passengers.map((passenger) => ({
-      abholadresse: passenger.pickupAddress,
-      zieladresse: passenger.destinationAddress,
-      startzeit: passenger.time || null,
+    initiativeId: 1,
+    teilstrecken: ride.passengers.map((p) => ({
+      abholadresse: p.pickupAddress,
+      zieladresse: p.destinationAddress,
+      startzeit: p.time || null,
       status: null,
-      fahrgastId: passenger.sourceGuestId ?? null,
+      fahrgastId: p.sourceGuestId ?? null,
     })),
   }
 }
 
 function parseStoredState(raw: string | null): DashboardStateSnapshot {
   if (!raw) {
-    return {
-      rides: [],
-      completedPassengerKeys: [],
-      nextRideId: 1,
-    }
+    return { rides: [], completedPassengerKeys: [], nextRideId: 1 }
   }
 
   try {
-    const parsed = JSON.parse(raw) as {
-      rides?: Array<Omit<CalendarRide, 'date'> & { date: string }>
-      completedPassengerKeys?: string[]
-      nextRideId?: number
-    }
-
-    const rides = (parsed.rides ?? []).map((ride) => ({
-      ...ride,
-      date: new Date(ride.date),
-    }))
-
+    const parsed = JSON.parse(raw)
     return {
-      rides,
+      rides: (parsed.rides ?? []).map((r: any) => ({
+        ...r,
+        date: new Date(r.date),
+      })),
       completedPassengerKeys: parsed.completedPassengerKeys ?? [],
-      nextRideId: parsed.nextRideId ?? (rides.reduce((maxId, ride) => Math.max(maxId, ride.id), 0) + 1),
+      nextRideId: parsed.nextRideId ?? 1,
     }
   } catch {
-    return {
-      rides: [],
-      completedPassengerKeys: [],
-      nextRideId: 1,
-    }
+    return { rides: [], completedPassengerKeys: [], nextRideId: 1 }
   }
 }
 
 function serializeState(state: DashboardStateSnapshot) {
   return JSON.stringify({
     ...state,
-    rides: state.rides.map((ride) => ({
-      ...ride,
-      date: ride.date.toISOString(),
+    rides: state.rides.map((r) => ({
+      ...r,
+      date: r.date.toISOString(),
     })),
   })
 }
 
+/* =========================
+   BACKEND API
+========================= */
+
 async function tryLoadFromBackend(): Promise<CalendarRide[] | null> {
-  const endpoint = `${API_BASE_URL}/api/v1/fahrten`
-
   try {
-    const response = await fetch(endpoint, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
+    const res = await fetch(`${API_BASE_URL}/api/v1/fahrten`)
+    if (!res.ok) return null
 
-    if (!response.ok) {
-      return null
-    }
-
-    const payload = (await response.json()) as BackendFahrtDto[]
-    return payload.map(mapBackendRideToCalendarRide)
+    const data: BackendFahrtDto[] = await res.json()
+    return data.map(mapBackendRideToCalendarRide)
   } catch {
     return null
   }
 }
 
 async function trySaveToBackend(rides: CalendarRide[]) {
-  const endpoint = `${API_BASE_URL}/api/v1/fahrten/bulk-sync`
-
   try {
-    await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(rides.map(mapCalendarRideToBackendWriteDto)),
-    })
+    for (const ride of rides) {
+      await fetch(`${API_BASE_URL}/api/v1/fahrten`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mapCalendarRideToBackendWriteDto(ride)),
+      })
+    }
   } catch {
-    // Best effort only. Persisted local state remains source of truth until backend endpoints exist.
+    // ignore
   }
 }
 
+/* =========================
+   PUBLIC API (FRONTEND)
+========================= */
+
 export async function loadDashboardState(): Promise<DashboardStateSnapshot> {
   const local = parseStoredState(localStorage.getItem(DASHBOARD_STORAGE_KEY))
-  const backendRides = await tryLoadFromBackend()
+  const backend = await tryLoadFromBackend()
 
-  if (!backendRides) {
-    return local
-  }
+  if (!backend) return local
 
   return {
-    rides: backendRides,
+    rides: backend,
     completedPassengerKeys: local.completedPassengerKeys,
-    nextRideId: backendRides.reduce((maxId, ride) => Math.max(maxId, ride.id), 0) + 1,
+    nextRideId: backend.reduce((m, r) => Math.max(m, r.id), 0) + 1,
   }
 }
 
