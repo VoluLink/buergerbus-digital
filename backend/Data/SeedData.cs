@@ -61,7 +61,7 @@ public static class SeedData
         var initiativeName = Environment.GetEnvironmentVariable("SEED_INITIATIVE_NAME")
                              ?? "Default";
 
-        var requiredRoleNames = new[] { "Admin", "Disponent", "Fahrer" };
+        var requiredRoleNames = new[] { "Admin", "Disponent", "Fahrer", "Gast" };
         var existingRoles = await db.Rollen.ToListAsync();
 
         foreach (var roleName in requiredRoleNames)

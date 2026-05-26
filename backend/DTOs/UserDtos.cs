@@ -63,3 +63,11 @@ public record UpdateFahrerProfileRequest(
 );
 
 public record UpdateRolesRequest(List<string> Roles);
+
+public record CreateBenutzerRequest(
+    string Name,
+    string Email,
+    string Password,
+    int RoleId,
+    int InitiativeId
+);
