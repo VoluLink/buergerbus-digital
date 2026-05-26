@@ -24,7 +24,7 @@
         public Fahrgast Fahrgast { get; set; }
 
         // Initiative muss in jeder Tabelle sein (Multi-Tenant System) => Landkreis als Datengrenze
-        public int InitiativeId { get; set; }
-        public Initiativen Initiative { get; set; }
+       // public int InitiativeId { get; set; }
+       // public Initiativen Initiative { get; set; }
     }
 }

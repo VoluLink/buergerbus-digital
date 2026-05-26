@@ -137,10 +137,10 @@ namespace BuergerbusAPI.Data
 
             // Initiative -> Teilstrecke (1:n)
 
-            modelBuilder.Entity<Teilstrecke>()
-                .HasOne(t => t.Initiative)
-                .WithMany(i => i.Teilstrecken)
-                .HasForeignKey(t => t.InitiativeId);
+            //modelBuilder.Entity<Teilstrecke>()
+            //    .HasOne(t => t.Initiative)
+            //    .WithMany(i => i.Teilstrecken)
+            //    .HasForeignKey(t => t.InitiativeId);
 
             // Fahrgast <-> Löschfristen (1:1)
 
