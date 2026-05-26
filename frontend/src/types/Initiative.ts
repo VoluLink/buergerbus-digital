@@ -10,3 +10,8 @@ export type CreateInitiativeRequest = {
   name: string
   beschreibung: string
 }
+
+export type UpdateInitiativeRequest = {
+  name: string
+  beschreibung: string
+}

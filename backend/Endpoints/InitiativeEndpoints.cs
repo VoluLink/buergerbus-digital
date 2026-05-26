@@ -12,7 +12,7 @@ public static class InitiativeEndpoints
 {
     public static IEndpointRouteBuilder MapInitiativeEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/v1/initiativen", async (AppDbContext db) =>
+        static async Task<IResult> GetInitiativenDetails(AppDbContext db)
         {
             var initiatives = await db.Initiativen
                 .AsNoTracking()
@@ -27,14 +27,20 @@ public static class InitiativeEndpoints
                 .ToListAsync();
 
             return Results.Ok(initiatives);
-        });
+        }
 
-        app.MapPost("/api/v1/initiativen", async (CreateInitiativeRequest request, AppDbContext db) =>
+        static async Task<IResult> CreateInitiative(CreateInitiativeRequest request, AppDbContext db)
         {
             var name = (request.Name ?? string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(name))
             {
                 return Results.BadRequest("Name ist erforderlich.");
+            }
+
+            var nameExists = await db.Initiativen.AnyAsync(i => i.Name.ToLower() == name.ToLower());
+            if (nameExists)
+            {
+                return Results.BadRequest("Eine Initiative mit diesem Namen existiert bereits.");
             }
 
             var beschreibung = string.IsNullOrWhiteSpace(request.Beschreibung)
@@ -61,7 +67,84 @@ public static class InitiativeEndpoints
             );
 
             return Results.Created($"/api/v1/initiativen/{entity.Id}", dto);
-        });
+        }
+
+        static async Task<IResult> UpdateInitiative(int id, UpdateInitiativeDetailsRequest request, AppDbContext db)
+        {
+            var entity = await db.Initiativen.FirstOrDefaultAsync(i => i.Id == id);
+            if (entity is null)
+            {
+                return Results.NotFound("Initiative wurde nicht gefunden.");
+            }
+
+            var name = (request.Name ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return Results.BadRequest("Name ist erforderlich.");
+            }
+
+            var nameExists = await db.Initiativen.AnyAsync(i => i.Id != id && i.Name.ToLower() == name.ToLower());
+            if (nameExists)
+            {
+                return Results.BadRequest("Eine Initiative mit diesem Namen existiert bereits.");
+            }
+
+            var beschreibung = string.IsNullOrWhiteSpace(request.Beschreibung)
+                ? null
+                : request.Beschreibung!.Trim();
+
+            entity.Name = name;
+            entity.Beschreibung = beschreibung;
+            entity.GeaendertAm = DateTime.UtcNow;
+
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new InitiativeDetailsDto(
+                entity.Id,
+                entity.Name,
+                entity.Beschreibung,
+                entity.AngelegtAm,
+                entity.GeaendertAm
+            ));
+        }
+
+        static async Task<IResult> DeleteInitiative(int id, AppDbContext db)
+        {
+            var entity = await db.Initiativen.FirstOrDefaultAsync(i => i.Id == id);
+            if (entity is null)
+            {
+                return Results.NotFound("Initiative wurde nicht gefunden.");
+            }
+
+            if (string.Equals(entity.Name, "Default", StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.BadRequest("Die Standard-Initiative kann nicht gelöscht werden.");
+            }
+
+            db.Initiativen.Remove(entity);
+
+            try
+            {
+                await db.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                return Results.Conflict("Initiative kann nicht gelöscht werden, da sie noch verwendet wird.");
+            }
+
+            return Results.NoContent();
+        }
+
+        app.MapGet("/api/v1/initiativen", GetInitiativenDetails);
+        app.MapPost("/api/v1/initiativen", CreateInitiative);
+        app.MapPut("/api/v1/initiativen/{id:int}", UpdateInitiative);
+        app.MapDelete("/api/v1/initiativen/{id:int}", DeleteInitiative);
+
+        // Aliases (unversioned, english) as requested in the task description.
+        app.MapGet("/api/initiatives", GetInitiativenDetails);
+        app.MapPost("/api/initiatives", CreateInitiative);
+        app.MapPut("/api/initiatives/{id:int}", UpdateInitiative);
+        app.MapDelete("/api/initiatives/{id:int}", DeleteInitiative);
 
         app.MapGet("/api/v1/users/{id:int}/initiative", async (int id, AppDbContext db) =>
         {

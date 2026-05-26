@@ -15,4 +15,6 @@ public record InitiativeDetailsDto(
 
 public record CreateInitiativeRequest(string Name, string? Beschreibung);
 
+public record UpdateInitiativeDetailsRequest(string Name, string? Beschreibung);
+
 public record UpdateInitiativeRequest(int InitiativeId);

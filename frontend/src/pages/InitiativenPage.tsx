@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Bus, CircleUserRound, Menu, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
+import { Bus, CircleUserRound, Menu, Pencil, Settings, Trash2, UserRound, UserRoundPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import UserMenuButton from '../components/UserMenuButton'
-import { createInitiative, getInitiativen } from '../services/initiativeApi'
+import { createInitiative, deleteInitiative, getInitiativen, updateInitiative } from '../services/initiativeApi'
 import type { Initiative } from '../types/Initiative'
 
 type InitiativeFormState = {
@@ -33,6 +33,10 @@ function createEmptyForm(): InitiativeFormState {
   }
 }
 
+function isDefaultInitiative(initiative: Initiative | null | undefined) {
+  return (initiative?.name ?? '').trim().toLowerCase() === 'default'
+}
+
 function InitiativenPage() {
   const navigate = useNavigate()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
@@ -45,6 +49,19 @@ function InitiativenPage() {
   const [createForm, setCreateForm] = useState<InitiativeFormState>(createEmptyForm())
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [selectedInitiative, setSelectedInitiative] = useState<Initiative | null>(null)
+  const [editForm, setEditForm] = useState<InitiativeFormState>(createEmptyForm())
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [initiativeToDelete, setInitiativeToDelete] = useState<Initiative | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const loadInitiatives = useCallback(async () => {
     setIsLoading(true)
@@ -99,6 +116,7 @@ function InitiativenPage() {
   function openCreateModal() {
     setCreateForm(createEmptyForm())
     setSaveError(null)
+    setSuccessMessage(null)
     setIsCreateModalOpen(true)
   }
 
@@ -117,11 +135,120 @@ function InitiativenPage() {
     }))
   }
 
+  function openEditModal(initiative: Initiative) {
+    setSelectedInitiative(initiative)
+    setEditForm({
+      name: initiative.name,
+      beschreibung: initiative.beschreibung ?? '',
+    })
+    setEditError(null)
+    setSuccessMessage(null)
+    setIsEditModalOpen(true)
+  }
+
+  function closeEditModal() {
+    if (isUpdating) {
+      return
+    }
+
+    setIsEditModalOpen(false)
+  }
+
+  function updateEditField(field: keyof InitiativeFormState, value: string) {
+    setEditForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
+  }
+
+  async function handleUpdateInitiative() {
+    if (!selectedInitiative) {
+      return
+    }
+
+    const trimmedName = editForm.name.trim()
+    if (!trimmedName) {
+      setEditError('Bitte gib einen Namen ein.')
+      return
+    }
+
+    const nameAlreadyExists = initiatives.some(
+      (initiative) =>
+        initiative.id !== selectedInitiative.id &&
+        initiative.name.trim().toLowerCase() === trimmedName.toLowerCase(),
+    )
+    if (nameAlreadyExists) {
+      setEditError('Eine Initiative mit diesem Namen existiert bereits.')
+      return
+    }
+
+    setIsUpdating(true)
+    setEditError(null)
+
+    try {
+      await updateInitiative(selectedInitiative.id, {
+        name: trimmedName,
+        beschreibung: editForm.beschreibung.trim(),
+      })
+
+      setIsEditModalOpen(false)
+      await loadInitiatives()
+      setSuccessMessage('Initiative wurde erfolgreich aktualisiert.')
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Initiative konnte nicht aktualisiert werden.')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  function openDeleteModal(initiative: Initiative) {
+    setInitiativeToDelete(initiative)
+    setDeleteError(null)
+    setSuccessMessage(null)
+    setIsDeleteModalOpen(true)
+  }
+
+  function closeDeleteModal() {
+    if (isDeleting) {
+      return
+    }
+
+    setIsDeleteModalOpen(false)
+  }
+
+  async function handleDeleteInitiative() {
+    if (!initiativeToDelete) {
+      return
+    }
+
+    setIsDeleting(true)
+    setDeleteError(null)
+
+    try {
+      await deleteInitiative(initiativeToDelete.id)
+      setIsDeleteModalOpen(false)
+      await loadInitiatives()
+      setSuccessMessage('Initiative wurde gelöscht.')
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Initiative konnte nicht gelöscht werden.')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   async function handleCreateInitiative() {
     const trimmedName = createForm.name.trim()
 
     if (!trimmedName) {
       setSaveError('Bitte einen Namen eingeben.')
+      return
+    }
+
+    const nameAlreadyExists = initiatives.some(
+      (initiative) => initiative.name.trim().toLowerCase() === trimmedName.toLowerCase(),
+    )
+    if (nameAlreadyExists) {
+      setSaveError('Eine Initiative mit diesem Namen existiert bereits.')
       return
     }
 
@@ -188,6 +315,12 @@ function InitiativenPage() {
           </div>
 
           <div className="p-5 sm:p-6">
+            {successMessage ? (
+              <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+                {successMessage}
+              </div>
+            ) : null}
+
             {isLoading ? (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
                 Lade Initiativen ...
@@ -210,7 +343,7 @@ function InitiativenPage() {
                       <th className="px-4 py-3 text-left font-semibold text-slate-700">Beschreibung</th>
                       <th className="px-4 py-3 text-left font-semibold text-slate-700">Angelegt am</th>
                       <th className="px-4 py-3 text-left font-semibold text-slate-700">Geändert am</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Button</th>
+                      <th className="px-4 py-3 text-right font-semibold text-slate-700">Aktionen</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -222,14 +355,31 @@ function InitiativenPage() {
                         <td className="px-4 py-3 text-slate-700">{formatDateDisplay(initiative.angelegtAm)}</td>
                         <td className="px-4 py-3 text-slate-700">{formatDateDisplay(initiative.geaendertAm)}</td>
                         <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            disabled
-                            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500"
-                            aria-disabled="true"
-                          >
-                            —
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(initiative)}
+                              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden="true" />
+                              Bearbeiten
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => openDeleteModal(initiative)}
+                              disabled={isDefaultInitiative(initiative)}
+                              title={
+                                isDefaultInitiative(initiative)
+                                  ? 'Die Standard-Initiative kann nicht gelöscht werden.'
+                                  : undefined
+                              }
+                              className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden="true" />
+                              Löschen
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -434,6 +584,192 @@ function InitiativenPage() {
                   disabled={isSaving}
                 >
                   {isSaving ? 'Speichere...' : 'Speichern'}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {isEditModalOpen && selectedInitiative ? (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+          onClick={closeEditModal}
+        >
+          <section
+            className="relative w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-[0_35px_80px_rgba(15,23,42,0.4)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="bg-[#0053a0] px-6 py-5 text-white sm:px-8">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+                    Initiative bearbeiten
+                  </h2>
+                  <p className="mt-1 text-sm text-white/80">Name und Beschreibung anpassen.</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Modal schließen"
+                  disabled={isUpdating}
+                >
+                  <X className="h-7 w-7" aria-hidden="true" />
+                </button>
+              </div>
+            </header>
+
+            <div className="space-y-5 px-6 py-6 sm:px-8">
+              {editError ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                  {editError}
+                </div>
+              ) : null}
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-semibold text-slate-700">
+                  Name
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(event) => updateEditField('name', event.target.value)}
+                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
+                    placeholder="z.B. Neue Initiative"
+                    disabled={isUpdating}
+                  />
+                </label>
+
+                <label className="block text-sm font-semibold text-slate-700">
+                  Beschreibung
+                  <input
+                    type="text"
+                    value={editForm.beschreibung}
+                    onChange={(event) => updateEditField('beschreibung', event.target.value)}
+                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
+                    placeholder="Beschreibung der Initiative"
+                    disabled={isUpdating}
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className="block text-sm font-semibold text-slate-700">
+                  ID
+                  <input
+                    type="text"
+                    disabled
+                    value={selectedInitiative.id}
+                    className="mt-1 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
+                  />
+                </label>
+
+                <label className="block text-sm font-semibold text-slate-700">
+                  Angelegt am
+                  <input
+                    type="text"
+                    disabled
+                    value={formatDateDisplay(selectedInitiative.angelegtAm)}
+                    className="mt-1 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
+                  />
+                </label>
+
+                <label className="block text-sm font-semibold text-slate-700">
+                  Geändert am
+                  <input
+                    type="text"
+                    disabled
+                    value={formatDateDisplay(selectedInitiative.geaendertAm)}
+                    className="mt-1 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-5">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={isUpdating}
+                >
+                  Abbrechen
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void handleUpdateInitiative()}
+                  className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={isUpdating}
+                >
+                  {isUpdating ? 'Speichere...' : 'Speichern'}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {isDeleteModalOpen && initiativeToDelete ? (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+          onClick={closeDeleteModal}
+        >
+          <section
+            className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-[0_35px_80px_rgba(15,23,42,0.4)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="bg-rose-600 px-6 py-5 text-white sm:px-8">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-3xl font-semibold tracking-tight">Initiative löschen</h2>
+                  <p className="mt-1 text-sm text-white/80">
+                    Möchtest du diese Initiative wirklich löschen?
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeDeleteModal}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Modal schließen"
+                  disabled={isDeleting}
+                >
+                  <X className="h-7 w-7" aria-hidden="true" />
+                </button>
+              </div>
+            </header>
+
+            <div className="space-y-5 px-6 py-6 sm:px-8">
+              {deleteError ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                  {deleteError}
+                </div>
+              ) : null}
+
+              {isDefaultInitiative(initiativeToDelete) ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+                  Die Standard-Initiative kann nicht gelöscht werden.
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-5">
+                <button
+                  type="button"
+                  onClick={closeDeleteModal}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={isDeleting}
+                >
+                  Abbrechen
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteInitiative()}
+                  className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={isDeleting || isDefaultInitiative(initiativeToDelete)}
+                >
+                  {isDeleting ? 'Lösche...' : 'Löschen'}
                 </button>
               </div>
             </div>
