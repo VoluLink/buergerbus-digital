@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Bus, Menu, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import UserMenuButton from '../components/UserMenuButton'
@@ -68,6 +68,8 @@ function RollenverteilungPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [saveError, setSaveError] = useState('')
+  const [saveSuccess, setSaveSuccess] = useState('')
+  const successTimerRef = useRef<number | null>(null)
   const [savingUserId, setSavingUserId] = useState<number | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
   const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null)
@@ -83,8 +85,15 @@ function RollenverteilungPage() {
   })
   const [createFieldErrors, setCreateFieldErrors] = useState<Record<string, string>>({})
   const [createError, setCreateError] = useState('')
-  const [createSuccess, setCreateSuccess] = useState('')
   const [isCreating, setIsCreating] = useState(false)
+
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) {
+        window.clearTimeout(successTimerRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     let isActive = true
@@ -169,7 +178,6 @@ function RollenverteilungPage() {
     })
     setCreateFieldErrors({})
     setCreateError('')
-    setCreateSuccess('')
     setIsCreateModalOpen(true)
   }
 
@@ -308,16 +316,29 @@ function RollenverteilungPage() {
       return left - right
     })
 
-  async function reloadUsers() {
-    const response = await getUsers(page, pageSize, searchQuery)
+  async function reloadUsers(overrides?: { page?: number; pageSize?: number; searchQuery?: string }) {
+    const nextPage = overrides?.page ?? page
+    const nextPageSize = overrides?.pageSize ?? pageSize
+    const nextSearch = overrides?.searchQuery ?? searchQuery
+    const response = await getUsers(nextPage, nextPageSize, nextSearch)
     setUsers(response.items)
     setTotalItems(response.totalItems)
     setTotalPages(response.totalPages)
   }
 
+  function showSuccess(message: string) {
+    setSaveSuccess(message)
+    if (successTimerRef.current) {
+      window.clearTimeout(successTimerRef.current)
+    }
+    successTimerRef.current = window.setTimeout(() => {
+      setSaveSuccess('')
+      successTimerRef.current = null
+    }, 2500)
+  }
+
   async function handleCreateUserSubmit() {
     setCreateError('')
-    setCreateSuccess('')
 
     const nextErrors: Record<string, string> = {}
     const trimmedName = createForm.name.trim()
@@ -365,12 +386,21 @@ function RollenverteilungPage() {
         initiativeId,
       })
 
-      setCreateSuccess('Benutzer wurde erfolgreich angelegt.')
-      setCreateForm((prev) => ({
-        ...prev,
+      // Ensure the new user is immediately visible in the table.
+      setPage(1)
+      setSearchQuery(trimmedEmail)
+      await reloadUsers({ page: 1, searchQuery: trimmedEmail })
+
+      showSuccess('Benutzer wurde erfolgreich angelegt.')
+      closeCreateModal()
+      setCreateForm({
+        roleId: '',
+        initiativeId: '',
+        name: '',
+        email: '',
         password: '',
-      }))
-      await reloadUsers()
+      })
+      setCreateFieldErrors({})
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Benutzer konnte nicht angelegt werden.')
     } finally {
@@ -413,6 +443,12 @@ function RollenverteilungPage() {
               + Benutzer anlegen
             </button>
           </div>
+
+          {saveSuccess ? (
+            <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              {saveSuccess}
+            </p>
+          ) : null}
 
           {loadError ? (
             <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -726,12 +762,6 @@ function RollenverteilungPage() {
             {createError ? (
               <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                 {createError}
-              </p>
-            ) : null}
-
-            {createSuccess ? (
-              <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                {createSuccess}
               </p>
             ) : null}
 
