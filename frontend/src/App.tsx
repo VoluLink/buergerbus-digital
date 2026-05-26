@@ -7,6 +7,7 @@ import FahrerinfosPage from './pages/FahrerinfosPage'
 import FahrzeuginfosPage from './pages/FahrzeuginfosPage'
 import FahrgastinfosPage from './pages/FahrgastinfosPage'
 import RollenverteilungPage from './pages/RollenverteilungPage'
+import InitiativenPage from './pages/InitiativenPage'
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
       <Route path="/fahrerinfos" element={<FahrerinfosPage />} />
       <Route path="/fahrzeuginfos" element={<FahrzeuginfosPage />} />
       <Route path="/fahrgastinfos" element={<FahrgastinfosPage />} />
+      <Route path="/initiativen" element={<InitiativenPage />} />
       <Route path="/rollenverteilung" element={<RollenverteilungPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

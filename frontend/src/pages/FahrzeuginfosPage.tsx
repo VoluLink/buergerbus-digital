@@ -1510,6 +1510,15 @@ function FahrzeuginfosPage() {
 
               <button
                 type="button"
+                onClick={() => goToPage('/initiativen')}
+                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+              >
+                <Bus className="h-5 w-5" aria-hidden="true" />
+                Initiativen
+              </button>
+
+              <button
+                type="button"
                 onClick={() => goToPage('/rollenverteilung')}
                 className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
               >
