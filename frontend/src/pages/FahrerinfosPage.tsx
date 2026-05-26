@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Bus, CircleUserRound, Menu, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import type { FahrerMe } from '../types/FahrerMe'
-import { getMyFahrerInfo } from '../services/fahrerMe'
+import type { FahrerListItem } from '../types/FahrerListItem'
+import { getAllFahrer } from '../services/fahrerList'
 import UserMenuButton from '../components/UserMenuButton'
 
 function FahrerinfosPage() {
   const navigate = useNavigate()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
-  const [fahrerInfo, setFahrerInfo] = useState<FahrerMe | null>(null)
+  const [drivers, setDrivers] = useState<FahrerListItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -17,14 +17,14 @@ function FahrerinfosPage() {
     setIsLoading(true)
     setError(null)
 
-    getMyFahrerInfo()
+    getAllFahrer()
       .then((data) => {
         if (!isMounted) return
-        setFahrerInfo(data)
+        setDrivers(data)
       })
       .catch((err) => {
         if (!isMounted) return
-        setFahrerInfo(null)
+        setDrivers([])
         setError(err instanceof Error ? err.message : 'Fahrerprofil konnte nicht geladen werden.')
       })
       .finally(() => {
@@ -45,10 +45,6 @@ function FahrerinfosPage() {
     closeSideMenu()
     navigate(path)
   }
-
-  const fahrzeugText =
-    fahrerInfo?.fahrzeug
-      ?? (fahrerInfo?.fahrzeuge?.length ? fahrerInfo.fahrzeuge.join(', ') : null)
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
@@ -81,44 +77,42 @@ function FahrerinfosPage() {
           <div className="p-5 sm:p-6">
             {isLoading ? (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                Lade Fahrerprofil ...
+                Lade Fahrer ...
               </div>
             ) : error ? (
               <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                 {error}
               </div>
-            ) : fahrerInfo ? (
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Name</div>
-                  <div className="mt-1 text-base font-semibold text-slate-900">{fahrerInfo.name}</div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Telefonnummer</div>
-                  <div className="mt-1 text-base font-semibold text-slate-900">
-                    {fahrerInfo.telefonnummer || '—'}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Fahrzeug</div>
-                  <div className="mt-1 text-base font-semibold text-slate-900">{fahrzeugText || '—'}</div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</div>
-                  <div className="mt-1 text-base font-semibold text-slate-900">{fahrerInfo.status}</div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:col-span-2">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bemerkung</div>
-                  <div className="mt-1 text-sm text-slate-800">{fahrerInfo.bemerkung || '—'}</div>
-                </div>
+            ) : drivers.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                Keine Fahrer vorhanden.
               </div>
             ) : (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                Kein Fahrerprofil vorhanden.
+              <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50">
+                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Fahrer-ID</th>
+                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Name</th>
+                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Telefonnummer</th>
+                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Fahrzeug</th>
+                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
+                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Bemerkung</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drivers.map((driver) => (
+                      <tr key={driver.fahrerId} className="border-b border-slate-100">
+                        <td className="px-4 py-3">{driver.fahrerId}</td>
+                        <td className="px-4 py-3">{driver.name}</td>
+                        <td className="px-4 py-3">{driver.telefonnummer || '—'}</td>
+                        <td className="px-4 py-3">{driver.fahrzeug || '—'}</td>
+                        <td className="px-4 py-3">{driver.status}</td>
+                        <td className="px-4 py-3">{driver.bemerkung || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

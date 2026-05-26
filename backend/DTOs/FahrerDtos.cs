@@ -1,16 +1,15 @@
 namespace BuergerbusAPI.DTOs;
 
 /// <summary>
-/// DTOs für fahrerspezifische API-Endpunkte.
+/// DTOs für Fahrer-Übersicht.
 /// </summary>
-public record FahrerMeDto(
+public record FahrerListItemDto(
     int FahrerId,
     int BenutzerId,
     string Name,
     string? Telefonnummer,
-    bool Aktiv,
-    string Status,
-    string? Bemerkung,
     string? Fahrzeug,
-    List<string> Fahrzeuge
+    string Status,
+    bool Aktiv,
+    string? Bemerkung
 );

@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using BuergerbusAPI.Data;
 using BuergerbusAPI.DTOs;
 using Microsoft.EntityFrameworkCore;
@@ -12,116 +11,74 @@ public static class FahrerEndpoints
 {
     public static IEndpointRouteBuilder MapFahrerEndpoints(this IEndpointRouteBuilder app)
     {
-        static async Task<IResult> GetMeAsync(HttpContext httpContext, AppDbContext db)
+        app.MapGet("/api/v1/fahrer", async (AppDbContext db) =>
         {
-            var userIdResult = TryGetUserId(httpContext.User);
-            if (userIdResult.Error != null)
-            {
-                return userIdResult.Error;
-            }
-
-            if (!HasRole(httpContext.User, "Fahrer"))
-            {
-                return Results.Problem(
-                    "Nur Benutzer mit der Rolle 'Fahrer' dürfen auf diese Daten zugreifen.",
-                    statusCode: StatusCodes.Status403Forbidden
-                );
-            }
-
-            var fahrer = await db.Fahrer
+            var fahrerList = await db.Fahrer
                 .AsNoTracking()
                 .Include(f => f.Benutzer)
                 .Include(f => f.FahrerFahrzeuge)
                     .ThenInclude(ff => ff.Fahrzeug)
-                .FirstOrDefaultAsync(f => f.BenutzerId == userIdResult.UserId);
+                .OrderBy(f => f.Id)
+                .ToListAsync();
 
-            if (fahrer == null)
+            var dtos = fahrerList.Select(f =>
             {
-                return Results.NotFound("Kein Fahrerprofil vorhanden.");
-            }
+                var nameParts = new[] { f.Benutzer?.Vorname, f.Benutzer?.Nachname }
+                    .Where(part => !string.IsNullOrWhiteSpace(part))
+                    .Select(part => part!.Trim());
 
-            var nameParts = new[] { fahrer.Benutzer?.Vorname, fahrer.Benutzer?.Nachname }
-                .Where(part => !string.IsNullOrWhiteSpace(part))
-                .Select(part => part!.Trim());
-
-            var displayName = string.Join(" ", nameParts);
-            if (string.IsNullOrWhiteSpace(displayName))
-            {
-                displayName = fahrer.Benutzer?.Nutzername
-                    ?? fahrer.Benutzer?.Email
-                    ?? "(Unbekannt)";
-            }
-
-            var fahrzeuge = fahrer.FahrerFahrzeuge
-                .Select(ff => ff.Fahrzeug)
-                .Where(fz => fz != null)
-                .Select(fz =>
+                var displayName = string.Join(" ", nameParts);
+                if (string.IsNullOrWhiteSpace(displayName))
                 {
-                    var bezeichnung = fz!.Bezeichnung?.Trim();
-                    var kennzeichen = fz.Kennzeichen?.Trim();
+                    displayName = f.Benutzer?.Nutzername
+                        ?? f.Benutzer?.Email
+                        ?? "(Unbekannt)";
+                }
 
-                    if (!string.IsNullOrWhiteSpace(bezeichnung) && !string.IsNullOrWhiteSpace(kennzeichen))
+                var fahrzeugText = f.FahrerFahrzeuge
+                    .Select(ff => ff.Fahrzeug)
+                    .Where(fz => fz != null)
+                    .Select(fz =>
                     {
-                        return $"{bezeichnung} ({kennzeichen})";
-                    }
+                        var bezeichnung = fz!.Bezeichnung?.Trim();
+                        var kennzeichen = fz.Kennzeichen?.Trim();
 
-                    if (!string.IsNullOrWhiteSpace(bezeichnung))
-                    {
-                        return bezeichnung;
-                    }
+                        if (!string.IsNullOrWhiteSpace(bezeichnung) && !string.IsNullOrWhiteSpace(kennzeichen))
+                        {
+                            return $"{bezeichnung} ({kennzeichen})";
+                        }
 
-                    if (!string.IsNullOrWhiteSpace(kennzeichen))
-                    {
-                        return kennzeichen;
-                    }
+                        if (!string.IsNullOrWhiteSpace(bezeichnung))
+                        {
+                            return bezeichnung;
+                        }
 
-                    return string.Empty;
-                })
-                .Where(text => !string.IsNullOrWhiteSpace(text))
-                .Select(text => text.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+                        if (!string.IsNullOrWhiteSpace(kennzeichen))
+                        {
+                            return kennzeichen;
+                        }
 
-            var dto = new FahrerMeDto(
-                fahrer.Id,
-                fahrer.BenutzerId,
-                displayName,
-                fahrer.Benutzer?.Telefonnummer,
-                fahrer.Aktiv,
-                fahrer.Aktiv ? "Aktiv" : "Inaktiv",
-                fahrer.Bemerkung,
-                fahrzeuge.FirstOrDefault(),
-                fahrzeuge
-            );
+                        return string.Empty;
+                    })
+                    .FirstOrDefault(text => !string.IsNullOrWhiteSpace(text));
 
-            return Results.Ok(dto);
-        }
+                fahrzeugText = string.IsNullOrWhiteSpace(fahrzeugText) ? null : fahrzeugText.Trim();
 
-        app.MapGet("/api/v1/fahrer/me", GetMeAsync)
-            .RequireAuthorization();
+                return new FahrerListItemDto(
+                    f.Id,
+                    f.BenutzerId,
+                    displayName,
+                    f.Benutzer?.Telefonnummer,
+                    fahrzeugText,
+                    f.Aktiv ? "Aktiv" : "Inaktiv",
+                    f.Aktiv,
+                    f.Bemerkung
+                );
+            }).ToList();
 
-        // Alias wie in der Arbeitsanweisung (ohne /v1)
-        app.MapGet("/api/fahrer/me", GetMeAsync)
-            .RequireAuthorization();
+            return Results.Ok(dtos);
+        });
 
         return app;
-    }
-
-    private static bool HasRole(ClaimsPrincipal user, string role)
-    {
-        return user.Claims.Any(c =>
-            c.Type == ClaimTypes.Role
-            && string.Equals(c.Value, role, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static (int UserId, IResult? Error) TryGetUserId(ClaimsPrincipal user)
-    {
-        var idText = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrWhiteSpace(idText) || !int.TryParse(idText, out var userId))
-        {
-            return (0, Results.Unauthorized());
-        }
-
-        return (userId, null);
     }
 }

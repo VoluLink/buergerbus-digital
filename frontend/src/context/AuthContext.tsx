@@ -6,7 +6,6 @@ import type { UserProfile } from '../types/UserProfile'
 
 type AuthContextValue = {
   currentUser: UserProfile | null
-  token: string | null
   isLoading: boolean
   error: string | null
   login: (credentials: LoginCredentials) => Promise<UserProfile>
@@ -17,20 +16,15 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 const USER_ID_STORAGE_KEY = 'bb.auth.userId'
-const TOKEN_STORAGE_KEY = 'bb.auth.token'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null)
-  const [token, setToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const refreshProfile = useCallback(async () => {
     const storedUserId = localStorage.getItem(USER_ID_STORAGE_KEY)
     const userId = storedUserId ? Number(storedUserId) : null
-
-    const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY)
-    setToken(storedToken)
 
     if (!userId || Number.isNaN(userId)) {
       setCurrentUser(null)
@@ -49,8 +43,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setCurrentUser(null)
       setError(err instanceof Error ? err.message : 'Profil konnte nicht geladen werden.')
       localStorage.removeItem(USER_ID_STORAGE_KEY)
-      localStorage.removeItem(TOKEN_STORAGE_KEY)
-      setToken(null)
       return null
     } finally {
       setIsLoading(false)
@@ -73,14 +65,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       localStorage.setItem(USER_ID_STORAGE_KEY, String(response.user.id))
-      const nextToken = response.token ?? null
-      if (nextToken) {
-        localStorage.setItem(TOKEN_STORAGE_KEY, nextToken)
-      } else {
-        localStorage.removeItem(TOKEN_STORAGE_KEY)
-      }
-
-      setToken(nextToken)
       setCurrentUser(response.user)
       return response.user
     } catch (err) {
@@ -94,20 +78,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem(USER_ID_STORAGE_KEY)
-    localStorage.removeItem(TOKEN_STORAGE_KEY)
     setCurrentUser(null)
-    setToken(null)
   }, [])
 
   const value = useMemo<AuthContextValue>(() => ({
     currentUser,
-    token,
     isLoading,
     error,
     login,
     logout,
     refreshProfile,
-  }), [currentUser, token, error, isLoading, login, logout, refreshProfile])
+  }), [currentUser, error, isLoading, login, logout, refreshProfile])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
