@@ -3,6 +3,7 @@ import { Bus, Menu, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import UserMenuButton from '../components/UserMenuButton'
 import {
+  createBenutzer,
   fetchInitiatives,
   fetchRoles,
   fetchUserProfile,
@@ -55,6 +56,7 @@ function buildDisplayName(profile: UserProfile | null) {
 function RollenverteilungPage() {
   const navigate = useNavigate()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
@@ -71,6 +73,18 @@ function RollenverteilungPage() {
   const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null)
   const [isProfileLoading, setIsProfileLoading] = useState(false)
   const [profileError, setProfileError] = useState('')
+
+  const [createForm, setCreateForm] = useState({
+    roleId: '',
+    initiativeId: '',
+    name: '',
+    email: '',
+    password: '',
+  })
+  const [createFieldErrors, setCreateFieldErrors] = useState<Record<string, string>>({})
+  const [createError, setCreateError] = useState('')
+  const [createSuccess, setCreateSuccess] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
 
   useEffect(() => {
     let isActive = true
@@ -143,6 +157,28 @@ function RollenverteilungPage() {
 
   function closeSideMenu() {
     setIsSideMenuOpen(false)
+  }
+
+  function openCreateModal() {
+    setCreateForm({
+      roleId: '',
+      initiativeId: '',
+      name: '',
+      email: '',
+      password: '',
+    })
+    setCreateFieldErrors({})
+    setCreateError('')
+    setCreateSuccess('')
+    setIsCreateModalOpen(true)
+  }
+
+  function closeCreateModal() {
+    if (isCreating) {
+      return
+    }
+
+    setIsCreateModalOpen(false)
   }
 
   function goToPage(path: string) {
@@ -263,6 +299,85 @@ function RollenverteilungPage() {
 
   const displayName = buildDisplayName(selectedProfile)
 
+  const allowedRoleOrder = ['admin', 'disponent', 'fahrer', 'gast']
+  const createRoleOptions = roles
+    .filter((role) => allowedRoleOrder.includes(role.name.toLowerCase()))
+    .sort((a, b) => {
+      const left = allowedRoleOrder.indexOf(a.name.toLowerCase())
+      const right = allowedRoleOrder.indexOf(b.name.toLowerCase())
+      return left - right
+    })
+
+  async function reloadUsers() {
+    const response = await getUsers(page, pageSize, searchQuery)
+    setUsers(response.items)
+    setTotalItems(response.totalItems)
+    setTotalPages(response.totalPages)
+  }
+
+  async function handleCreateUserSubmit() {
+    setCreateError('')
+    setCreateSuccess('')
+
+    const nextErrors: Record<string, string> = {}
+    const trimmedName = createForm.name.trim()
+    const trimmedEmail = createForm.email.trim()
+    const roleId = Number(createForm.roleId)
+    const initiativeId = Number(createForm.initiativeId)
+
+    if (!roleId) {
+      nextErrors.roleId = 'Bitte eine Rolle auswählen.'
+    }
+
+    if (!initiativeId) {
+      nextErrors.initiativeId = 'Bitte eine Initiative auswählen.'
+    }
+
+    if (!trimmedName) {
+      nextErrors.name = 'Name ist erforderlich.'
+    }
+
+    if (!trimmedEmail) {
+      nextErrors.email = 'E-Mail ist erforderlich.'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      nextErrors.email = 'E-Mail ist ungültig.'
+    }
+
+    if (!createForm.password.trim()) {
+      nextErrors.password = 'Passwort ist erforderlich.'
+    } else if (createForm.password.trim().length < 6) {
+      nextErrors.password = 'Passwort muss mindestens 6 Zeichen lang sein.'
+    }
+
+    setCreateFieldErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) {
+      return
+    }
+
+    setIsCreating(true)
+
+    try {
+      await createBenutzer({
+        name: trimmedName,
+        email: trimmedEmail,
+        password: createForm.password,
+        roleId,
+        initiativeId,
+      })
+
+      setCreateSuccess('Benutzer wurde erfolgreich angelegt.')
+      setCreateForm((prev) => ({
+        ...prev,
+        password: '',
+      }))
+      await reloadUsers()
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Benutzer konnte nicht angelegt werden.')
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
       <header className="border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
@@ -289,6 +404,16 @@ function RollenverteilungPage() {
 
       <div className="p-2 sm:p-3 lg:p-4">
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className="rounded-xl bg-[#0053a0] px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+            >
+              + Benutzer anlegen
+            </button>
+          </div>
+
           {loadError ? (
             <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {loadError}
@@ -572,6 +697,152 @@ function RollenverteilungPage() {
               </button>
             </div>
           </aside>
+        </div>
+      ) : null}
+
+      {isCreateModalOpen ? (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+          onClick={closeCreateModal}
+        >
+          <section
+            className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+            aria-label="Benutzer anlegen"
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+              <h2 className="text-xl font-bold text-slate-800">Benutzer anlegen</h2>
+              <button
+                type="button"
+                onClick={closeCreateModal}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Benutzer anlegen schließen"
+                disabled={isCreating}
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            {createError ? (
+              <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {createError}
+              </p>
+            ) : null}
+
+            {createSuccess ? (
+              <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {createSuccess}
+              </p>
+            ) : null}
+
+            <form
+              className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void handleCreateUserSubmit()
+              }}
+            >
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Rolle</label>
+                <select
+                  value={createForm.roleId}
+                  onChange={(event) => setCreateForm((prev) => ({ ...prev, roleId: event.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                  disabled={createRoleOptions.length === 0 || isCreating}
+                >
+                  <option value="">Bitte wählen...</option>
+                  {createRoleOptions.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.name}
+                    </option>
+                  ))}
+                </select>
+                {createFieldErrors.roleId ? (
+                  <p className="mt-1 text-xs text-rose-600">{createFieldErrors.roleId}</p>
+                ) : null}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Initiative</label>
+                <select
+                  value={createForm.initiativeId}
+                  onChange={(event) => setCreateForm((prev) => ({ ...prev, initiativeId: event.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                  disabled={initiatives.length === 0 || isCreating}
+                >
+                  <option value="">Bitte wählen...</option>
+                  {initiatives.map((initiative) => (
+                    <option key={initiative.id} value={initiative.id}>
+                      {initiative.name}
+                    </option>
+                  ))}
+                </select>
+                {createFieldErrors.initiativeId ? (
+                  <p className="mt-1 text-xs text-rose-600">{createFieldErrors.initiativeId}</p>
+                ) : null}
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Name</label>
+                <input
+                  type="text"
+                  value={createForm.name}
+                  onChange={(event) => setCreateForm((prev) => ({ ...prev, name: event.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  disabled={isCreating}
+                />
+                {createFieldErrors.name ? (
+                  <p className="mt-1 text-xs text-rose-600">{createFieldErrors.name}</p>
+                ) : null}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">E-Mail</label>
+                <input
+                  type="email"
+                  value={createForm.email}
+                  onChange={(event) => setCreateForm((prev) => ({ ...prev, email: event.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  disabled={isCreating}
+                />
+                {createFieldErrors.email ? (
+                  <p className="mt-1 text-xs text-rose-600">{createFieldErrors.email}</p>
+                ) : null}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Passwort</label>
+                <input
+                  type="password"
+                  value={createForm.password}
+                  onChange={(event) => setCreateForm((prev) => ({ ...prev, password: event.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  disabled={isCreating}
+                />
+                {createFieldErrors.password ? (
+                  <p className="mt-1 text-xs text-rose-600">{createFieldErrors.password}</p>
+                ) : null}
+              </div>
+
+              <div className="sm:col-span-2 mt-2 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeCreateModal}
+                  className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                  disabled={isCreating}
+                >
+                  Schließen
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-[#0053a0] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60"
+                  disabled={isCreating}
+                >
+                  {isCreating ? 'Wird angelegt...' : 'Benutzer anlegen'}
+                </button>
+              </div>
+            </form>
+          </section>
         </div>
       ) : null}
     </main>

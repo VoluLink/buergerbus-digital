@@ -120,3 +120,28 @@ export async function updateUserInitiative(userId: number, initiativeId: number)
 
   return response.json()
 }
+
+export interface CreateBenutzerRequest {
+  name: string
+  email: string
+  password: string
+  roleId: number
+  initiativeId: number
+}
+
+export async function createBenutzer(payload: CreateBenutzerRequest): Promise<UserProfile> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/benutzer`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Benutzer konnte nicht angelegt werden.')
+  }
+
+  return response.json()
+}

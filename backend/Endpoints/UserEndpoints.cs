@@ -2,7 +2,9 @@ using BuergerbusAPI.Data;
 using BuergerbusAPI.DTOs;
 using BuergerbusAPI.Mappers;
 using BuergerbusAPI.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Net.Mail;
 
 /// <summary>
 /// Enthält API-Endpunkte für Benutzerverwaltung,
@@ -24,6 +26,143 @@ public static class UserEndpoints
     /// </summary>
     public static IEndpointRouteBuilder MapUserEndpoints(this IEndpointRouteBuilder app)
     {
+
+// -----------------------------------------------------------------------------
+// Benutzer anlegen (ohne Rechteprüfung; wird später ergänzt)
+// -----------------------------------------------------------------------------
+        app.MapPost("/api/v1/benutzer", async (
+            CreateBenutzerRequest request,
+            AppDbContext db,
+            IPasswordHasher<Benutzer> passwordHasher
+        ) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return Results.BadRequest("Name ist erforderlich.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                return Results.BadRequest("E-Mail ist erforderlich.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Password))
+            {
+                return Results.BadRequest("Passwort ist erforderlich.");
+            }
+
+            if (request.RoleId <= 0)
+            {
+                return Results.BadRequest("Rolle ist erforderlich.");
+            }
+
+            if (request.InitiativeId <= 0)
+            {
+                return Results.BadRequest("Initiative ist erforderlich.");
+            }
+
+            var name = request.Name.Trim();
+            var email = request.Email.Trim();
+
+            try
+            {
+                _ = new MailAddress(email);
+            }
+            catch
+            {
+                return Results.BadRequest("E-Mail ist ungültig.");
+            }
+
+            if (request.Password.Trim().Length < 6)
+            {
+                return Results.BadRequest("Passwort muss mindestens 6 Zeichen lang sein.");
+            }
+
+            var normalizedEmail = email.ToLowerInvariant();
+            var normalizedUsername = name.ToLowerInvariant();
+
+            var emailExists = await db.Benutzer
+                .AnyAsync(u => u.Email.ToLower() == normalizedEmail);
+            if (emailExists)
+            {
+                return Results.BadRequest("E-Mail ist bereits vergeben.");
+            }
+
+            var usernameExists = await db.Benutzer
+                .AnyAsync(u => u.Nutzername.ToLower() == normalizedUsername);
+            if (usernameExists)
+            {
+                return Results.BadRequest("Name ist bereits vergeben.");
+            }
+
+            var initiative = await db.Initiativen
+                .FirstOrDefaultAsync(i => i.Id == request.InitiativeId);
+            if (initiative is null)
+            {
+                return Results.NotFound("Initiative wurde nicht gefunden.");
+            }
+
+            var role = await db.Rollen
+                .FirstOrDefaultAsync(r => r.Id == request.RoleId);
+            if (role is null)
+            {
+                return Results.NotFound("Rolle wurde nicht gefunden.");
+            }
+
+            await using var transaction = await db.Database.BeginTransactionAsync();
+
+            var user = new Benutzer
+            {
+                Nutzername = name,
+                Email = email,
+                InitiativeId = initiative.Id,
+                PasswortHash = "",
+                Aktiv = true,
+                AngelegtAm = DateTime.UtcNow,
+            };
+
+            user.PasswortHash = passwordHasher.HashPassword(user, request.Password);
+
+            db.Benutzer.Add(user);
+            await db.SaveChangesAsync();
+
+            db.BenutzerRollen.Add(new BenutzerRolle
+            {
+                BenutzerId = user.Id,
+                RolleId = role.Id,
+            });
+
+            if (string.Equals(role.Rollenname, "Fahrer", StringComparison.OrdinalIgnoreCase))
+            {
+                db.Fahrer.Add(new Fahrer
+                {
+                    BenutzerId = user.Id,
+                    Aktiv = true,
+                    AngelegtAm = DateTime.UtcNow,
+                });
+            }
+
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            var loadedUser = await db.Benutzer
+                .Include(u => u.Initiative)
+                .Include(u => u.BenutzerRollen)
+                    .ThenInclude(br => br.Rolle)
+                .Include(u => u.Fahrer)
+                .FirstOrDefaultAsync(u => u.Id == user.Id);
+
+            if (loadedUser is null)
+            {
+                return Results.Problem("Benutzer wurde angelegt, konnte aber nicht geladen werden.");
+            }
+
+            return Results.Created($"/api/v1/users/{loadedUser.Id}", UserMapper.CreateUserProfile(loadedUser));
+        })
+        .Accepts<CreateBenutzerRequest>("application/json")
+        .Produces<UserProfileDto>(StatusCodes.Status201Created)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound);
 
 // -----------------------------------------------------------------------------
 // Eigenes Benutzerprofil anhand von userId oder E-Mail laden
