@@ -45,11 +45,20 @@ type BackendFahrtWriteDto = {
   endzeit: string | null
   bemerkung: string | null
   status: string
-  initiativeId: number
+
+  angelegtVon: string
+
+  fahrerId: number | null
+  fahrzeugId: number | null
+
+  initiativeId: number  
+
   teilstrecken: Array<{
     abholadresse: string
     zieladresse: string
     startzeit: string | null
+    endzeit: string | null
+    reihenfolge: number
     status: string | null
     fahrgastId: number | null
   }>
@@ -133,21 +142,42 @@ function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFahrtWrite
   const firstPassenger = ride.passengers[0]
 
   return {
-    titel: ride.title,
-    datum: ride.date.toISOString(),
-    zielort: firstPassenger?.destinationAddress || '',
-    fahrttyp: ride.type,
-    startzeit: ride.time,
+  titel: ride.title,
+  datum: ride.date.toISOString(),
+  zielort: firstPassenger?.destinationAddress || '',
+  fahrttyp: ride.type,
+
+  startzeit: ride.time
+    ? new Date(
+        `${ride.date.toISOString().split('T')[0]}T${ride.time}:00`
+      ).toISOString()
+    : new Date(ride.date).toISOString(),
+
+  endzeit: null,
+  bemerkung: ride.remarks || null,
+  status: mapRideStatusToBackendStatus(ride.status),
+
+  angelegtVon: 'Disponent',
+
+  fahrerId: null,
+  fahrzeugId: null,
+
+  initiativeId: 1,
+
+  teilstrecken: ride.passengers.map((p) => ({
+    abholadresse: p.pickupAddress,
+    zieladresse: p.destinationAddress,
+
+    startzeit: p.time
+      ? new Date(
+          `${ride.date.toISOString().split('T')[0]}T${p.time}:00`
+        ).toISOString()
+      : null,
+
     endzeit: null,
-    bemerkung: ride.remarks || null,
-    status: mapRideStatusToBackendStatus(ride.status),
-    initiativeId: 1,
-    teilstrecken: ride.passengers.map((p) => ({
-      abholadresse: p.pickupAddress,
-      zieladresse: p.destinationAddress,
-      startzeit: p.time || null,
-      status: null,
-      fahrgastId: p.sourceGuestId ?? null,
+    reihenfolge: 0,
+    status: null,
+    fahrgastId: p.sourceGuestId ?? null,
     })),
   }
 }
