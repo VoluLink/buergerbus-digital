@@ -122,7 +122,7 @@ function mapTeilstreckenToPassengers(teilstrecken?: BackendTeilstreckeDto[] | nu
   }))
 }
 
-function mapBackendRideToCalendarRide(dto: BackendFahrtDto): CalendarRide {
+export function mapBackendRideToCalendarRide(dto: BackendFahrtDto): CalendarRide {
   const type = mapBackendTypeToRideType(dto.fahrttyp)
 
   return {
@@ -138,7 +138,7 @@ function mapBackendRideToCalendarRide(dto: BackendFahrtDto): CalendarRide {
   }
 }
 
-function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFahrtWriteDto {
+export function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFahrtWriteDto {
   const firstPassenger = ride.passengers[0]
 
   return {
@@ -261,5 +261,5 @@ export async function loadDashboardState(): Promise<DashboardStateSnapshot> {
 
 export async function saveDashboardState(state: DashboardStateSnapshot): Promise<void> {
   localStorage.setItem(DASHBOARD_STORAGE_KEY, serializeState(state))
-  await trySaveToBackend(state.rides)
+  //await trySaveToBackend(state.rides)
 }

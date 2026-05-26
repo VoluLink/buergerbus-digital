@@ -1,3 +1,5 @@
+import {createFahrt,updateFahrt,} from '../services/fahrtApi'
+import { mapCalendarRideToBackendWriteDto, mapBackendRideToCalendarRide } from '../services/dashboardState'
 import { useEffect, useMemo, useState } from 'react'
 import {
   Bus,
@@ -26,6 +28,7 @@ import { loadDashboardState, saveDashboardState } from '../services/dashboardSta
 import { getFahrgaeste } from '../services/fahrgastApi'
 import type { CalendarRide, PassengerForm, RideStatus, RideType } from '../types/DashboardRide'
 import type { Fahrgast } from '../types/Fahrgast'
+
 
 type RideFormType = 'standard' | 'theme'
 type DayRole = 'dispo' | 'fahrer'
@@ -745,7 +748,8 @@ function DashboardPage() {
     })
   }
 
-  function saveRide(statusOverride?: RideStatus) {
+  async function saveRide(statusOverride?: RideStatus) {
+    console.log('SAVE RIDE START')
     if (rideType === 'rental') {
       const rideTime = rentalTimeFrom && rentalTimeTo ? `${rentalTimeFrom}-${rentalTimeTo}` : rentalTimeFrom || rentalTimeTo
 
@@ -874,8 +878,16 @@ function DashboardPage() {
       remarks: activeForm.remarks.trim(),
     }
 
-    setCalendarRides((current) => [...current, nextRide])
-    setNextRideId((currentId) => currentId + 1)
+    const payload = mapCalendarRideToBackendWriteDto(nextRide)
+
+    // 1. Backend speichern
+    const createdRide = await createFahrt(payload)
+
+    // 2. Backend Response in UI-Format umwandeln
+    const backendRide = mapBackendRideToCalendarRide(createdRide)
+
+// 3. UI mit echter DB-Fahrt updaten
+    setCalendarRides((current) => [...current, backendRide])
     setRideInEditId(null)
     setIsRideDialogOpen(false)
   }
@@ -1751,7 +1763,9 @@ function DashboardPage() {
               </button>
               <button
                 type="button"
-                onClick={() => saveRide()}
+                onClick={() => {
+                  console.log('click works')
+                  saveRide()}}
                 className="rounded-2xl bg-[#0053a0] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-105"
               >
                 {rideInEditId !== null ? 'Änderungen übernehmen' : 'Fahrt erstellen'}
