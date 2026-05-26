@@ -114,6 +114,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+builder.Services.AddAuthorization();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -141,6 +143,7 @@ app.MapRoleEndpoints();
 app.MapInitiativeEndpoints();
 app.MapFahrzeugServiceEndpoints();
 app.MapFahrgastEndpoints();
+app.MapFahrerEndpoints();
 
 app.MapControllers();
 
