@@ -1,7 +1,4 @@
-import type { Fahrer, FahrerBackendDto, FahrerFormData, mapFahrerToDto } from '../types/Fahrer'
-import { mapDtoToFahrer } from '../types/Fahrer'
-
-const BASE_URL = '/api/v1/fahrer'
+import type { Fahrer, FahrerFormData } from '../types/Fahrer'
 
 // ── Mock-Daten (werden durch echte API-Calls ersetzt) ─────────────────────────
 let mockDrivers: Fahrer[] = [
@@ -34,8 +31,8 @@ export async function getAllFahrer(): Promise<Fahrer[]> {
 
 export async function createFahrer(
   formData: FahrerFormData,
-  benutzerId = 1,
-  initiativeId = 1,
+  _benutzerId = 1,
+  _initiativeId = 1,
 ): Promise<Fahrer> {
   // TODO: const body = mapFahrerToDto(formData, benutzerId, initiativeId)
   //       return await fetch(BASE_URL, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) })
@@ -51,8 +48,8 @@ export async function createFahrer(
     naechsteG25: formData.naechsteG25 || null,
     bemerkung: formData.bemerkung || null,
     aktiv: formData.aktiv,
-    benutzerId,
-    initiativeId,
+    benutzerId: _benutzerId,
+    initiativeId: _initiativeId,
     angelegtAm: new Date().toISOString(),
     geaendertAm: null,
     emailadresse: formData.emailadresse,
@@ -64,8 +61,8 @@ export async function createFahrer(
 export async function updateFahrer(
   id: number,
   formData: FahrerFormData,
-  benutzerId = 1,
-  initiativeId = 1,
+  _benutzerId = 1,
+  _initiativeId = 1,
 ): Promise<Fahrer> {
   // TODO: const body = mapFahrerToDto(formData, benutzerId, initiativeId)
   //       return await fetch(`${BASE_URL}/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) })
@@ -85,6 +82,8 @@ export async function updateFahrer(
           aktiv: formData.aktiv,
           geaendertAm: new Date().toISOString(),
           emailadresse: formData.emailadresse,
+          benutzerId: _benutzerId,
+          initiativeId: _initiativeId,
         }
       : driver,
   )
