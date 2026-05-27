@@ -17,6 +17,8 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+ValidateJwtConfiguration(builder);
+
 var rawConnectionString = builder.Configuration.GetConnectionString("Default");
 var connectionString = ExpandEnvPlaceholders(rawConnectionString);
 var serverVersion = ResolveMySqlServerVersion();
@@ -114,7 +116,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+});
 
 var app = builder.Build();
 
@@ -167,6 +172,33 @@ catch (Exception ex)
 }
 
 app.Run();
+
+static void ValidateJwtConfiguration(WebApplicationBuilder builder)
+{
+    var secret = builder.Configuration["JWT_SECRET"];
+    if (string.IsNullOrWhiteSpace(secret) || secret.Trim().Length < 32)
+    {
+        throw new InvalidOperationException("JWT_SECRET is missing or invalid.");
+    }
+
+    var issuer = builder.Configuration["JWT_ISSUER"];
+    if (string.IsNullOrWhiteSpace(issuer))
+    {
+        throw new InvalidOperationException("JWT_ISSUER is missing or invalid.");
+    }
+
+    var audience = builder.Configuration["JWT_AUDIENCE"];
+    if (string.IsNullOrWhiteSpace(audience))
+    {
+        throw new InvalidOperationException("JWT_AUDIENCE is missing or invalid.");
+    }
+
+    var expiresRaw = builder.Configuration["JWT_EXPIRES_MINUTES"];
+    if (!int.TryParse(expiresRaw, out var minutes) || minutes <= 0)
+    {
+        throw new InvalidOperationException("JWT_EXPIRES_MINUTES is missing or invalid.");
+    }
+}
 
 static string ExpandEnvPlaceholders(string? value)
 {

@@ -19,7 +19,8 @@ public static class RoleEndpoints
                 .ToListAsync();
 
             return Results.Ok(roles);
-        });
+        })
+        .RequireAuthorization();
 
         return app;
     }

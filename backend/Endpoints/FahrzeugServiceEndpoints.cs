@@ -1,7 +1,9 @@
 using BuergerbusAPI.Data;
 using BuergerbusAPI.DTOs;
 using BuergerbusAPI.Models;
+using BuergerbusAPI.Services;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace BuergerbusAPI.Endpoints;
 
@@ -18,13 +20,24 @@ public static class FahrzeugServiceEndpoints
     public static IEndpointRouteBuilder MapFahrzeugServiceEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/api/v1/fahrzeuge", async (
+            HttpContext httpContext,
             int? userId,
             AppDbContext db
         ) =>
         {
+            var principal = httpContext.User;
+            var requestingInitiativeId = AuthUtils.GetInitiativeId(principal);
+            var isAdmin = AuthUtils.IsAdmin(principal);
+
+            if (!isAdmin && !requestingInitiativeId.HasValue)
+            {
+                return Results.Forbid();
+            }
+
             var fahrzeuge = await db.Fahrzeuge
                 .AsNoTracking()
                 .Include(f => f.Initiative)
+                .Where(f => isAdmin || f.InitiativeId == requestingInitiativeId)
                 .OrderBy(f => f.Kennzeichen)
                 .Select(f => new FahrzeugDto(
                     f.Id,
@@ -55,21 +68,25 @@ public static class FahrzeugServiceEndpoints
                 .ToListAsync();
 
             return Results.Ok(fahrzeuge);
-        });
+        })
+        .RequireAuthorization();
 
         app.MapPost("/api/v1/fahrzeuge", async (
+            HttpContext httpContext,
             int? userId,
             CreateFahrzeugRequest request,
             AppDbContext db
         ) =>
         {
-            if (userId.HasValue)
+            var userResult = await LoadUserWithInitiativeAsync(httpContext.User, userId, db);
+            if (userResult.Error != null)
             {
-                var userResult = await LoadUserWithInitiativeAsync(userId, db);
-                if (userResult.Error != null)
-                {
-                    return userResult.Error;
-                }
+                return userResult.Error;
+            }
+
+            if (!AuthUtils.IsAdmin(httpContext.User) && request.InitiativeId != userResult.User!.InitiativeId)
+            {
+                return Results.Forbid();
             }
 
             var validationError = ValidateFahrzeugRequest(
@@ -135,10 +152,12 @@ public static class FahrzeugServiceEndpoints
             ));
         })
         .Accepts<CreateFahrzeugRequest>("application/json")
-        .Produces<FahrzeugDto>(StatusCodes.Status201Created);
+        .Produces<FahrzeugDto>(StatusCodes.Status201Created)
+        .RequireAuthorization();
 
         app.MapPut("/api/v1/fahrzeuge/{id:int}", async (
             int id,
+            HttpContext httpContext,
             int? userId,
             UpdateFahrzeugRequest request,
             AppDbContext db
@@ -150,13 +169,21 @@ public static class FahrzeugServiceEndpoints
                 return Results.NotFound("Fahrzeug wurde nicht gefunden.");
             }
 
-            if (userId.HasValue)
+            var authResult = await EnsureUserCanAccessVehicleAsync(httpContext.User, id, userId, db, fahrzeug);
+            if (authResult != null)
             {
-                var authResult = await EnsureUserCanAccessVehicleAsync(id, userId, db, fahrzeug);
-                if (authResult != null)
-                {
-                    return authResult;
-                }
+                return authResult;
+            }
+
+            var userResult = await LoadUserWithInitiativeAsync(httpContext.User, userId, db);
+            if (userResult.Error != null)
+            {
+                return userResult.Error;
+            }
+
+            if (!AuthUtils.IsAdmin(httpContext.User) && request.InitiativeId != userResult.User!.InitiativeId)
+            {
+                return Results.Forbid();
             }
 
             var validationError = ValidateFahrzeugRequest(
@@ -233,10 +260,12 @@ public static class FahrzeugServiceEndpoints
             ));
         })
         .Accepts<UpdateFahrzeugRequest>("application/json")
-        .Produces<FahrzeugDto>(StatusCodes.Status200OK);
+        .Produces<FahrzeugDto>(StatusCodes.Status200OK)
+        .RequireAuthorization();
 
         app.MapDelete("/api/v1/fahrzeuge/{id:int}", async (
             int id,
+            HttpContext httpContext,
             int? userId,
             AppDbContext db
         ) =>
@@ -247,7 +276,7 @@ public static class FahrzeugServiceEndpoints
                 return Results.NotFound("Fahrzeug wurde nicht gefunden.");
             }
 
-            var authResult = await EnsureUserCanAccessVehicleAsync(id, userId, db, fahrzeug);
+            var authResult = await EnsureUserCanAccessVehicleAsync(httpContext.User, id, userId, db, fahrzeug);
             if (authResult != null)
             {
                 return authResult;
@@ -257,15 +286,17 @@ public static class FahrzeugServiceEndpoints
             await db.SaveChangesAsync();
 
             return Results.NoContent();
-        });
+        })
+        .RequireAuthorization();
 
         app.MapGet("/api/v1/fahrzeuge/{fahrzeugId:int}/wartungen", async (
             int fahrzeugId,
+            HttpContext httpContext,
             int? userId,
             AppDbContext db
         ) =>
         {
-            var authResult = await LoadAuthorizedVehicleAsync(fahrzeugId, userId, db);
+            var authResult = await LoadAuthorizedVehicleAsync(httpContext.User, fahrzeugId, userId, db);
             if (authResult.Error != null)
             {
                 return authResult.Error;
@@ -288,16 +319,18 @@ public static class FahrzeugServiceEndpoints
                 .ToListAsync();
 
             return Results.Ok(wartungen);
-        });
+        })
+        .RequireAuthorization();
 
         app.MapPost("/api/v1/fahrzeuge/{fahrzeugId:int}/wartungen", async (
             int fahrzeugId,
+            HttpContext httpContext,
             int? userId,
             CreateWartungRequest request,
             AppDbContext db
         ) =>
         {
-            var authResult = await LoadAuthorizedVehicleAsync(fahrzeugId, userId, db);
+            var authResult = await LoadAuthorizedVehicleAsync(httpContext.User, fahrzeugId, userId, db);
             if (authResult.Error != null)
             {
                 return authResult.Error;
@@ -339,10 +372,12 @@ public static class FahrzeugServiceEndpoints
             ));
         })
         .Accepts<CreateWartungRequest>("application/json")
-        .Produces<WartungDto>(StatusCodes.Status201Created);
+        .Produces<WartungDto>(StatusCodes.Status201Created)
+        .RequireAuthorization();
 
         app.MapPut("/api/v1/wartungen/{id:int}", async (
             int id,
+            HttpContext httpContext,
             int? userId,
             UpdateWartungRequest request,
             AppDbContext db
@@ -357,7 +392,7 @@ public static class FahrzeugServiceEndpoints
                 return Results.NotFound("Wartung wurde nicht gefunden.");
             }
 
-            var authResult = await EnsureUserCanAccessVehicleAsync(wartung.FahrzeugId, userId, db, wartung.Fahrzeug);
+            var authResult = await EnsureUserCanAccessVehicleAsync(httpContext.User, wartung.FahrzeugId, userId, db, wartung.Fahrzeug);
             if (authResult != null)
             {
                 return authResult;
@@ -393,10 +428,12 @@ public static class FahrzeugServiceEndpoints
             ));
         })
         .Accepts<UpdateWartungRequest>("application/json")
-        .Produces<WartungDto>(StatusCodes.Status200OK);
+        .Produces<WartungDto>(StatusCodes.Status200OK)
+        .RequireAuthorization();
 
         app.MapDelete("/api/v1/wartungen/{id:int}", async (
             int id,
+            HttpContext httpContext,
             int? userId,
             AppDbContext db
         ) =>
@@ -410,7 +447,7 @@ public static class FahrzeugServiceEndpoints
                 return Results.NotFound("Wartung wurde nicht gefunden.");
             }
 
-            var authResult = await EnsureUserCanAccessVehicleAsync(wartung.FahrzeugId, userId, db, wartung.Fahrzeug);
+            var authResult = await EnsureUserCanAccessVehicleAsync(httpContext.User, wartung.FahrzeugId, userId, db, wartung.Fahrzeug);
             if (authResult != null)
             {
                 return authResult;
@@ -420,15 +457,17 @@ public static class FahrzeugServiceEndpoints
             await db.SaveChangesAsync();
 
             return Results.NoContent();
-        });
+        })
+        .RequireAuthorization();
 
         app.MapGet("/api/v1/fahrzeuge/{fahrzeugId:int}/schaeden", async (
             int fahrzeugId,
+            HttpContext httpContext,
             int? userId,
             AppDbContext db
         ) =>
         {
-            var authResult = await LoadAuthorizedVehicleAsync(fahrzeugId, userId, db);
+            var authResult = await LoadAuthorizedVehicleAsync(httpContext.User, fahrzeugId, userId, db);
             if (authResult.Error != null)
             {
                 return authResult.Error;
@@ -450,16 +489,18 @@ public static class FahrzeugServiceEndpoints
                 .ToListAsync();
 
             return Results.Ok(schaeden);
-        });
+        })
+        .RequireAuthorization();
 
         app.MapPost("/api/v1/fahrzeuge/{fahrzeugId:int}/schaeden", async (
             int fahrzeugId,
+            HttpContext httpContext,
             int? userId,
             CreateSchadenRequest request,
             AppDbContext db
         ) =>
         {
-            var authResult = await LoadAuthorizedVehicleAsync(fahrzeugId, userId, db);
+            var authResult = await LoadAuthorizedVehicleAsync(httpContext.User, fahrzeugId, userId, db);
             if (authResult.Error != null)
             {
                 return authResult.Error;
@@ -495,10 +536,12 @@ public static class FahrzeugServiceEndpoints
             ));
         })
         .Accepts<CreateSchadenRequest>("application/json")
-        .Produces<SchadenDto>(StatusCodes.Status201Created);
+        .Produces<SchadenDto>(StatusCodes.Status201Created)
+        .RequireAuthorization();
 
         app.MapPut("/api/v1/schaeden/{id:int}", async (
             int id,
+            HttpContext httpContext,
             int? userId,
             UpdateSchadenRequest request,
             AppDbContext db
@@ -513,7 +556,7 @@ public static class FahrzeugServiceEndpoints
                 return Results.NotFound("Schaden wurde nicht gefunden.");
             }
 
-            var authResult = await EnsureUserCanAccessVehicleAsync(schaden.FahrzeugId, userId, db, schaden.Fahrzeug);
+            var authResult = await EnsureUserCanAccessVehicleAsync(httpContext.User, schaden.FahrzeugId, userId, db, schaden.Fahrzeug);
             if (authResult != null)
             {
                 return authResult;
@@ -543,10 +586,12 @@ public static class FahrzeugServiceEndpoints
             ));
         })
         .Accepts<UpdateSchadenRequest>("application/json")
-        .Produces<SchadenDto>(StatusCodes.Status200OK);
+        .Produces<SchadenDto>(StatusCodes.Status200OK)
+        .RequireAuthorization();
 
         app.MapDelete("/api/v1/schaeden/{id:int}", async (
             int id,
+            HttpContext httpContext,
             int? userId,
             AppDbContext db
         ) =>
@@ -560,7 +605,7 @@ public static class FahrzeugServiceEndpoints
                 return Results.NotFound("Schaden wurde nicht gefunden.");
             }
 
-            var authResult = await EnsureUserCanAccessVehicleAsync(schaden.FahrzeugId, userId, db, schaden.Fahrzeug);
+            var authResult = await EnsureUserCanAccessVehicleAsync(httpContext.User, schaden.FahrzeugId, userId, db, schaden.Fahrzeug);
             if (authResult != null)
             {
                 return authResult;
@@ -570,12 +615,14 @@ public static class FahrzeugServiceEndpoints
             await db.SaveChangesAsync();
 
             return Results.NoContent();
-        });
+        })
+        .RequireAuthorization();
 
         return app;
     }
 
     private static async Task<(Fahrzeug? Fahrzeug, IResult? Error)> LoadAuthorizedVehicleAsync(
+        ClaimsPrincipal principal,
         int fahrzeugId,
         int? userId,
         AppDbContext db
@@ -587,7 +634,7 @@ public static class FahrzeugServiceEndpoints
             return (null, Results.NotFound("Fahrzeug wurde nicht gefunden."));
         }
 
-        var authResult = await EnsureUserCanAccessVehicleAsync(fahrzeugId, userId, db, fahrzeug);
+        var authResult = await EnsureUserCanAccessVehicleAsync(principal, fahrzeugId, userId, db, fahrzeug);
         if (authResult != null)
         {
             return (null, authResult);
@@ -597,13 +644,14 @@ public static class FahrzeugServiceEndpoints
     }
 
     private static async Task<IResult?> EnsureUserCanAccessVehicleAsync(
+        ClaimsPrincipal principal,
         int fahrzeugId,
         int? userId,
         AppDbContext db,
         Fahrzeug? fahrzeug = null
     )
     {
-        var userResult = await LoadUserWithInitiativeAsync(userId, db);
+        var userResult = await LoadUserWithInitiativeAsync(principal, userId, db);
         if (userResult.Error != null)
         {
             return userResult.Error;
@@ -624,13 +672,29 @@ public static class FahrzeugServiceEndpoints
     }
 
     private static async Task<(Benutzer? User, IResult? Error)> LoadUserWithInitiativeAsync(
+        ClaimsPrincipal principal,
         int? userId,
         AppDbContext db
     )
     {
-        if (!userId.HasValue)
+        var tokenUserId = AuthUtils.GetUserId(principal);
+        if (!tokenUserId.HasValue)
         {
-            return (null, Results.BadRequest("userId ist erforderlich."));
+            return (null, Results.Forbid());
+        }
+
+        if (!AuthUtils.IsAdmin(principal))
+        {
+            if (userId.HasValue && userId.Value != tokenUserId.Value)
+            {
+                return (null, Results.Forbid());
+            }
+
+            userId = tokenUserId.Value;
+        }
+        else
+        {
+            userId ??= tokenUserId.Value;
         }
 
         var user = await db.Benutzer
