@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { login as loginRequest } from '../services/auth'
 import { getCurrentUserProfile } from '../services/profile'
+import { clearStoredAuth, getStoredToken, setStoredToken } from '../services/httpClient'
 import type { LoginCredentials } from '../types/Login'
 import type { UserProfile } from '../types/UserProfile'
 
@@ -16,6 +17,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 const USER_ID_STORAGE_KEY = 'bb.auth.userId'
+const SESSION_EXPIRED_MESSAGE = 'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null)
@@ -23,12 +25,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   const refreshProfile = useCallback(async () => {
+    const token = getStoredToken()
     const storedUserId = localStorage.getItem(USER_ID_STORAGE_KEY)
     const userId = storedUserId ? Number(storedUserId) : null
 
-    if (!userId || Number.isNaN(userId)) {
+    if (!token || !userId || Number.isNaN(userId)) {
       setCurrentUser(null)
       setIsLoading(false)
+      if (!token) {
+        localStorage.removeItem(USER_ID_STORAGE_KEY)
+      }
       return null
     }
 
@@ -36,13 +42,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null)
 
     try {
-      const profile = await getCurrentUserProfile(userId)
+      const profile = await getCurrentUserProfile()
       setCurrentUser(profile)
       return profile
     } catch (err) {
       setCurrentUser(null)
       setError(err instanceof Error ? err.message : 'Profil konnte nicht geladen werden.')
-      localStorage.removeItem(USER_ID_STORAGE_KEY)
+      clearStoredAuth()
       return null
     } finally {
       setIsLoading(false)
@@ -52,6 +58,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void refreshProfile()
   }, [refreshProfile])
+
+  useEffect(() => {
+    function handleUnauthorized() {
+      setCurrentUser(null)
+      setError(SESSION_EXPIRED_MESSAGE)
+    }
+
+    window.addEventListener('bb:auth:unauthorized', handleUnauthorized)
+    return () => window.removeEventListener('bb:auth:unauthorized', handleUnauthorized)
+  }, [])
 
   const login = useCallback(async (credentials: LoginCredentials) => {
     setIsLoading(true)
@@ -63,6 +79,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!response.success) {
         throw new Error(response.message || 'Login fehlgeschlagen.')
       }
+
+      if (!response.token) {
+        throw new Error('Login fehlgeschlagen: Token fehlt.')
+      }
+
+      setStoredToken(response.token)
 
       localStorage.setItem(USER_ID_STORAGE_KEY, String(response.user.id))
       setCurrentUser(response.user)
@@ -77,7 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const logout = useCallback(() => {
-    localStorage.removeItem(USER_ID_STORAGE_KEY)
+    clearStoredAuth()
     setCurrentUser(null)
   }, [])
 

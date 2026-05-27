@@ -1,5 +1,6 @@
 using BuergerbusAPI.Data;
 using BuergerbusAPI.DTOs;
+using BuergerbusAPI.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace BuergerbusAPI.Endpoints;
@@ -11,13 +12,25 @@ public static class FahrerEndpoints
 {
     public static IEndpointRouteBuilder MapFahrerEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/v1/fahrer", async (AppDbContext db) =>
+        app.MapGet("/api/v1/fahrer", async (
+            HttpContext httpContext,
+            AppDbContext db
+        ) =>
         {
+            var principal = httpContext.User;
+            var isAdmin = AuthUtils.IsAdmin(principal);
+            var initiativeId = AuthUtils.GetInitiativeId(principal);
+            if (!isAdmin && !initiativeId.HasValue)
+            {
+                return Results.Forbid();
+            }
+
             var fahrerList = await db.Fahrer
                 .AsNoTracking()
                 .Include(f => f.Benutzer)
                 .Include(f => f.FahrerFahrzeuge)
                     .ThenInclude(ff => ff.Fahrzeug)
+                .Where(f => isAdmin || (f.Benutzer != null && f.Benutzer.InitiativeId == initiativeId))
                 .OrderBy(f => f.Id)
                 .ToListAsync();
 
@@ -77,7 +90,8 @@ public static class FahrerEndpoints
             }).ToList();
 
             return Results.Ok(dtos);
-        });
+        })
+        .RequireAuthorization();
 
         return app;
     }

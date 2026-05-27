@@ -319,18 +319,18 @@ public static class InitiativeEndpoints
             return Results.Ok(preview);
         }
 
-        app.MapGet("/api/v1/initiativen", GetInitiativenDetails);
-        app.MapPost("/api/v1/initiativen", CreateInitiative);
-        app.MapGet("/api/v1/initiativen/{id:int}/delete-preview", GetDeletePreview);
-        app.MapPut("/api/v1/initiativen/{id:int}", UpdateInitiative);
-        app.MapDelete("/api/v1/initiativen/{id:int}", DeleteInitiative);
+        app.MapGet("/api/v1/initiativen", GetInitiativenDetails).RequireAuthorization("AdminOnly");
+        app.MapPost("/api/v1/initiativen", CreateInitiative).RequireAuthorization("AdminOnly");
+        app.MapGet("/api/v1/initiativen/{id:int}/delete-preview", GetDeletePreview).RequireAuthorization("AdminOnly");
+        app.MapPut("/api/v1/initiativen/{id:int}", UpdateInitiative).RequireAuthorization("AdminOnly");
+        app.MapDelete("/api/v1/initiativen/{id:int}", DeleteInitiative).RequireAuthorization("AdminOnly");
 
         // Aliases (unversioned, english) as requested in the task description.
-        app.MapGet("/api/initiatives", GetInitiativenDetails);
-        app.MapPost("/api/initiatives", CreateInitiative);
-        app.MapGet("/api/initiatives/{id:int}/delete-preview", GetDeletePreview);
-        app.MapPut("/api/initiatives/{id:int}", UpdateInitiative);
-        app.MapDelete("/api/initiatives/{id:int}", DeleteInitiative);
+        app.MapGet("/api/initiatives", GetInitiativenDetails).RequireAuthorization("AdminOnly");
+        app.MapPost("/api/initiatives", CreateInitiative).RequireAuthorization("AdminOnly");
+        app.MapGet("/api/initiatives/{id:int}/delete-preview", GetDeletePreview).RequireAuthorization("AdminOnly");
+        app.MapPut("/api/initiatives/{id:int}", UpdateInitiative).RequireAuthorization("AdminOnly");
+        app.MapDelete("/api/initiatives/{id:int}", DeleteInitiative).RequireAuthorization("AdminOnly");
 
         app.MapGet("/api/v1/users/{id:int}/initiative", async (int id, AppDbContext db) =>
         {
@@ -349,7 +349,8 @@ public static class InitiativeEndpoints
             }
 
             return Results.Ok(new InitiativeDto(user.Initiative.Id, user.Initiative.Name));
-        });
+        })
+        .RequireAuthorization("AdminOnly");
 
         app.MapPut("/api/v1/users/{id:int}/initiative", async (
             int id,
@@ -373,7 +374,8 @@ public static class InitiativeEndpoints
             await db.SaveChangesAsync();
 
             return Results.Ok(new InitiativeDto(initiative.Id, initiative.Name));
-        });
+        })
+        .RequireAuthorization("AdminOnly");
 
         app.MapGet("/api/v1/initiatives", async (AppDbContext db) =>
         {
@@ -384,7 +386,8 @@ public static class InitiativeEndpoints
                 .ToListAsync();
 
             return Results.Ok(initiatives);
-        });
+        })
+        .RequireAuthorization("AdminOnly");
 
         return app;
     }

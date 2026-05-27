@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './api'
+import { apiFetch } from './httpClient'
 import type { Wartung } from '../types/Wartung'
 
 export type CreateWartungRequest = {
@@ -13,6 +14,9 @@ export type UpdateWartungRequest = CreateWartungRequest
 
 async function parseResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
   if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('Keine Berechtigung.')
+    }
     const errorText = await response.text()
     throw new Error(errorText || fallbackMessage)
   }
@@ -24,7 +28,7 @@ export async function getWartungenByFahrzeug(
   fahrzeugId: number,
   userId: number,
 ): Promise<Wartung[]> {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}/api/v1/fahrzeuge/${fahrzeugId}/wartungen?userId=${userId}`,
     {
       method: 'GET',
@@ -42,7 +46,7 @@ export async function createWartung(
   userId: number,
   request: CreateWartungRequest,
 ): Promise<Wartung> {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}/api/v1/fahrzeuge/${fahrzeugId}/wartungen?userId=${userId}`,
     {
       method: 'POST',
@@ -61,7 +65,7 @@ export async function updateWartung(
   userId: number,
   request: UpdateWartungRequest,
 ): Promise<Wartung> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/wartungen/${wartungId}?userId=${userId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/wartungen/${wartungId}?userId=${userId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -73,11 +77,14 @@ export async function updateWartung(
 }
 
 export async function deleteWartung(wartungId: number, userId: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/wartungen/${wartungId}?userId=${userId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/wartungen/${wartungId}?userId=${userId}`, {
     method: 'DELETE',
   })
 
   if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('Keine Berechtigung.')
+    }
     const errorText = await response.text()
     throw new Error(errorText || 'Wartung konnte nicht geloescht werden.')
   }

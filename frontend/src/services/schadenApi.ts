@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './api'
+import { apiFetch } from './httpClient'
 import type { Schaden } from '../types/Schaden'
 
 export type CreateSchadenRequest = {
@@ -12,6 +13,9 @@ export type UpdateSchadenRequest = CreateSchadenRequest
 
 async function parseResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
   if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('Keine Berechtigung.')
+    }
     const errorText = await response.text()
     throw new Error(errorText || fallbackMessage)
   }
@@ -23,7 +27,7 @@ export async function getSchaedenByFahrzeug(
   fahrzeugId: number,
   userId: number,
 ): Promise<Schaden[]> {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}/api/v1/fahrzeuge/${fahrzeugId}/schaeden?userId=${userId}`,
     {
       method: 'GET',
@@ -41,7 +45,7 @@ export async function createSchaden(
   userId: number,
   request: CreateSchadenRequest,
 ): Promise<Schaden> {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}/api/v1/fahrzeuge/${fahrzeugId}/schaeden?userId=${userId}`,
     {
       method: 'POST',
@@ -60,7 +64,7 @@ export async function updateSchaden(
   userId: number,
   request: UpdateSchadenRequest,
 ): Promise<Schaden> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/schaeden/${schadenId}?userId=${userId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/schaeden/${schadenId}?userId=${userId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -72,11 +76,14 @@ export async function updateSchaden(
 }
 
 export async function deleteSchaden(schadenId: number, userId: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/schaeden/${schadenId}?userId=${userId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/schaeden/${schadenId}?userId=${userId}`, {
     method: 'DELETE',
   })
 
   if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('Keine Berechtigung.')
+    }
     const errorText = await response.text()
     throw new Error(errorText || 'Schaden konnte nicht geloescht werden.')
   }

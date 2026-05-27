@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext'
 
 function LoginPage() {
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const { login, error } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -56,7 +56,7 @@ function LoginPage() {
 
             <LoginForm
               isSubmitting={isSubmitting}
-              submitError={submitError}
+              submitError={submitError ?? error}
               onSubmit={handleLogin}
             />
           </div>

@@ -2,9 +2,11 @@ using BuergerbusAPI.Data;
 using BuergerbusAPI.DTOs;
 using BuergerbusAPI.Mappers;
 using BuergerbusAPI.Models;
+using BuergerbusAPI.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Mail;
+using System.Security.Claims;
 
 /// <summary>
 /// Enthält API-Endpunkte für Benutzerverwaltung,
@@ -162,20 +164,51 @@ public static class UserEndpoints
         .Accepts<CreateBenutzerRequest>("application/json")
         .Produces<UserProfileDto>(StatusCodes.Status201Created)
         .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound);
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAuthorization("AdminOnly");
 
 // -----------------------------------------------------------------------------
 // Eigenes Benutzerprofil anhand von userId oder E-Mail laden
 // -----------------------------------------------------------------------------
         app.MapGet("/api/v1/users/me", async (
+            HttpContext httpContext,
             int? userId,
             string? email,
             AppDbContext db
         ) =>
         {
-            if (userId is null && string.IsNullOrWhiteSpace(email))
+            var principal = httpContext.User;
+            var isAdmin = AuthUtils.IsAdmin(principal);
+            var tokenUserId = AuthUtils.GetUserId(principal);
+
+            if (!isAdmin)
             {
-                return Results.BadRequest("userId oder email ist erforderlich.");
+                if (!tokenUserId.HasValue)
+                {
+                    return Results.Forbid();
+                }
+
+                if (userId.HasValue && userId.Value != tokenUserId.Value)
+                {
+                    return Results.Forbid();
+                }
+
+                // Non-admins can only load their own profile.
+                userId = tokenUserId.Value;
+                email = null;
+            }
+            else
+            {
+                if (userId is null && string.IsNullOrWhiteSpace(email))
+                {
+                    // For admins, default to own profile if nothing was provided.
+                    userId = tokenUserId;
+                }
+
+                if (userId is null && string.IsNullOrWhiteSpace(email))
+                {
+                    return Results.BadRequest("userId oder email ist erforderlich.");
+                }
             }
 
             var normalizedEmail = email?.Trim().ToLowerInvariant();
@@ -195,7 +228,8 @@ public static class UserEndpoints
             }
 
             return Results.Ok(UserMapper.CreateUserProfile(user));
-        });
+        })
+        .RequireAuthorization();
 
 // -----------------------------------------------------------------------------
 // Paginierte Benutzerliste mit optionaler Suchfunktion
@@ -263,13 +297,28 @@ public static class UserEndpoints
                 totalItems,
                 totalPages,
             });
-        });
+        })
+        .RequireAuthorization("AdminOnly");
 
 // -----------------------------------------------------------------------------
 // Einzelnen Benutzer anhand der ID laden
 // -----------------------------------------------------------------------------
-        app.MapGet("/api/v1/users/{id:int}", async (int id, AppDbContext db) =>
+        app.MapGet("/api/v1/users/{id:int}", async (
+            int id,
+            HttpContext httpContext,
+            AppDbContext db
+        ) =>
         {
+            var principal = httpContext.User;
+            if (!AuthUtils.IsAdmin(principal))
+            {
+                var tokenUserId = AuthUtils.GetUserId(principal);
+                if (!tokenUserId.HasValue || tokenUserId.Value != id)
+                {
+                    return Results.Forbid();
+                }
+            }
+
             var user = await db.Benutzer
                 .Include(u => u.Initiative)
                 .Include(u => u.BenutzerRollen)
@@ -283,13 +332,28 @@ public static class UserEndpoints
             }
 
             return Results.Ok(UserMapper.CreateUserProfile(user));
-        });
+        })
+        .RequireAuthorization();
 
 // -----------------------------------------------------------------------------
 // Vollständiges Benutzerprofil inklusive Rollen, Initiative und Fahrer laden
 // -----------------------------------------------------------------------------
-        app.MapGet("/api/v1/users/{id:int}/profile", async (int id, AppDbContext db) =>
+        app.MapGet("/api/v1/users/{id:int}/profile", async (
+            int id,
+            HttpContext httpContext,
+            AppDbContext db
+        ) =>
         {
+            var principal = httpContext.User;
+            if (!AuthUtils.IsAdmin(principal))
+            {
+                var tokenUserId = AuthUtils.GetUserId(principal);
+                if (!tokenUserId.HasValue || tokenUserId.Value != id)
+                {
+                    return Results.Forbid();
+                }
+            }
+
             var user = await db.Benutzer
                 .Include(u => u.Initiative)
                 .Include(u => u.BenutzerRollen)
@@ -304,7 +368,8 @@ public static class UserEndpoints
             
 
             return Results.Ok(UserMapper.CreateUserProfile(user));
-        });
+        })
+        .RequireAuthorization();
 
 // -----------------------------------------------------------------------------
 // Benutzerprofil aktualisieren
@@ -315,10 +380,21 @@ public static class UserEndpoints
 // -----------------------------------------------------------------------------
         app.MapPut("/api/v1/users/{id:int}/profile", async (
             int id,
+            HttpContext httpContext,
             UpdateUserProfileRequest request,
             AppDbContext db
         ) =>
         {
+            var principal = httpContext.User;
+            if (!AuthUtils.IsAdmin(principal))
+            {
+                var tokenUserId = AuthUtils.GetUserId(principal);
+                if (!tokenUserId.HasValue || tokenUserId.Value != id)
+                {
+                    return Results.Forbid();
+                }
+            }
+
             var user = await db.Benutzer
                 .Include(u => u.Initiative)
                 .Include(u => u.BenutzerRollen)
@@ -389,7 +465,8 @@ public static class UserEndpoints
         })
         .Accepts<UpdateUserProfileRequest>("application/json")
         .Produces<UserProfileDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound);
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAuthorization();
 
 // -----------------------------------------------------------------------------
 // Rollen eines Benutzers anzeigen
@@ -413,7 +490,8 @@ public static class UserEndpoints
                 .ToList();
 
             return Results.Ok(new UserRolesDto(id, roles));
-        });
+        })
+        .RequireAuthorization("AdminOnly");
 
 // -----------------------------------------------------------------------------
 // Rollen eines Benutzers aktualisieren
@@ -527,7 +605,8 @@ public static class UserEndpoints
                     .Select(br => br.Rolle.Rollenname)
                     .Distinct()
                     .ToList()));
-        });
+        })
+        .RequireAuthorization("AdminOnly");
         // Alle Benutzer-Endpunkte wurden registriert
         return app;
     }

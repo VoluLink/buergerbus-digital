@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './api'
+import { apiFetch } from './httpClient'
 import type { UserProfile } from '../types/UserProfile'
 
 type UpdateFahrerProfileRequest = {
@@ -22,8 +23,8 @@ type UpdateUserProfileRequest = {
   fahrer?: UpdateFahrerProfileRequest | null
 }
 
-export async function getCurrentUserProfile(userId: number): Promise<UserProfile> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/users/me?userId=${userId}`, {
+export async function getCurrentUserProfile(): Promise<UserProfile> {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/users/me`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -31,6 +32,9 @@ export async function getCurrentUserProfile(userId: number): Promise<UserProfile
   })
 
   if (!response.ok) {
+      if (response.status === 403) {
+        throw new Error('Keine Berechtigung.')
+      }
     const errorText = await response.text()
     throw new Error(errorText || 'Profil konnte nicht geladen werden.')
   }
@@ -39,7 +43,7 @@ export async function getCurrentUserProfile(userId: number): Promise<UserProfile
 }
 
 export async function getUserProfileById(userId: number): Promise<UserProfile> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}/profile`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/users/${userId}/profile`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -47,6 +51,9 @@ export async function getUserProfileById(userId: number): Promise<UserProfile> {
   })
 
   if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('Keine Berechtigung.')
+    }
     const errorText = await response.text()
     throw new Error(errorText || 'Profil konnte nicht geladen werden.')
   }
@@ -55,7 +62,7 @@ export async function getUserProfileById(userId: number): Promise<UserProfile> {
 }
 
 export async function updateUserProfile(userId: number, request: UpdateUserProfileRequest): Promise<UserProfile> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}/profile`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/users/${userId}/profile`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -64,6 +71,9 @@ export async function updateUserProfile(userId: number, request: UpdateUserProfi
   })
 
   if (!response.ok) {
+      if (response.status === 403) {
+        throw new Error('Keine Berechtigung.')
+      }
     const errorText = await response.text()
     throw new Error(errorText || 'Profil konnte nicht gespeichert werden.')
   }

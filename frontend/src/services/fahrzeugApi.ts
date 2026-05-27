@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './api'
+import { apiFetch } from './httpClient'
 import type { Fahrzeug } from '../types/Fahrzeug'
 
 export type CreateFahrzeugRequest = {
@@ -16,6 +17,9 @@ export type UpdateFahrzeugRequest = CreateFahrzeugRequest
 
 async function parseResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
   if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('Keine Berechtigung.')
+    }
     const errorText = await response.text()
     throw new Error(errorText || fallbackMessage)
   }
@@ -28,7 +32,7 @@ function buildUserQuery(userId?: number) {
 }
 
 export async function getFahrzeuge(userId?: number): Promise<Fahrzeug[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/fahrzeuge${buildUserQuery(userId)}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrzeuge${buildUserQuery(userId)}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -42,7 +46,7 @@ export async function createFahrzeug(
   userId: number | undefined,
   request: CreateFahrzeugRequest,
 ): Promise<Fahrzeug> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/fahrzeuge${buildUserQuery(userId)}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrzeuge${buildUserQuery(userId)}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -58,7 +62,7 @@ export async function updateFahrzeug(
   userId: number | undefined,
   request: UpdateFahrzeugRequest,
 ): Promise<Fahrzeug> {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}/api/v1/fahrzeuge/${vehicleId}${buildUserQuery(userId)}`,
     {
       method: 'PUT',
@@ -73,7 +77,7 @@ export async function updateFahrzeug(
 }
 
 export async function deleteFahrzeug(vehicleId: number, userId?: number): Promise<void> {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}/api/v1/fahrzeuge/${vehicleId}${buildUserQuery(userId)}`,
     {
       method: 'DELETE',
@@ -81,6 +85,9 @@ export async function deleteFahrzeug(vehicleId: number, userId?: number): Promis
   )
 
   if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('Keine Berechtigung.')
+    }
     const errorText = await response.text()
     throw new Error(errorText || 'Das Fahrzeug konnte nicht geloescht werden.')
   }

@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './api'
+import { apiFetch } from './httpClient'
 import type { CalendarRide, PassengerForm, RideStatus, RideType } from '../types/DashboardRide'
 
 type DashboardStateSnapshot = {
@@ -224,7 +225,7 @@ async function tryLoadFromBackend(): Promise<CalendarRide[] | null> {
   const endpoint = `${API_BASE_URL}/api/v1/fahrten`
 
   try {
-    const response = await fetch(endpoint, {
+    const response = await apiFetch(endpoint, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -246,7 +247,7 @@ async function trySaveToBackend(rides: CalendarRide[]) {
   const endpoint = `${API_BASE_URL}/api/v1/fahrten/bulk-sync`
 
   try {
-    await fetch(endpoint, {
+    await apiFetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
