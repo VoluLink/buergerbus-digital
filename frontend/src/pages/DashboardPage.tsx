@@ -1,4 +1,11 @@
-import {createFahrt,updateFahrt,} from '../services/fahrtApi'
+import {
+  createFahrt,
+  getFahrten,
+  getFahrt,
+  updateFahrt,
+  deleteFahrt,
+} from '../services/fahrtApi'
+
 import { mapCalendarRideToBackendWriteDto, mapBackendRideToCalendarRide } from '../services/dashboardState'
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -589,22 +596,27 @@ function DashboardPage() {
     setRidePendingDelete(null)
   }
 
-  function confirmDeleteRide() {
-    if (!ridePendingDelete) {
-      return
-    }
+async function confirmDeleteRide() {
+  if (!ridePendingDelete) return
 
-    const rideId = ridePendingDelete.id
+  const rideId = ridePendingDelete.id
 
-    setCalendarRides((currentRides) => currentRides.filter((ride) => ride.id !== rideId))
-    setCompletedPassengerKeys((current) => current.filter((entry) => !entry.startsWith(`${rideId}:`)))
+  await deleteFahrt(rideId)
 
-    if (rideInEditId === rideId) {
-      setRideInEditId(null)
-    }
+  setCalendarRides((current) =>
+    current.filter((r) => r.id !== rideId),
+  )
 
-    setRidePendingDelete(null)
+  setCompletedPassengerKeys((current) =>
+    current.filter((entry) => !entry.startsWith(`${rideId}:`)),
+  )
+
+  if (rideInEditId === rideId) {
+    setRideInEditId(null)
   }
+
+  setRidePendingDelete(null)
+}
 
   function addPassengerField() {
     if (rideType === 'rental') {
@@ -1763,9 +1775,7 @@ function DashboardPage() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  console.log('click works')
-                  saveRide()}}
+                onClick={() => saveRide()}
                 className="rounded-2xl bg-[#0053a0] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-105"
               >
                 {rideInEditId !== null ? 'Änderungen übernehmen' : 'Fahrt erstellen'}
