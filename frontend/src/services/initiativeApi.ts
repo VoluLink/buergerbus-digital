@@ -1,5 +1,10 @@
 import { API_BASE_URL } from './api'
-import type { CreateInitiativeRequest, Initiative, UpdateInitiativeRequest } from '../types/Initiative'
+import type {
+  CreateInitiativeRequest,
+  Initiative,
+  InitiativeDeletePreview,
+  UpdateInitiativeRequest,
+} from '../types/Initiative'
 
 export async function getInitiativen(): Promise<Initiative[]> {
   const response = await fetch(`${API_BASE_URL}/api/v1/initiativen`)
@@ -64,4 +69,15 @@ export async function deleteInitiative(id: number): Promise<void> {
     const errorText = await response.text()
     throw new Error(errorText || 'Initiative konnte nicht gelöscht werden.')
   }
+}
+
+export async function getInitiativeDeletePreview(id: number): Promise<InitiativeDeletePreview> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/initiativen/${id}/delete-preview`)
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Vorschau zum Löschen konnte nicht geladen werden.')
+  }
+
+  return response.json()
 }

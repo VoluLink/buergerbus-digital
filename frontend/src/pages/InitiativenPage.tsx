@@ -2,8 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { Bus, CircleUserRound, Menu, Pencil, Settings, Trash2, UserRound, UserRoundPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import UserMenuButton from '../components/UserMenuButton'
-import { createInitiative, deleteInitiative, getInitiativen, updateInitiative } from '../services/initiativeApi'
-import type { Initiative } from '../types/Initiative'
+import {
+  createInitiative,
+  deleteInitiative,
+  getInitiativeDeletePreview,
+  getInitiativen,
+  updateInitiative,
+} from '../services/initiativeApi'
+import type { Initiative, InitiativeDeletePreview } from '../types/Initiative'
 
 type InitiativeFormState = {
   name: string
@@ -62,6 +68,10 @@ function InitiativenPage() {
   const [initiativeToDelete, setInitiativeToDelete] = useState<Initiative | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const [deletePreview, setDeletePreview] = useState<InitiativeDeletePreview | null>(null)
+  const [isDeletePreviewLoading, setIsDeletePreviewLoading] = useState(false)
+  const [deletePreviewError, setDeletePreviewError] = useState<string | null>(null)
 
   const loadInitiatives = useCallback(async () => {
     setIsLoading(true)
@@ -205,7 +215,27 @@ function InitiativenPage() {
     setInitiativeToDelete(initiative)
     setDeleteError(null)
     setSuccessMessage(null)
+    setDeletePreview(null)
+    setDeletePreviewError(null)
     setIsDeleteModalOpen(true)
+
+    if (isDefaultInitiative(initiative)) {
+      return
+    }
+
+    setIsDeletePreviewLoading(true)
+    void (async () => {
+      try {
+        const preview = await getInitiativeDeletePreview(initiative.id)
+        setDeletePreview(preview)
+      } catch (err) {
+        setDeletePreviewError(
+          err instanceof Error ? err.message : 'Vorschau zum Löschen konnte nicht geladen werden.',
+        )
+      } finally {
+        setIsDeletePreviewLoading(false)
+      }
+    })()
   }
 
   function closeDeleteModal() {
@@ -218,6 +248,16 @@ function InitiativenPage() {
 
   async function handleDeleteInitiative() {
     if (!initiativeToDelete) {
+      return
+    }
+
+    if (!isDefaultInitiative(initiativeToDelete) && !deletePreview) {
+      setDeleteError('Vorschau zum Löschen konnte nicht geladen werden.')
+      return
+    }
+
+    if (deletePreview && !deletePreview.canDelete) {
+      setDeleteError(deletePreview.reason || 'Die Initiative kann nicht gelöscht werden.')
       return
     }
 
@@ -747,9 +787,58 @@ function InitiativenPage() {
                 </div>
               ) : null}
 
+              {deletePreviewError ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+                  {deletePreviewError}
+                </div>
+              ) : null}
+
               {isDefaultInitiative(initiativeToDelete) ? (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
                   Die Standard-Initiative kann nicht gelöscht werden.
+                </div>
+              ) : null}
+
+              {!isDefaultInitiative(initiativeToDelete) ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                  {isDeletePreviewLoading ? (
+                    <p>Ermittle abhängige Daten ...</p>
+                  ) : deletePreview ? (
+                    <div className="space-y-2">
+                      {deletePreview.canDelete ? null : (
+                        <p className="font-semibold text-rose-700">
+                          {deletePreview.reason || 'Die Initiative kann nicht gelöscht werden.'}
+                        </p>
+                      )}
+
+                      <p className="font-semibold text-slate-800">
+                        Dabei werden folgende abhängige Daten entfernt:
+                      </p>
+
+                      <ul className="list-disc space-y-1 pl-5">
+                        <li>{deletePreview.affected.vehicles} Fahrzeuge</li>
+                        <li>{deletePreview.affected.maintenanceRecords} Wartungseinträge</li>
+                        <li>{deletePreview.affected.damageReports} Schadensmeldungen</li>
+                        <li>
+                          {deletePreview.affected.users} Benutzer-Zuordnungen (Benutzer werden auf "Default"
+                          verschoben)
+                        </li>
+                        <li>{deletePreview.affected.rides} Fahrten</li>
+                        <li>{deletePreview.affected.rideSegments} Teilstrecken</li>
+                        <li>{deletePreview.affected.passengers} Fahrgäste</li>
+                        <li>{deletePreview.affected.deletionDeadlines} Löschfristen</li>
+                        <li>{deletePreview.affected.notifications} Benachrichtigungen</li>
+                      </ul>
+
+                      <p className="pt-1 text-xs text-slate-600">
+                        Diese Aktion kann nicht rückgängig gemacht werden.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-slate-600">
+                      Vorschau konnte nicht geladen werden.
+                    </p>
+                  )}
                 </div>
               ) : null}
 
@@ -767,7 +856,14 @@ function InitiativenPage() {
                   type="button"
                   onClick={() => void handleDeleteInitiative()}
                   className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={isDeleting || isDefaultInitiative(initiativeToDelete)}
+                  disabled={
+                    isDeleting ||
+                    isDefaultInitiative(initiativeToDelete) ||
+                    isDeletePreviewLoading ||
+                    deletePreviewError !== null ||
+                    !deletePreview ||
+                    (deletePreview ? !deletePreview.canDelete : false)
+                  }
                 >
                   {isDeleting ? 'Lösche...' : 'Löschen'}
                 </button>

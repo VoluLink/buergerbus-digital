@@ -12,6 +12,85 @@ public static class InitiativeEndpoints
 {
     public static IEndpointRouteBuilder MapInitiativeEndpoints(this IEndpointRouteBuilder app)
     {
+        static async Task<InitiativeDeletePreviewDto?> BuildDeletePreview(int id, AppDbContext db)
+        {
+            var initiative = await db.Initiativen
+                .AsNoTracking()
+                .FirstOrDefaultAsync(i => i.Id == id);
+
+            if (initiative is null)
+            {
+                return null;
+            }
+
+            var isDefault = string.Equals(initiative.Name, "Default", StringComparison.OrdinalIgnoreCase);
+            var defaultInitiative = await db.Initiativen
+                .AsNoTracking()
+                .FirstOrDefaultAsync(i => i.Name.ToLower() == "default");
+
+            var usersTask = db.Benutzer.AsNoTracking().CountAsync(b => b.InitiativeId == id);
+            var vehiclesTask = db.Fahrzeuge.AsNoTracking().CountAsync(f => f.InitiativeId == id);
+            var maintenanceTask = db.Wartungen.AsNoTracking().CountAsync(w => w.InitiativeId == id);
+            var damageTask = db.Schaeden.AsNoTracking().CountAsync(s => s.InitiativeId == id);
+            var ridesTask = db.Fahrten.AsNoTracking().CountAsync(f => f.InitiativeId == id);
+            var passengersTask = db.Fahrgaeste.AsNoTracking().CountAsync(f => f.InitiativeId == id);
+            var segmentsTask = db.Teilstrecken.AsNoTracking().CountAsync(t => t.InitiativeId == id);
+            var notificationsTask = db.Benachrichtigungen.AsNoTracking().CountAsync(b => b.InitiativeId == id);
+            var deadlinesTask = db.Loeschfristen.AsNoTracking().CountAsync(l => l.InitiativeId == id);
+
+            // Assignments (no InitiativeId on the join table) -> derived via Fahrzeug.
+            var driverVehicleAssignmentsTask = db.FahrerFahrzeuge
+                .AsNoTracking()
+                .CountAsync(ff => ff.Fahrzeug.InitiativeId == id);
+
+            await Task.WhenAll(
+                usersTask,
+                vehiclesTask,
+                maintenanceTask,
+                damageTask,
+                ridesTask,
+                passengersTask,
+                segmentsTask,
+                notificationsTask,
+                deadlinesTask,
+                driverVehicleAssignmentsTask
+            );
+
+            var canDelete = true;
+            string? reason = null;
+
+            if (isDefault)
+            {
+                canDelete = false;
+                reason = "Die Standard-Initiative kann nicht gelöscht werden.";
+            }
+            else if (defaultInitiative is null && usersTask.Result > 0)
+            {
+                canDelete = false;
+                reason = "Die Initiative kann nicht gelöscht werden, da keine Default-Initiative zum Umhängen der Benutzer existiert.";
+            }
+
+            return new InitiativeDeletePreviewDto(
+                initiative.Id,
+                initiative.Name,
+                canDelete,
+                isDefault,
+                reason,
+                new InitiativeDeletePreviewAffectedDto(
+                    usersTask.Result,
+                    vehiclesTask.Result,
+                    maintenanceTask.Result,
+                    damageTask.Result,
+                    ridesTask.Result,
+                    passengersTask.Result,
+                    segmentsTask.Result,
+                    notificationsTask.Result,
+                    deadlinesTask.Result,
+                    driverVehicleAssignmentsTask.Result
+                )
+            );
+        }
+
         static async Task<IResult> GetInitiativenDetails(AppDbContext db)
         {
             var initiatives = await db.Initiativen
@@ -110,39 +189,146 @@ public static class InitiativeEndpoints
 
         static async Task<IResult> DeleteInitiative(int id, AppDbContext db)
         {
-            var entity = await db.Initiativen.FirstOrDefaultAsync(i => i.Id == id);
-            if (entity is null)
+            var preview = await BuildDeletePreview(id, db);
+            if (preview is null)
             {
                 return Results.NotFound("Initiative wurde nicht gefunden.");
             }
 
-            if (string.Equals(entity.Name, "Default", StringComparison.OrdinalIgnoreCase))
+            if (!preview.CanDelete)
             {
-                return Results.BadRequest("Die Standard-Initiative kann nicht gelöscht werden.");
+                return Results.BadRequest(preview.Reason ?? "Die Initiative kann nicht gelöscht werden.");
             }
 
-            db.Initiativen.Remove(entity);
+            await using var tx = await db.Database.BeginTransactionAsync();
 
             try
             {
+                // Ensure Default initiative exists for user reassignment.
+                var defaultInitiative = await db.Initiativen
+                    .FirstOrDefaultAsync(i => i.Name.ToLower() == "default");
+
+                if (defaultInitiative is null && preview.Affected.Users > 0)
+                {
+                    return Results.BadRequest(
+                        "Die Initiative kann nicht gelöscht werden, da keine Default-Initiative zum Umhängen der Benutzer existiert."
+                    );
+                }
+
+                // Reassign users (never cascade-delete user accounts).
+                if (preview.Affected.Users > 0)
+                {
+                    var usersToReassign = await db.Benutzer
+                        .Where(b => b.InitiativeId == id)
+                        .ToListAsync();
+
+                    foreach (var user in usersToReassign)
+                    {
+                        user.InitiativeId = defaultInitiative!.Id;
+                    }
+
+                    // Persist reassignment early to avoid FK/cascade issues when deleting the initiative.
+                    await db.SaveChangesAsync();
+                }
+
+                // Delete initiative-owned data (children first).
+                if (preview.Affected.RideSegments > 0)
+                {
+                    await db.Teilstrecken.Where(t => t.InitiativeId == id).ExecuteDeleteAsync();
+                }
+
+                if (preview.Affected.DeletionDeadlines > 0)
+                {
+                    await db.Loeschfristen.Where(l => l.InitiativeId == id).ExecuteDeleteAsync();
+                }
+
+                if (preview.Affected.Rides > 0)
+                {
+                    await db.Fahrten.Where(f => f.InitiativeId == id).ExecuteDeleteAsync();
+                }
+
+                if (preview.Affected.MaintenanceRecords > 0)
+                {
+                    await db.Wartungen.Where(w => w.InitiativeId == id).ExecuteDeleteAsync();
+                }
+
+                if (preview.Affected.DamageReports > 0)
+                {
+                    await db.Schaeden.Where(s => s.InitiativeId == id).ExecuteDeleteAsync();
+                }
+
+                if (preview.Affected.Notifications > 0)
+                {
+                    await db.Benachrichtigungen.Where(b => b.InitiativeId == id).ExecuteDeleteAsync();
+                }
+
+                // Driver-vehicle assignments depend on vehicles.
+                if (preview.Affected.DriverVehicleAssignments > 0)
+                {
+                    var vehicleIds = db.Fahrzeuge
+                        .Where(v => v.InitiativeId == id)
+                        .Select(v => v.Id);
+
+                    await db.FahrerFahrzeuge
+                        .Where(ff => vehicleIds.Contains(ff.FahrzeugId))
+                        .ExecuteDeleteAsync();
+                }
+
+                if (preview.Affected.Vehicles > 0)
+                {
+                    await db.Fahrzeuge.Where(v => v.InitiativeId == id).ExecuteDeleteAsync();
+                }
+
+                if (preview.Affected.Passengers > 0)
+                {
+                    await db.Fahrgaeste.Where(f => f.InitiativeId == id).ExecuteDeleteAsync();
+                }
+
+                // Finally delete the initiative itself.
+                var entity = await db.Initiativen.FirstOrDefaultAsync(i => i.Id == id);
+                if (entity is null)
+                {
+                    await tx.RollbackAsync();
+                    return Results.NotFound("Initiative wurde nicht gefunden.");
+                }
+
+                db.Initiativen.Remove(entity);
                 await db.SaveChangesAsync();
+                await tx.CommitAsync();
+
+                return Results.NoContent();
             }
-            catch (DbUpdateException)
+            catch (Exception)
             {
-                return Results.Conflict("Initiative kann nicht gelöscht werden, da sie noch verwendet wird.");
+                await tx.RollbackAsync();
+                return Results.Problem(
+                    detail: "Beim Löschen der abhängigen Daten ist ein Fehler aufgetreten.",
+                    statusCode: StatusCodes.Status500InternalServerError
+                );
+            }
+        }
+
+        static async Task<IResult> GetDeletePreview(int id, AppDbContext db)
+        {
+            var preview = await BuildDeletePreview(id, db);
+            if (preview is null)
+            {
+                return Results.NotFound("Initiative wurde nicht gefunden.");
             }
 
-            return Results.NoContent();
+            return Results.Ok(preview);
         }
 
         app.MapGet("/api/v1/initiativen", GetInitiativenDetails);
         app.MapPost("/api/v1/initiativen", CreateInitiative);
+        app.MapGet("/api/v1/initiativen/{id:int}/delete-preview", GetDeletePreview);
         app.MapPut("/api/v1/initiativen/{id:int}", UpdateInitiative);
         app.MapDelete("/api/v1/initiativen/{id:int}", DeleteInitiative);
 
         // Aliases (unversioned, english) as requested in the task description.
         app.MapGet("/api/initiatives", GetInitiativenDetails);
         app.MapPost("/api/initiatives", CreateInitiative);
+        app.MapGet("/api/initiatives/{id:int}/delete-preview", GetDeletePreview);
         app.MapPut("/api/initiatives/{id:int}", UpdateInitiative);
         app.MapDelete("/api/initiatives/{id:int}", DeleteInitiative);
 
