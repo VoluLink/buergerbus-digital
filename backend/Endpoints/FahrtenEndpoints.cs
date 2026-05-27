@@ -17,6 +17,7 @@ public static class FahrtenEndpoints
         {
             var fahrten = await db.Fahrten
                 .Include(f => f.Teilstrecken)
+                    .ThenInclude(t => t.Fahrgast)
                 .AsNoTracking()
                 .OrderByDescending(f => f.Datum)
                 .ToListAsync();

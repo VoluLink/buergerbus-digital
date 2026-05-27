@@ -45,7 +45,25 @@ public static class FahrtenMapper
             t.Reihenfolge,
             t.Status,
             t.FahrgastId,
-            t.FahrtId
+            t.FahrtId,
+
+            t.Fahrgast == null
+                ? null
+                : new FahrgastDto(
+                      t.Fahrgast.Id,
+                      t.Fahrgast.Vorname,
+                      t.Fahrgast.Nachname,
+                      t.Fahrgast.Adresse,
+                      t.Fahrgast.Email,
+                      t.Fahrgast.Telefonnummer,
+                      t.Fahrgast.Bemerkung,
+                      t.Fahrgast.AngelegtAm,
+                      t.Fahrgast.GeaendertAm,
+                      t.Fahrgast.LetzteNutzung,
+                      t.Fahrgast.Aktiv,
+                      t.Fahrgast.InitiativeId
+                )   
+            
         );
     }
 

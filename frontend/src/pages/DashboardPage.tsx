@@ -356,22 +356,18 @@ function DashboardPage() {
     let isCancelled = false
 
     async function hydrateDashboard() {
-      const snapshot = await loadDashboardState()
+    const rides = await getFahrten()
 
-      if (isCancelled) {
-        return
-      }
+    if (isCancelled) return
 
-      setCalendarRides(snapshot.rides)
-      setCompletedPassengerKeys(snapshot.completedPassengerKeys)
-      setNextRideId(snapshot.nextRideId)
-      setIsDashboardHydrated(true)
+    setCalendarRides(rides.map(mapBackendRideToCalendarRide))
+    setIsDashboardHydrated(true)
     }
 
     void hydrateDashboard()
 
     return () => {
-      isCancelled = true
+    isCancelled = true
     }
   }, [])
 

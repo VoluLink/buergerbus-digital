@@ -63,7 +63,8 @@ public record TeilstreckeDto(
     int? Reihenfolge,
     string? Status,
     int FahrgastId,
-    int FahrtId
+    int FahrtId,
+    FahrgastDto? Fahrgast
 );
 
 public record CreateTeilstreckeDto(
