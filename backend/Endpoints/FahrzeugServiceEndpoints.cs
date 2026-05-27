@@ -22,15 +22,9 @@ public static class FahrzeugServiceEndpoints
             AppDbContext db
         ) =>
         {
-            var userResult = await LoadUserWithInitiativeAsync(userId, db);
-            if (userResult.Error != null)
-            {
-                return userResult.Error;
-            }
-
             var fahrzeuge = await db.Fahrzeuge
                 .AsNoTracking()
-                .Where(f => f.InitiativeId == userResult.User!.InitiativeId)
+                .Include(f => f.Initiative)
                 .OrderBy(f => f.Kennzeichen)
                 .Select(f => new FahrzeugDto(
                     f.Id,

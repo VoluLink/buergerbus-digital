@@ -310,19 +310,12 @@ function FahrzeuginfosPage() {
     setSchadenSuccessMessage('')
 
     async function loadVehicles() {
-      if (!currentUser?.id) {
-        setVehicles([])
-        setLoadError('Benutzerkontext fehlt.')
-        setIsLoading(false)
-        return
-      }
-
       setIsLoading(true)
       setLoadError('')
 
       try {
         const [loadedVehicles, loadedInitiativen] = await Promise.all([
-          getFahrzeuge(currentUser.id),
+          getFahrzeuge(),
           fetchInitiatives().catch(() => [] as InitiativeSummary[]),
         ])
         if (isActive) {
@@ -508,27 +501,15 @@ function FahrzeuginfosPage() {
     try {
       if (modalMode === 'create') {
         const createdVehicle = await createFahrzeug(currentUser?.id, request)
-        if (currentUser?.id) {
-          const refreshedVehicles = await getFahrzeuge(currentUser.id)
-          setVehicles(refreshedVehicles)
-          setSelectedVehicleId(createdVehicle.id)
-        } else {
-          setVehicles((previous) => [createdVehicle, ...previous])
-          setSelectedVehicleId(createdVehicle.id)
-        }
+        const refreshedVehicles = await getFahrzeuge()
+        setVehicles(refreshedVehicles)
+        setSelectedVehicleId(createdVehicle.id)
         setSuccessMessage('Fahrzeug wurde erfolgreich angelegt.')
       } else if (selectedVehicle) {
         const updatedVehicle = await updateFahrzeug(selectedVehicle.id, currentUser?.id, request)
-        if (currentUser?.id) {
-          const refreshedVehicles = await getFahrzeuge(currentUser.id)
-          setVehicles(refreshedVehicles)
-          setSelectedVehicleId(updatedVehicle.id)
-        } else {
-          setVehicles((previous) =>
-            previous.map((item) => (item.id === updatedVehicle.id ? updatedVehicle : item)),
-          )
-          setSelectedVehicleId(updatedVehicle.id)
-        }
+        const refreshedVehicles = await getFahrzeuge()
+        setVehicles(refreshedVehicles)
+        setSelectedVehicleId(updatedVehicle.id)
         setSuccessMessage('Fahrzeug wurde erfolgreich gespeichert.')
       }
 
@@ -561,7 +542,7 @@ function FahrzeuginfosPage() {
 
     try {
       await deleteFahrzeug(selectedVehicle.id, currentUser.id)
-      const refreshedVehicles = await getFahrzeuge(currentUser.id)
+      const refreshedVehicles = await getFahrzeuge()
       setVehicles(refreshedVehicles)
       setSelectedVehicleId(null)
       setSuccessMessage('Fahrzeug wurde geloescht.')
@@ -1506,6 +1487,15 @@ function FahrzeuginfosPage() {
               >
                 <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
                 Fahrgastinfos
+              </button>
+
+              <button
+                type="button"
+                onClick={() => goToPage('/initiativen')}
+                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+              >
+                <Bus className="h-5 w-5" aria-hidden="true" />
+                Initiativen
               </button>
 
               <button
