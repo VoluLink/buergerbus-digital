@@ -185,12 +185,15 @@ Dadurch wird eine hohe Wartbarkeit und klare Trennung der Verantwortlichkeiten e
 
 ## Voraussetzungen
 
+- Git
 - Docker
 - Docker Compose
-- Git
+
+Für den optionalen lokalen Start ohne Docker werden zusätzlich benötigt:
+
 - Node.js
 - .NET SDK
-- MariaDB (optional lokal)
+- MariaDB oder eine andere kompatible Datenbank
 
 ---
 
@@ -202,28 +205,90 @@ cd team-6-buergerbus-digital-landesstiftung-hessen
 ```
 
 ---
+## Start unter Linux mit `start.sh`
 
-# Datenbankkonfiguration
+Unter Linux kann das Projekt über das mitgelieferte Startskript gestartet werden:
 
-Im Hauptverzeichnis des Projekts muss eine `.env`-Datei angelegt werden.
-
-```env
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=buergerbus
-DB_USER=db_user
-DB_PASSWORD=your_password
+```bash
+chmod +x start.sh
+./start.sh
 ```
+
+Das Skript führt dich durch die Installation und Konfiguration der `.env`-Datei.
 
 ---
 
-# Projekt starten
+## Start ohne `start.sh`
+
+Falls das Projekt nicht über `start.sh` gestartet werden soll, muss die Umgebungsdatei manuell vorbereitet werden.
+
+Dazu wird die Beispiel-Datei kopiert:
+
+```bash
+cp .env.example .env
+```
+
+Danach müssen die Werte in der `.env` angepasst werden.
+
+Beispiel:
+
+```env
+DB_HOST=db
+DB_PORT=3306
+DB_NAME=HIER_DB_NAME
+DB_USER=HIER_USER
+DB_PASSWORD=CHANGE_ME_DATABASE_PASSWORD
+DB_ROOT_PASSWORD=CHANGE_ME_ROOT_PASSWORD
+
+FRONTEND_ORIGIN=http://localhost:5173
+VITE_API_BASE_URL=http://localhost:5000
+
+SEED_ADMIN_EMAIL=admin@example.com
+SEED_ADMIN_PASSWORD=CHANGE_ME_ADMIN_PASSWORD
+SEED_INITIATIVE_NAME=Default
+
+JWT_SECRET=CHANGE_ME_USE_LONG_RANDOM_SECRET
+JWT_ISSUER=BuergerbusAPI
+JWT_AUDIENCE=BuergerbusFrontend
+JWT_EXPIRES_MINUTES=60
+```
+
+Ein sicherer JWT-Secret kann zum Beispiel so erzeugt werden:
+
+```bash
+openssl rand -base64 64
+```
+
+Danach kann das Projekt mit Docker Compose gestartet werden:
 
 ```bash
 docker compose up --build
 ```
 
+Optional kann das Projekt im Hintergrund gestartet werden:
+
+```bash
+docker compose up -d --build
+```
+
 ---
+
+## Projekt stoppen
+
+```bash
+docker compose down
+```
+
+Falls zusätzlich auch Docker-Volumes gelöscht werden sollen, zum Beispiel Datenbankdaten:
+
+```bash
+docker compose down -v
+```
+
+Achtung: `docker compose down -v` löscht persistente Daten wie Datenbankinhalte.
+
+---
+
 
 # Lokale URLs und Ports
 
@@ -243,10 +308,9 @@ docker compose up --build
 
 ---
 
-# Lokaler Start ohne Docker (optional)
+## Lokaler Start ohne Docker optional
 
-Die folgenden Schritte sind nur erforderlich, wenn Frontend und Backend
-für Entwicklungszwecke separat ohne Docker Compose gestartet werden sollen.
+Die folgenden Schritte sind nur erforderlich, wenn Frontend und Backend getrennt ohne Docker Compose gestartet werden sollen.
 
 # Frontend lokal starten
 
