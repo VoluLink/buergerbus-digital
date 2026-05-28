@@ -30,6 +30,7 @@ import type { Wartung, WartungFormData } from '../types/Wartung'
 import type { InitiativeSummary } from '../types/UserProfile'
 import { useAuth } from '../context/AuthContext'
 import UserMenuButton from '../components/UserMenuButton'
+import { useRoleVisibility } from '../hooks/useRoleVisibility'
 
 const vehicleFormFields: FahrzeugFieldConfig[] = [
   { name: 'kennzeichen', label: 'Kennzeichen', type: 'text' },
@@ -240,6 +241,8 @@ function createEmptySchadenForm(): SchadenFormData {
 function FahrzeuginfosPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
+  const { canManageDataCrud, isDisponent, isFahrer } = useRoleVisibility()
+  const isCrudRestricted = !canManageDataCrud
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [vehicles, setVehicles] = useState<Fahrzeug[]>([])
   const [initiativen, setInitiativen] = useState<InitiativeSummary[]>([])
@@ -398,6 +401,10 @@ function FahrzeuginfosPage() {
   }
 
   function openCreateVehicleModal() {
+    if (isCrudRestricted) {
+      return
+    }
+
     const defaultInitiativeId = currentUser?.initiative?.id ?? initiativen[0]?.id ?? null
     setModalMode('create')
     setFormData({
@@ -413,6 +420,10 @@ function FahrzeuginfosPage() {
   }
 
   function openEditVehicleModal() {
+    if (isCrudRestricted) {
+      return
+    }
+
     if (!selectedVehicle) {
       alert('Bitte waehlen Sie ein Fahrzeug aus, um die Daten zu bearbeiten.')
       return
@@ -476,6 +487,11 @@ function FahrzeuginfosPage() {
 
   async function handleSaveVehicle(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
+    if (isCrudRestricted) {
+      return
+    }
+
     setFormError('')
     setSuccessMessage('')
 
@@ -522,6 +538,10 @@ function FahrzeuginfosPage() {
   }
 
   async function handleDeleteVehicle() {
+    if (isCrudRestricted) {
+      return
+    }
+
     if (!selectedVehicle) {
       alert('Bitte waehlen Sie ein Fahrzeug aus, um es zu loeschen.')
       return
@@ -566,6 +586,10 @@ function FahrzeuginfosPage() {
   }
 
   function startEditWartung(wartung: Wartung) {
+    if (isCrudRestricted) {
+      return
+    }
+
     setEditingWartungId(wartung.id)
     setWartungFormError('')
     setWartungSuccessMessage('')
@@ -585,6 +609,10 @@ function FahrzeuginfosPage() {
   }
 
   function startEditSchaden(schaden: Schaden) {
+    if (isCrudRestricted) {
+      return
+    }
+
     setEditingSchadenId(schaden.id)
     setSchadenFormError('')
     setSchadenSuccessMessage('')
@@ -616,6 +644,11 @@ function FahrzeuginfosPage() {
 
   async function handleSaveWartung(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
+    if (isCrudRestricted) {
+      return
+    }
+
     setWartungFormError('')
     setWartungSuccessMessage('')
 
@@ -675,6 +708,11 @@ function FahrzeuginfosPage() {
 
   async function handleSaveSchaden(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
+    if (isCrudRestricted) {
+      return
+    }
+
     setSchadenFormError('')
     setSchadenSuccessMessage('')
 
@@ -882,9 +920,9 @@ function FahrzeuginfosPage() {
                     </button>
                     <button
                       type="submit"
-                      disabled={isSaving}
+                      disabled={isCrudRestricted || isSaving}
                       className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
-                        isSaving
+                        isCrudRestricted || isSaving
                           ? 'cursor-not-allowed bg-blue-400'
                           : 'bg-blue-500 hover:bg-blue-600'
                       }`}
@@ -1051,9 +1089,9 @@ function FahrzeuginfosPage() {
                           ) : null}
                           <button
                             type="submit"
-                            disabled={isWartungSaving}
+                            disabled={isCrudRestricted || isWartungSaving}
                             className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
-                              isWartungSaving
+                              isCrudRestricted || isWartungSaving
                                 ? 'cursor-not-allowed bg-blue-400'
                                 : 'bg-blue-500 hover:bg-blue-600'
                             }`}
@@ -1214,9 +1252,9 @@ function FahrzeuginfosPage() {
                           ) : null}
                           <button
                             type="submit"
-                            disabled={isSchadenSaving}
+                            disabled={isCrudRestricted || isSchadenSaving}
                             className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
-                              isSchadenSaving
+                              isCrudRestricted || isSchadenSaving
                                 ? 'cursor-not-allowed bg-blue-400'
                                 : 'bg-blue-500 hover:bg-blue-600'
                             }`}
@@ -1396,37 +1434,39 @@ function FahrzeuginfosPage() {
             )}
           </div>
 
-          <div className="mt-4 flex w-full justify-end gap-2">
-            <button
-              type="button"
-              onClick={openCreateVehicleModal}
-              className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
-            >
-              Fahrzeug hinzufuegen
-            </button>
-            <button
-              type="button"
-              onClick={openEditVehicleModal}
-              disabled={!selectedVehicle}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
-                selectedVehicle
-                  ? 'bg-blue-500 hover:bg-blue-600'
-                  : 'cursor-not-allowed bg-gray-300'
-              }`}
-            >
-              Daten bearbeiten
-            </button>
-            <button
-              type="button"
-              onClick={handleDeleteVehicle}
-              disabled={!selectedVehicle}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
-                selectedVehicle ? 'bg-red-500 hover:bg-red-600' : 'cursor-not-allowed bg-red-300'
-              }`}
-            >
-              Fahrzeug loeschen
-            </button>
-          </div>
+          {!isCrudRestricted ? (
+            <div className="mt-4 flex w-full justify-end gap-2">
+              <button
+                type="button"
+                onClick={openCreateVehicleModal}
+                className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
+              >
+                Fahrzeug hinzufuegen
+              </button>
+              <button
+                type="button"
+                onClick={openEditVehicleModal}
+                disabled={!selectedVehicle}
+                className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
+                  selectedVehicle
+                    ? 'bg-blue-500 hover:bg-blue-600'
+                    : 'cursor-not-allowed bg-gray-300'
+                }`}
+              >
+                Daten bearbeiten
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteVehicle}
+                disabled={!selectedVehicle}
+                className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
+                  selectedVehicle ? 'bg-red-500 hover:bg-red-600' : 'cursor-not-allowed bg-red-300'
+                }`}
+              >
+                Fahrzeug loeschen
+              </button>
+            </div>
+          ) : null}
         </section>
       </div>
 
@@ -1462,14 +1502,16 @@ function FahrzeuginfosPage() {
                 Dashboard
               </button>
 
-              <button
-                type="button"
-                onClick={() => goToPage('/fahrerinfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <UserRound className="h-5 w-5" aria-hidden="true" />
-                Fahrerinfos
-              </button>
+              {!isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/fahrerinfos')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <UserRound className="h-5 w-5" aria-hidden="true" />
+                  Fahrerinfos
+                </button>
+              ) : null}
 
               <button
                 type="button"
@@ -1480,32 +1522,38 @@ function FahrzeuginfosPage() {
                 Fahrzeuginfos
               </button>
 
-              <button
-                type="button"
-                onClick={() => goToPage('/fahrgastinfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
-                Fahrgastinfos
-              </button>
+              {!isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/fahrgastinfos')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
+                  Fahrgastinfos
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => goToPage('/initiativen')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <Bus className="h-5 w-5" aria-hidden="true" />
-                Initiativen
-              </button>
+              {!isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/initiativen')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <Bus className="h-5 w-5" aria-hidden="true" />
+                  Initiativen
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => goToPage('/rollenverteilung')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <Settings className="h-5 w-5" aria-hidden="true" />
-                Rollenverteilung
-              </button>
+              {!isDisponent && !isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/rollenverteilung')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <Settings className="h-5 w-5" aria-hidden="true" />
+                  Rollenverteilung
+                </button>
+              ) : null}
             </div>
           </aside>
         </div>

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { login as loginRequest } from '../services/auth'
 import { getCurrentUserProfile } from '../services/profile'
 import { clearStoredAuth, getStoredToken, setStoredToken } from '../services/httpClient'
@@ -20,6 +21,7 @@ const USER_ID_STORAGE_KEY = 'bb.auth.userId'
 const SESSION_EXPIRED_MESSAGE = 'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const location = useLocation()
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -58,6 +60,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void refreshProfile()
   }, [refreshProfile])
+
+  useEffect(() => {
+    void refreshProfile()
+  }, [location.pathname, refreshProfile])
 
   useEffect(() => {
     function handleUnauthorized() {

@@ -22,6 +22,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import UserMenuButton from '../components/UserMenuButton'
 import { useAuth } from '../context/AuthContext'
+import { useRoleVisibility } from '../hooks/useRoleVisibility'
 import { loadDashboardState, saveDashboardState } from '../services/dashboardState'
 import { getFahrgaeste } from '../services/fahrgastApi'
 import type { CalendarRide, PassengerForm, RideStatus, RideType } from '../types/DashboardRide'
@@ -265,6 +266,11 @@ function createInitialRideForms() {
 function DashboardPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
+  const { canManageDataCrud, isDisponent, isFahrer, isGast } = useRoleVisibility()
+  const isRideCrudRestricted = !canManageDataCrud
+  const visibleTopFilters = isDisponent
+    ? topFilters.filter((filter) => filter !== 'Meine Fahrten')
+    : topFilters
   const today = useMemo(() => normalizeDate(new Date()), [])
 
   const [selectedFilter, setSelectedFilter] = useState('Alle Fahrten')
@@ -402,6 +408,10 @@ function DashboardPage() {
   }, [calendarRides, completedPassengerKeys, isDashboardHydrated, nextRideId])
 
   function openDayDialog(date: Date) {
+    if (isGast) {
+      return
+    }
+
     setSelectedDate(normalizeDate(date))
     setIsDayDialogOpen(true)
   }
@@ -414,6 +424,10 @@ function DashboardPage() {
   }
 
   function openRideDialog() {
+    if (isRideCrudRestricted) {
+      return
+    }
+
     setIsDayDialogOpen(false)
     setRideInEditId(null)
     setRideFormsByType(createInitialRideForms())
@@ -535,6 +549,10 @@ function DashboardPage() {
   }
 
   function openEditRideDialog(ride: CalendarRide) {
+    if (isRideCrudRestricted) {
+      return
+    }
+
     setSelectedDate(normalizeDate(ride.date))
     setRideInEditId(ride.id)
     setRideType(ride.type)
@@ -579,6 +597,10 @@ function DashboardPage() {
   }
 
   function requestDeleteRide(ride: CalendarRide) {
+    if (isRideCrudRestricted) {
+      return
+    }
+
     setRidePendingDelete(ride)
   }
 
@@ -587,6 +609,10 @@ function DashboardPage() {
   }
 
   function confirmDeleteRide() {
+    if (isRideCrudRestricted) {
+      return
+    }
+
     if (!ridePendingDelete) {
       return
     }
@@ -746,6 +772,10 @@ function DashboardPage() {
   }
 
   function saveRide(statusOverride?: RideStatus) {
+    if (isRideCrudRestricted) {
+      return
+    }
+
     if (rideType === 'rental') {
       const rideTime = rentalTimeFrom && rentalTimeTo ? `${rentalTimeFrom}-${rentalTimeTo}` : rentalTimeFrom || rentalTimeTo
 
@@ -896,6 +926,18 @@ function DashboardPage() {
     return calendarRides
   }, [calendarRides, currentDriverNames, selectedFilter])
 
+  useEffect(() => {
+    if (isDisponent && selectedFilter === 'Meine Fahrten') {
+      setSelectedFilter('Alle Fahrten')
+    }
+  }, [isDisponent, selectedFilter])
+
+  useEffect(() => {
+    if (isFahrer) {
+      setDayRole('fahrer')
+    }
+  }, [isFahrer])
+
   const ridesByDay = useMemo(() => {
     return filteredCalendarRides.reduce<Map<string, CalendarRide[]>>((accumulator, ride) => {
       const rideDateKey = toDateKey(ride.date)
@@ -935,7 +977,7 @@ function DashboardPage() {
             </button>
 
             <div className="flex flex-wrap gap-2">
-              {topFilters.map((filter) => (
+              {visibleTopFilters.map((filter) => (
                 <button
                   key={filter}
                   type="button"
@@ -953,7 +995,7 @@ function DashboardPage() {
           </div>
 
           <UserMenuButton
-            onClick={() => navigate('/profil')}
+            onClick={() => navigate(isGast ? '/dashboard' : '/profil')}
             icon={<CircleUserRound className="h-6 w-6" aria-hidden="true" />}
           />
         </div>
@@ -1000,14 +1042,16 @@ function DashboardPage() {
                 <ChevronRight className="h-4 w-4" aria-hidden="true" />
               </button>
 
-              <button
-                type="button"
-                onClick={openRideDialog}
-                className="inline-flex items-center gap-2 rounded-2xl bg-[#0053a0] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(0,83,160,0.35)] transition hover:brightness-105"
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                Fahrt
-              </button>
+              {!isRideCrudRestricted ? (
+                <button
+                  type="button"
+                  onClick={openRideDialog}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-[#0053a0] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(0,83,160,0.35)] transition hover:brightness-105"
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Fahrt
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -1116,56 +1160,67 @@ function DashboardPage() {
                 Dashboard
               </button>
 
-              <button
-                type="button"
-                onClick={() => goToPage('/fahrerinfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <UserRound className="h-5 w-5" aria-hidden="true" />
-                Fahrerinfos
-              </button>
+              {!isFahrer && !isGast ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/fahrerinfos')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <UserRound className="h-5 w-5" aria-hidden="true" />
+                  Fahrerinfos
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => goToPage('/fahrzeuginfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <Bus className="h-5 w-5" aria-hidden="true" />
-                Fahrzeuginfos
-              </button>
+              {!isGast ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/fahrzeuginfos')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <Bus className="h-5 w-5" aria-hidden="true" />
+                  Fahrzeuginfos
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => goToPage('/fahrgastinfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
-                Fahrgastinfos
-              </button>
+              {!isFahrer && !isGast ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/fahrgastinfos')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
+                  Fahrgastinfos
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => goToPage('/initiativen')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <MapPin className="h-5 w-5" aria-hidden="true" />
-                Initiativen
-              </button>
+              {!isFahrer && !isGast ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/initiativen')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <MapPin className="h-5 w-5" aria-hidden="true" />
+                  Initiativen
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => goToPage('/rollenverteilung')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <Settings className="h-5 w-5" aria-hidden="true" />
-                Rollenverteilung
-              </button>
+
+              {!isDisponent && !isFahrer && !isGast ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/rollenverteilung')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <Settings className="h-5 w-5" aria-hidden="true" />
+                  Rollenverteilung
+                </button>
+              ) : null}
             </div>
           </aside>
         </div>
       ) : null}
 
-      {isDayDialogOpen ? (
+      {!isGast && isDayDialogOpen ? (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
           onClick={closeDayDialog}
@@ -1184,30 +1239,42 @@ function DashboardPage() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <div className="inline-flex rounded-2xl bg-white/20 p-1">
-                    <button
-                      type="button"
-                      onClick={() => setDayRole('dispo')}
-                      className={`rounded-xl px-4 py-1.5 text-sm font-semibold transition ${
-                        dayRole === 'dispo'
-                          ? 'bg-white text-slate-700'
-                          : 'text-white/75 hover:text-white'
-                      }`}
-                    >
-                      Dispo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDayRole('fahrer')}
-                      className={`rounded-xl px-4 py-1.5 text-sm font-semibold transition ${
-                        dayRole === 'fahrer'
-                          ? 'bg-white text-slate-700'
-                          : 'text-white/75 hover:text-white'
-                      }`}
-                    >
-                      Fahrer
-                    </button>
-                  </div>
+                  {isFahrer ? (
+                    <div className="inline-flex rounded-2xl bg-white/20 p-1">
+                      <button
+                        type="button"
+                        className="rounded-xl bg-white px-4 py-1.5 text-sm font-semibold text-slate-700"
+                        disabled
+                      >
+                        Fahrer
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="inline-flex rounded-2xl bg-white/20 p-1">
+                      <button
+                        type="button"
+                        onClick={() => setDayRole('dispo')}
+                        className={`rounded-xl px-4 py-1.5 text-sm font-semibold transition ${
+                          dayRole === 'dispo'
+                            ? 'bg-white text-slate-700'
+                            : 'text-white/75 hover:text-white'
+                        }`}
+                      >
+                        Dispo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDayRole('fahrer')}
+                        className={`rounded-xl px-4 py-1.5 text-sm font-semibold transition ${
+                          dayRole === 'fahrer'
+                            ? 'bg-white text-slate-700'
+                            : 'text-white/75 hover:text-white'
+                        }`}
+                      >
+                        Fahrer
+                      </button>
+                    </div>
+                  )}
 
                   <button
                     type="button"
@@ -1421,14 +1488,16 @@ function DashboardPage() {
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={openRideDialog}
-                className="sticky bottom-4 ml-auto mt-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#0053a0] text-white shadow-[0_14px_30px_rgba(0,83,160,0.45)] transition hover:brightness-110"
-                aria-label="Neue Fahrt erstellen"
-              >
-                <Plus className="h-7 w-7" aria-hidden="true" />
-              </button>
+              {!isRideCrudRestricted ? (
+                <button
+                  type="button"
+                  onClick={openRideDialog}
+                  className="sticky bottom-4 ml-auto mt-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#0053a0] text-white shadow-[0_14px_30px_rgba(0,83,160,0.45)] transition hover:brightness-110"
+                  aria-label="Neue Fahrt erstellen"
+                >
+                  <Plus className="h-7 w-7" aria-hidden="true" />
+                </button>
+              ) : null}
             </div>
 
             {ridePendingDelete ? (
@@ -1450,6 +1519,7 @@ function DashboardPage() {
                     <button
                       type="button"
                       onClick={confirmDeleteRide}
+                      disabled={isRideCrudRestricted}
                       className="rounded-xl border border-rose-200 bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
                     >
                       Endgültig löschen
@@ -1754,6 +1824,7 @@ function DashboardPage() {
               <button
                 type="button"
                 onClick={() => saveRide('saved')}
+                disabled={isRideCrudRestricted}
                 className="rounded-2xl border border-[#0053a0]/30 bg-[#0053a0]/8 px-5 py-2.5 text-sm font-semibold text-[#0053a0] transition hover:bg-[#0053a0]/15"
               >
                 {rideInEditId !== null ? 'Änderung speichern' : 'Fahrt Speichern'}
@@ -1761,6 +1832,7 @@ function DashboardPage() {
               <button
                 type="button"
                 onClick={() => saveRide()}
+                disabled={isRideCrudRestricted}
                 className="rounded-2xl bg-[#0053a0] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-105"
               >
                 {rideInEditId !== null ? 'Änderungen übernehmen' : 'Fahrt erstellen'}

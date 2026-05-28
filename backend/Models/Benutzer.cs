@@ -35,6 +35,9 @@ namespace BuergerbusAPI.Models
         //Liste für BenutzerRollen
         public List<BenutzerRolle> BenutzerRollen { get; set; } = new();
 
+        // Aktuell ausgewählte Rolle des Benutzers
+        public string? AktiveRolle { get; set; }
+
         // Benutzer kann ein Fahrer sein (1:1)
         public Fahrer? Fahrer { get; set; }
     }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Bus, CircleUserRound, Menu, Pencil, Settings, Trash2, UserRound, UserRoundPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import UserMenuButton from '../components/UserMenuButton'
+import { useRoleVisibility } from '../hooks/useRoleVisibility'
 import {
   createInitiative,
   deleteInitiative,
@@ -45,6 +46,7 @@ function isDefaultInitiative(initiative: Initiative | null | undefined) {
 
 function InitiativenPage() {
   const navigate = useNavigate()
+  const { canManageInitiatives, isDisponent, isFahrer } = useRoleVisibility()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
 
   const [initiatives, setInitiatives] = useState<Initiative[]>([])
@@ -124,6 +126,10 @@ function InitiativenPage() {
   }
 
   function openCreateModal() {
+    if (!canManageInitiatives) {
+      return
+    }
+
     setCreateForm(createEmptyForm())
     setSaveError(null)
     setSuccessMessage(null)
@@ -146,6 +152,10 @@ function InitiativenPage() {
   }
 
   function openEditModal(initiative: Initiative) {
+    if (!canManageInitiatives) {
+      return
+    }
+
     setSelectedInitiative(initiative)
     setEditForm({
       name: initiative.name,
@@ -172,6 +182,10 @@ function InitiativenPage() {
   }
 
   async function handleUpdateInitiative() {
+    if (!canManageInitiatives) {
+      return
+    }
+
     if (!selectedInitiative) {
       return
     }
@@ -212,6 +226,10 @@ function InitiativenPage() {
   }
 
   function openDeleteModal(initiative: Initiative) {
+    if (!canManageInitiatives) {
+      return
+    }
+
     setInitiativeToDelete(initiative)
     setDeleteError(null)
     setSuccessMessage(null)
@@ -247,6 +265,10 @@ function InitiativenPage() {
   }
 
   async function handleDeleteInitiative() {
+    if (!canManageInitiatives) {
+      return
+    }
+
     if (!initiativeToDelete) {
       return
     }
@@ -277,6 +299,10 @@ function InitiativenPage() {
   }
 
   async function handleCreateInitiative() {
+    if (!canManageInitiatives) {
+      return
+    }
+
     const trimmedName = createForm.name.trim()
 
     if (!trimmedName) {
@@ -345,13 +371,15 @@ function InitiativenPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={openCreateModal}
-              className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              + Initiative hinzufügen
-            </button>
+            {canManageInitiatives ? (
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                + Initiative hinzufügen
+              </button>
+            ) : null}
           </div>
 
           <div className="p-5 sm:p-6">
@@ -395,31 +423,35 @@ function InitiativenPage() {
                         <td className="px-4 py-3 text-slate-700">{formatDateDisplay(initiative.angelegtAm)}</td>
                         <td className="px-4 py-3 text-slate-700">{formatDateDisplay(initiative.geaendertAm)}</td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => openEditModal(initiative)}
-                              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                            >
-                              <Pencil className="h-4 w-4" aria-hidden="true" />
-                              Bearbeiten
-                            </button>
+                          {canManageInitiatives ? (
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => openEditModal(initiative)}
+                                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                              >
+                                <Pencil className="h-4 w-4" aria-hidden="true" />
+                                Bearbeiten
+                              </button>
 
-                            <button
-                              type="button"
-                              onClick={() => openDeleteModal(initiative)}
-                              disabled={isDefaultInitiative(initiative)}
-                              title={
-                                isDefaultInitiative(initiative)
-                                  ? 'Die Standard-Initiative kann nicht gelöscht werden.'
-                                  : undefined
-                              }
-                              className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              <Trash2 className="h-4 w-4" aria-hidden="true" />
-                              Löschen
-                            </button>
-                          </div>
+                              <button
+                                type="button"
+                                onClick={() => openDeleteModal(initiative)}
+                                disabled={isDefaultInitiative(initiative)}
+                                title={
+                                  isDefaultInitiative(initiative)
+                                    ? 'Die Standard-Initiative kann nicht gelöscht werden.'
+                                    : undefined
+                                }
+                                className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                Löschen
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400">Nur Ansicht</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -463,14 +495,16 @@ function InitiativenPage() {
                 Dashboard
               </button>
 
-              <button
-                type="button"
-                onClick={() => goToPage('/fahrerinfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <UserRound className="h-5 w-5" aria-hidden="true" />
-                Fahrerinfos
-              </button>
+              {!isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/fahrerinfos')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <UserRound className="h-5 w-5" aria-hidden="true" />
+                  Fahrerinfos
+                </button>
+              ) : null}
 
               <button
                 type="button"
@@ -481,32 +515,38 @@ function InitiativenPage() {
                 Fahrzeuginfos
               </button>
 
-              <button
-                type="button"
-                onClick={() => goToPage('/fahrgastinfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
-                Fahrgastinfos
-              </button>
+              {!isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/fahrgastinfos')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
+                  Fahrgastinfos
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => goToPage('/initiativen')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0] px-4 py-3 text-left text-lg font-medium text-white"
-              >
-                <Bus className="h-5 w-5" aria-hidden="true" />
-                Initiativen
-              </button>
+              {!isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/initiativen')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0] px-4 py-3 text-left text-lg font-medium text-white"
+                >
+                  <Bus className="h-5 w-5" aria-hidden="true" />
+                  Initiativen
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => goToPage('/rollenverteilung')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <Settings className="h-5 w-5" aria-hidden="true" />
-                Rollenverteilung
-              </button>
+              {!isDisponent && !isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/rollenverteilung')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <Settings className="h-5 w-5" aria-hidden="true" />
+                  Rollenverteilung
+                </button>
+              ) : null}
             </div>
           </aside>
         </div>

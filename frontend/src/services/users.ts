@@ -99,13 +99,17 @@ export async function fetchUserProfile(userId: number): Promise<UserProfile> {
   return response.json()
 }
 
-export async function updateUserRoles(userId: number, roles: string[]): Promise<string[]> {
+export async function updateUserRoles(
+  userId: number,
+  roles: string[],
+  activeRole?: string | null,
+): Promise<{ roles: string[]; activeRole?: string | null; newToken?: string | null }> {
   const response = await apiFetch(`${API_BASE_URL}/api/v1/users/${userId}/roles`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ roles }),
+    body: JSON.stringify({ roles, activeRole }),
   })
 
   if (!response.ok) {
@@ -116,8 +120,8 @@ export async function updateUserRoles(userId: number, roles: string[]): Promise<
     throw new Error(errorText || 'Rollen konnten nicht gespeichert werden.')
   }
 
-  const data = await response.json() as { roles: string[] }
-  return data.roles
+  const data = await response.json() as { roles: string[]; activeRole?: string | null; newToken?: string | null }
+  return data
 }
 
 export async function updateUserInitiative(userId: number, initiativeId: number): Promise<InitiativeSummary> {
