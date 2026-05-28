@@ -18,6 +18,7 @@ export interface UserProfile {
   id: number
   username: string
   email: string
+  activeRole?: string | null
 
   vorname?: string | null
   nachname?: string | null
@@ -43,6 +44,7 @@ export interface UserSummary {
   id: number
   username: string
   email: string
+  activeRole?: string | null
   roles: string[]
   initiative?: InitiativeSummary | null
   fahrerId?: number | null

@@ -119,7 +119,8 @@ public static class SeedData
                 InitiativeId = initiative.Id,
                 PasswortHash = "",
                 Aktiv = true,
-                AngelegtAm = DateTime.UtcNow
+                AngelegtAm = DateTime.UtcNow,
+                AktiveRolle = adminRole.Rollenname
             };
 
             user.PasswortHash = passwordHasher.HashPassword(user, password);

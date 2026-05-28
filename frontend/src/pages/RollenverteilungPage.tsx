@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Bus, Menu, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import UserMenuButton from '../components/UserMenuButton'
+import { useRoleVisibility } from '../hooks/useRoleVisibility'
+import { setStoredToken } from '../services/httpClient'
 import {
   createBenutzer,
   fetchInitiatives,
@@ -55,6 +57,7 @@ function buildDisplayName(profile: UserProfile | null) {
 
 function RollenverteilungPage() {
   const navigate = useNavigate()
+  const { canManageRoleAssignments, isFahrer } = useRoleVisibility()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -169,6 +172,10 @@ function RollenverteilungPage() {
   }
 
   function openCreateModal() {
+    if (!canManageRoleAssignments) {
+      return
+    }
+
     setCreateForm({
       roleId: '',
       initiativeId: '',
@@ -211,6 +218,10 @@ function RollenverteilungPage() {
   }
 
   function toggleRole(userId: number, role: string) {
+    if (!canManageRoleAssignments) {
+      return
+    }
+
     const user = users.find((entry) => entry.id === userId)
     if (!user) {
       return
@@ -218,38 +229,50 @@ function RollenverteilungPage() {
 
     setSaveError('')
 
-    const normalizedRole = role.toLowerCase()
-    const hasRole = user.roles.map((r) => r.toLowerCase()).includes(normalizedRole)
+    const normalizedClickedRole = role.toLowerCase()
+    const hasRole = user.roles.some((entry) => entry.toLowerCase() === normalizedClickedRole)
     const nextRoles = hasRole
-      ? user.roles.filter((entry) => entry.toLowerCase() !== normalizedRole)
-      : [...user.roles, role]
+      ? user.roles.filter((entry) => entry.toLowerCase() !== normalizedClickedRole)
+      : user.roles.length < 2
+        ? [...user.roles, role]
+        : user.roles
+    const nextActiveRole = role
+
+    if (!hasRole && user.roles.length >= 2) {
+      setSaveError('Es können maximal zwei Rollen gleichzeitig ausgewählt werden.')
+      return
+    }
 
     setUsers((prev) =>
       prev.map((entry) =>
         entry.id === userId
-          ? { ...entry, roles: nextRoles }
+          ? { ...entry, roles: nextRoles, activeRole: nextActiveRole }
           : entry,
       ),
     )
 
     setSavingUserId(userId)
 
-    void updateUserRoles(userId, nextRoles)
-      .then((savedRoles) => {
+    void updateUserRoles(userId, nextRoles, nextActiveRole)
+      .then((saved) => {
+        if (saved.newToken) {
+          setStoredToken(saved.newToken)
+        }
+
         setUsers((prev) =>
           prev.map((entry) =>
-            entry.id === userId ? { ...entry, roles: savedRoles } : entry,
+            entry.id === userId ? { ...entry, roles: saved.roles, activeRole: saved.activeRole ?? nextActiveRole } : entry,
           ),
         )
 
         setSelectedProfile((prev) =>
-          prev && prev.id === userId ? { ...prev, roles: savedRoles } : prev,
+          prev && prev.id === userId ? { ...prev, roles: saved.roles, activeRole: saved.activeRole ?? nextActiveRole } : prev,
         )
       })
       .catch((err) => {
         setUsers((prev) =>
           prev.map((entry) =>
-            entry.id === userId ? { ...entry, roles: user.roles } : entry,
+            entry.id === userId ? { ...entry, roles: user.roles, activeRole: user.activeRole } : entry,
           ),
         )
         setSaveError(err instanceof Error ? err.message : 'Rollen konnten nicht gespeichert werden.')
@@ -260,6 +283,10 @@ function RollenverteilungPage() {
   }
 
   function handleInitiativeChange(userId: number, nextValue: string) {
+    if (!canManageRoleAssignments) {
+      return
+    }
+
     const nextInitiativeId = Number(nextValue)
     if (!nextInitiativeId) {
       return
@@ -338,6 +365,10 @@ function RollenverteilungPage() {
   }
 
   async function handleCreateUserSubmit() {
+    if (!canManageRoleAssignments) {
+      return
+    }
+
     setCreateError('')
 
     const nextErrors: Record<string, string> = {}
@@ -435,13 +466,15 @@ function RollenverteilungPage() {
       <div className="p-2 sm:p-3 lg:p-4">
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={openCreateModal}
-              className="rounded-xl bg-[#0053a0] px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
-            >
-              + Benutzer anlegen
-            </button>
+            {canManageRoleAssignments ? (
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="rounded-xl bg-[#0053a0] px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+              >
+                + Benutzer anlegen
+              </button>
+            ) : null}
           </div>
 
           {saveSuccess ? (
@@ -519,7 +552,7 @@ function RollenverteilungPage() {
                           value={user.initiative?.id ?? ''}
                           onChange={(event) => handleInitiativeChange(user.id, event.target.value)}
                           className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-                          disabled={initiatives.length === 0}
+                          disabled={!canManageRoleAssignments || initiatives.length === 0}
                         >
                           <option value="">Keine Initiative</option>
                           {initiatives.map((initiative) => (
@@ -535,17 +568,20 @@ function RollenverteilungPage() {
                             <span className="text-xs text-slate-400">Keine Rollen verfügbar</span>
                           ) : roles.map((role) => {
                             const normalizedRole = role.name.toLowerCase()
-                            const isActive = user.roles.map((entry) => entry.toLowerCase()).includes(normalizedRole)
+                            const isSelected = user.roles.map((entry) => entry.toLowerCase()).includes(normalizedRole)
+                            const isActive = user.activeRole?.toLowerCase() === normalizedRole
 
                             return (
                               <button
                                 key={role.id}
                                 type="button"
                                 onClick={() => toggleRole(user.id, role.name)}
-                                disabled={savingUserId === user.id}
+                                disabled={!canManageRoleAssignments || savingUserId === user.id}
                                 className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition ${
                                   isActive
-                                    ? getRoleActiveClass(role.name)
+                                    ? `${getRoleActiveClass(role.name)} ring-2 ring-offset-2 ring-slate-200`
+                                    : isSelected
+                                      ? 'border border-[#0053a0] bg-[#0053a0] text-white'
                                     : 'border border-slate-300 bg-white text-slate-500 hover:bg-slate-50'
                                 }`}
                               >
@@ -644,10 +680,20 @@ function RollenverteilungPage() {
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Rollen</p>
                   <p className="mt-1 text-sm text-slate-700">
-                    {selectedProfile.roles.length > 0
-                      ? selectedProfile.roles.map((role) => formatRoleLabel(role, roles)).join(', ')
+                    {selectedProfile.activeRole
+                      ? `Aktiv: ${formatRoleLabel(selectedProfile.activeRole, roles)}`
+                      : selectedProfile.roles.length > 0
+                        ? `Aktiv: ${formatRoleLabel(selectedProfile.roles[0], roles)}`
                       : 'Keine Rollen'}
                   </p>
+                  {selectedProfile.roles.length > 1 ? (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Weitere Rollen: {selectedProfile.roles
+                        .filter((role) => role !== selectedProfile.activeRole)
+                        .map((role) => formatRoleLabel(role, roles))
+                        .join(', ')}
+                    </p>
+                  ) : null}
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Fahrerprofil</p>
@@ -696,14 +742,16 @@ function RollenverteilungPage() {
                 Dashboard
               </button>
 
-              <button
-                type="button"
-                onClick={() => goToPage('/fahrerinfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <UserRound className="h-5 w-5" aria-hidden="true" />
-                Fahrerinfos
-              </button>
+              {!isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/fahrerinfos')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <UserRound className="h-5 w-5" aria-hidden="true" />
+                  Fahrerinfos
+                </button>
+              ) : null}
 
               <button
                 type="button"
@@ -714,32 +762,38 @@ function RollenverteilungPage() {
                 Fahrzeuginfos
               </button>
 
-              <button
-                type="button"
-                onClick={() => goToPage('/fahrgastinfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
-                Fahrgastinfos
-              </button>
+              {!isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/fahrgastinfos')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
+                  Fahrgastinfos
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => goToPage('/initiativen')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <Bus className="h-5 w-5" aria-hidden="true" />
-                Initiativen
-              </button>
+              {!isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/initiativen')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <Bus className="h-5 w-5" aria-hidden="true" />
+                  Initiativen
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => goToPage('/rollenverteilung')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0] px-4 py-3 text-left text-lg font-medium text-white"
-              >
-                <Settings className="h-5 w-5" aria-hidden="true" />
-                Rollenverteilung
-              </button>
+              {canManageRoleAssignments ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/rollenverteilung')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0] px-4 py-3 text-left text-lg font-medium text-white"
+                >
+                  <Settings className="h-5 w-5" aria-hidden="true" />
+                  Rollenverteilung
+                </button>
+              ) : null}
             </div>
           </aside>
         </div>
@@ -787,7 +841,7 @@ function RollenverteilungPage() {
                   value={createForm.roleId}
                   onChange={(event) => setCreateForm((prev) => ({ ...prev, roleId: event.target.value }))}
                   className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
-                  disabled={createRoleOptions.length === 0 || isCreating}
+                  disabled={!canManageRoleAssignments || createRoleOptions.length === 0 || isCreating}
                 >
                   <option value="">Bitte wählen...</option>
                   {createRoleOptions.map((role) => (
@@ -807,7 +861,7 @@ function RollenverteilungPage() {
                   value={createForm.initiativeId}
                   onChange={(event) => setCreateForm((prev) => ({ ...prev, initiativeId: event.target.value }))}
                   className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
-                  disabled={initiatives.length === 0 || isCreating}
+                  disabled={!canManageRoleAssignments || initiatives.length === 0 || isCreating}
                 >
                   <option value="">Bitte wählen...</option>
                   {initiatives.map((initiative) => (
@@ -828,7 +882,7 @@ function RollenverteilungPage() {
                   value={createForm.name}
                   onChange={(event) => setCreateForm((prev) => ({ ...prev, name: event.target.value }))}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                  disabled={isCreating}
+                  disabled={!canManageRoleAssignments || isCreating}
                 />
                 {createFieldErrors.name ? (
                   <p className="mt-1 text-xs text-rose-600">{createFieldErrors.name}</p>
@@ -842,7 +896,7 @@ function RollenverteilungPage() {
                   value={createForm.email}
                   onChange={(event) => setCreateForm((prev) => ({ ...prev, email: event.target.value }))}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                  disabled={isCreating}
+                  disabled={!canManageRoleAssignments || isCreating}
                 />
                 {createFieldErrors.email ? (
                   <p className="mt-1 text-xs text-rose-600">{createFieldErrors.email}</p>
@@ -856,7 +910,7 @@ function RollenverteilungPage() {
                   value={createForm.password}
                   onChange={(event) => setCreateForm((prev) => ({ ...prev, password: event.target.value }))}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                  disabled={isCreating}
+                  disabled={!canManageRoleAssignments || isCreating}
                 />
                 {createFieldErrors.password ? (
                   <p className="mt-1 text-xs text-rose-600">{createFieldErrors.password}</p>
@@ -875,7 +929,7 @@ function RollenverteilungPage() {
                 <button
                   type="submit"
                   className="rounded-xl bg-[#0053a0] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60"
-                  disabled={isCreating}
+                  disabled={!canManageRoleAssignments || isCreating}
                 >
                   {isCreating ? 'Wird angelegt...' : 'Benutzer anlegen'}
                 </button>

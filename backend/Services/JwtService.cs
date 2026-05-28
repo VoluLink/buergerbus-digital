@@ -21,7 +21,12 @@ public class JwtService
             Encoding.UTF8.GetBytes(_config["JWT_SECRET"]!)
         );
 
-        var roles = user.BenutzerRollen.Select(r => r.Rolle.Rollenname);
+        var roles = user.BenutzerRollen
+            .Select(r => r.Rolle.Rollenname)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Distinct()
+            .ToList();
+        var activeRole = RolePriorityResolver.ResolveHighestRole(roles);
 
         var claims = new List<Claim>
         {
@@ -31,7 +36,13 @@ public class JwtService
             new Claim("initiativeId", user.InitiativeId.ToString())
         };
 
-        claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
+        if (!string.IsNullOrWhiteSpace(activeRole))
+        {
+            claims.Add(new Claim(ClaimTypes.Role, activeRole));
+            claims.Add(new Claim("activeRole", activeRole));
+        }
+
+        claims.AddRange(roles.Select(r => new Claim("roles", r)));
 
         var token = new JwtSecurityToken(
             issuer: _config["JWT_ISSUER"],

@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom'
 import UserMenuButton from '../components/UserMenuButton'
 import { useAuth } from '../context/AuthContext'
 import { updateUserProfile } from '../services/profile'
+import { useRoleVisibility } from '../hooks/useRoleVisibility'
 
 function formatDateInput(value?: string | null) {
   if (!value) {
@@ -44,6 +45,7 @@ function formatRoleLabel(role: string) {
 function ProfilePage() {
   const navigate = useNavigate()
   const { currentUser, isLoading, error, refreshProfile } = useAuth()
+  const { isDisponent, isFahrer } = useRoleVisibility()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isAccountActive, setIsAccountActive] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -93,7 +95,7 @@ function ProfilePage() {
     setSaveSuccess(null)
   }, [currentUser, refreshProfile])
 
-  const userRoles = currentUser?.roles ?? []
+  const userRoles = Array.from(new Set((currentUser?.roles ?? []).filter(Boolean)))
   const userId = currentUser ? String(currentUser.id) : '-'
   const initiativeName = currentUser?.initiative?.name ?? ''
 
@@ -247,23 +249,18 @@ function ProfilePage() {
           {/* Rollen */}
           <div className="mb-6">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Rolle
+              Rollen
             </p>
             <div className="flex flex-wrap gap-2">
               {userRoles.length > 0 ? (
-                userRoles.map((role) => {
-                  const normalizedRole = role.toLowerCase()
-                  let bgColor = 'bg-slate-200 text-slate-700'
-                  if (normalizedRole === 'admin') bgColor = 'bg-[#0053a0] text-white'
-                  if (normalizedRole === 'disponent') bgColor = 'bg-amber-500 text-white'
-                  if (normalizedRole === 'fahrer') bgColor = 'bg-emerald-600 text-white'
-
-                  return (
-                    <span key={role} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${bgColor}`}>
-                      {formatRoleLabel(role)}
-                    </span>
-                  )
-                })
+                userRoles.map((role) => (
+                  <span
+                    key={role}
+                    className="rounded-full bg-[#0053a0] px-3 py-1.5 text-xs font-semibold text-white"
+                  >
+                    {formatRoleLabel(role)}
+                  </span>
+                ))
               ) : (
                 <span className="text-xs text-slate-400">Keine Rollen zugewiesen</span>
               )}
@@ -555,14 +552,16 @@ function ProfilePage() {
                 Dashboard
               </button>
 
-              <button
-                type="button"
-                onClick={() => goToPage('/fahrerinfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <UserRound className="h-5 w-5" aria-hidden="true" />
-                Fahrerinfos
-              </button>
+              {!isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/fahrerinfos')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <UserRound className="h-5 w-5" aria-hidden="true" />
+                  Fahrerinfos
+                </button>
+              ) : null}
 
               <button
                 type="button"
@@ -573,32 +572,38 @@ function ProfilePage() {
                 Fahrzeuginfos
               </button>
 
-              <button
-                type="button"
-                onClick={() => goToPage('/fahrgastinfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
-                Fahrgastinfos
-              </button>
+              {!isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/fahrgastinfos')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
+                  Fahrgastinfos
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => goToPage('/initiativen')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <Bus className="h-5 w-5" aria-hidden="true" />
-                Initiativen
-              </button>
+              {!isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/initiativen')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <Bus className="h-5 w-5" aria-hidden="true" />
+                  Initiativen
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => goToPage('/rollenverteilung')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <Settings className="h-5 w-5" aria-hidden="true" />
-                Rollenverteilung
-              </button>
+              {!isDisponent && !isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/rollenverteilung')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <Settings className="h-5 w-5" aria-hidden="true" />
+                  Rollenverteilung
+                </button>
+              ) : null}
             </div>
           </aside>
         </div>

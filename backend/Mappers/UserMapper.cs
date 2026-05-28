@@ -1,5 +1,6 @@
 using BuergerbusAPI.DTOs;
 using BuergerbusAPI.Models;
+using BuergerbusAPI.Services;
 /// <summary>
 /// Wandelt Benutzer-Entitäten aus der Datenbank in API-DTOs um.
 /// Erstellt vollständige Benutzerprofile inklusive Rollen,
@@ -9,6 +10,11 @@ namespace BuergerbusAPI.Mappers;
 
 public static class UserMapper
 {
+    private static string? GetActiveRole(IReadOnlyCollection<string> roles)
+    {
+        return RolePriorityResolver.ResolveHighestRole(roles);
+    }
+
     public static UserProfileDto CreateUserProfile(Benutzer user)
     {
         var roles = user.BenutzerRollen
@@ -16,6 +22,8 @@ public static class UserMapper
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Distinct()
             .ToList();
+
+        var activeRole = GetActiveRole(roles);
 
         FahrerProfileDto? fahrer = null;
         if (user.Fahrer != null)
@@ -48,6 +56,7 @@ public static class UserMapper
             user.Aktiv,
             initiative,
             roles,
+            activeRole,
             fahrer
         );
     }

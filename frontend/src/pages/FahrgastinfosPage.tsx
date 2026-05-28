@@ -9,6 +9,7 @@ import {
 } from '../services/fahrgastApi'
 import type { Fahrgast, FahrgastFormData } from '../types/Fahrgast'
 import UserMenuButton from '../components/UserMenuButton'
+import { useRoleVisibility } from '../hooks/useRoleVisibility'
 
 function formatDateDisplay(value: string) {
   if (!value) {
@@ -72,6 +73,8 @@ function toGuestModel(form: FahrgastFormData, existing: Fahrgast | null, nextId:
 
 function FahrgastinfosPage() {
   const navigate = useNavigate()
+  const { canManageDataCrud, isDisponent, isFahrer } = useRoleVisibility()
+  const isCrudRestricted = !canManageDataCrud
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -131,6 +134,10 @@ function FahrgastinfosPage() {
   }
 
   function handleOpenEditModal() {
+    if (isCrudRestricted) {
+      return
+    }
+
     if (!selectedGuest) {
       return
     }
@@ -158,6 +165,10 @@ function FahrgastinfosPage() {
   }
 
   async function handleSaveGuestChanges() {
+    if (isCrudRestricted) {
+      return
+    }
+
     if (!selectedGuest) {
       return
     }
@@ -170,6 +181,10 @@ function FahrgastinfosPage() {
   }
 
   async function handleDeleteGuest() {
+    if (isCrudRestricted) {
+      return
+    }
+
     if (!selectedGuestId || !selectedGuest) {
       return
     }
@@ -187,6 +202,10 @@ function FahrgastinfosPage() {
   }
 
   function handleOpenCreateModal() {
+    if (isCrudRestricted) {
+      return
+    }
+
     setCreateForm(createEmptyForm())
     setIsCreateModalOpen(true)
   }
@@ -196,6 +215,10 @@ function FahrgastinfosPage() {
   }
 
   async function handleCreateGuest() {
+    if (isCrudRestricted) {
+      return
+    }
+
     const nextId = guests.length > 0 ? Math.max(...guests.map((entry) => entry.id)) + 1 : 1
     const newGuest = toGuestModel(createForm, null, nextId)
     const savedGuest = await createFahrgast(newGuest)
@@ -293,39 +316,41 @@ function FahrgastinfosPage() {
             </table>
           </div>
 
-          <div className="flex w-full items-center justify-end gap-3 p-4">
-            <button
-              type="button"
-              onClick={handleOpenCreateModal}
-              className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
-            >
-              Fahrgast hinzufügen
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenEditModal}
-              disabled={!selectedGuestId}
-              className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition ${
-                selectedGuestId
-                  ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-                  : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
-              }`}
-            >
-              Bearbeiten
-            </button>
-            <button
-              type="button"
-              onClick={handleDeleteGuest}
-              disabled={!selectedGuestId}
-              className={`rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition ${
-                selectedGuestId
-                  ? 'bg-rose-500 hover:bg-rose-600'
-                  : 'cursor-not-allowed bg-rose-200'
-              }`}
-            >
-              Gast löschen
-            </button>
-          </div>
+          {!isCrudRestricted ? (
+            <div className="flex w-full items-center justify-end gap-3 p-4">
+              <button
+                type="button"
+                onClick={handleOpenCreateModal}
+                className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+              >
+                Fahrgast hinzufügen
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenEditModal}
+                disabled={!selectedGuestId}
+                className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition ${
+                  selectedGuestId
+                    ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                    : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
+                }`}
+              >
+                Bearbeiten
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteGuest}
+                disabled={!selectedGuestId}
+                className={`rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition ${
+                  selectedGuestId
+                    ? 'bg-rose-500 hover:bg-rose-600'
+                    : 'cursor-not-allowed bg-rose-200'
+                }`}
+              >
+                Gast löschen
+              </button>
+            </div>
+          ) : null}
         </section>
       </div>
 
@@ -358,14 +383,16 @@ function FahrgastinfosPage() {
                 Dashboard
               </button>
 
-              <button
-                type="button"
-                onClick={() => goToPage('/fahrerinfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <UserRound className="h-5 w-5" aria-hidden="true" />
-                Fahrerinfos
-              </button>
+              {!isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/fahrerinfos')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <UserRound className="h-5 w-5" aria-hidden="true" />
+                  Fahrerinfos
+                </button>
+              ) : null}
 
               <button
                 type="button"
@@ -376,32 +403,38 @@ function FahrgastinfosPage() {
                 Fahrzeuginfos
               </button>
 
-              <button
-                type="button"
-                onClick={() => goToPage('/fahrgastinfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0] px-4 py-3 text-left text-lg font-medium text-white"
-              >
-                <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
-                Fahrgastinfos
-              </button>
+              {!isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/fahrgastinfos')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0] px-4 py-3 text-left text-lg font-medium text-white"
+                >
+                  <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
+                  Fahrgastinfos
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => goToPage('/initiativen')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <Bus className="h-5 w-5" aria-hidden="true" />
-                Initiativen
-              </button>
+              {!isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/initiativen')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <Bus className="h-5 w-5" aria-hidden="true" />
+                  Initiativen
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => goToPage('/rollenverteilung')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <Settings className="h-5 w-5" aria-hidden="true" />
-                Rollenverteilung
-              </button>
+              {!isDisponent && !isFahrer ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/rollenverteilung')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <Settings className="h-5 w-5" aria-hidden="true" />
+                  Rollenverteilung
+                </button>
+              ) : null}
             </div>
           </aside>
         </div>

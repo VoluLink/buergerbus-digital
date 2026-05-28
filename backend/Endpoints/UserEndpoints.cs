@@ -121,6 +121,7 @@ public static class UserEndpoints
                 PasswortHash = "",
                 Aktiv = true,
                 AngelegtAm = DateTime.UtcNow,
+                AktiveRolle = role.Rollenname,
             };
 
             user.PasswortHash = passwordHasher.HashPassword(user, request.Password);
@@ -282,6 +283,7 @@ public static class UserEndpoints
                     u.Email,
                     u.Initiative == null ? null : new InitiativeDto(u.Initiative.Id, u.Initiative.Name),
                     roles,
+                    RolePriorityResolver.ResolveHighestRole(roles),
                     u.Fahrer == null ? null : u.Fahrer.Id,
                     u.Fahrer == null || u.Fahrer.Aktiv
                 );
@@ -489,7 +491,10 @@ public static class UserEndpoints
                 .Distinct()
                 .ToList();
 
-            return Results.Ok(new UserRolesDto(id, roles));
+            return Results.Ok(new UserRolesDto(
+                id,
+                roles,
+                RolePriorityResolver.ResolveHighestRole(roles)));
         })
         .RequireAuthorization("AdminOnly");
 
@@ -502,7 +507,9 @@ public static class UserEndpoints
         app.MapPut("/api/v1/users/{id:int}/roles", async (
             int id,
             UpdateRolesRequest request,
-            AppDbContext db
+            HttpContext httpContext,
+            AppDbContext db,
+            JwtService jwtService
         ) =>
         {
             // Benutzer inklusive aktueller Rollen und optionalem Fahrer-Datensatz laden
@@ -534,6 +541,11 @@ public static class UserEndpoints
                 .Select(role => role!.ToLowerInvariant())
                 .Distinct()
                 .ToList();
+
+            if (normalizedRoles.Count > 2)
+            {
+                return Results.BadRequest("Ein Benutzer kann maximal zwei Rollen haben.");
+            }
 
             // Bereits vorhandene Rollen aus der Datenbank laden
             var rolesByName = await db.Rollen
@@ -596,15 +608,29 @@ public static class UserEndpoints
                 user.Fahrer.Aktiv = false;
                 user.Fahrer.GeaendertAm = DateTime.UtcNow;
             }
+
+            user.AktiveRolle = RolePriorityResolver.ResolveHighestRole(
+                user.BenutzerRollen.Select(br => br.Rolle?.Rollenname));
             // Rollenänderungen und Fahrerstatus dauerhaft speichern
             await db.SaveChangesAsync();
+
+            string? refreshedToken = null;
+            var principalUserId = AuthUtils.GetUserId(httpContext.User);
+            if (principalUserId.HasValue && principalUserId.Value == user.Id)
+            {
+                refreshedToken = jwtService.CreateToken(user);
+            }
 
             return Results.Ok(new UserRolesDto(
                 user.Id,
                 user.BenutzerRollen
-                    .Select(br => br.Rolle.Rollenname)
+                    .Select(br => br.Rolle?.Rollenname)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Select(name => name!)
                     .Distinct()
-                    .ToList()));
+                    .ToList(),
+                user.AktiveRolle,
+                refreshedToken));
         })
         .RequireAuthorization("AdminOnly");
         // Alle Benutzer-Endpunkte wurden registriert

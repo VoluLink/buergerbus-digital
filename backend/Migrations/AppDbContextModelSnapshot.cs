@@ -77,6 +77,9 @@ namespace BuergerbusAPI.Migrations
                     b.Property<bool>("Aktiv")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<string>("AktiveRolle")
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime>("AngelegtAm")
                         .HasColumnType("datetime(6)");
 

@@ -9,6 +9,7 @@ public record UserSummaryDto(
     string Email,
     InitiativeDto? Initiative,
     List<string> Roles,
+    string? ActiveRole,
     int? FahrerId,
     bool IsActive
 );
@@ -30,10 +31,11 @@ public record UserProfileDto(
     bool Aktiv,
     InitiativeDto? Initiative,
     List<string> Roles,
+    string? ActiveRole,
     FahrerProfileDto? Fahrer
 );
 
-public record UserRolesDto(int UserId, List<string> Roles);
+public record UserRolesDto(int UserId, List<string> Roles, string? ActiveRole, string? NewToken = null);
 
 public record FahrerProfileDto(
     int Id,
@@ -62,7 +64,7 @@ public record UpdateFahrerProfileRequest(
     bool Aktiv
 );
 
-public record UpdateRolesRequest(List<string> Roles);
+public record UpdateRolesRequest(List<string> Roles, string? ActiveRole);
 
 public record CreateBenutzerRequest(
     string Name,

@@ -651,6 +651,11 @@ public static class FahrzeugServiceEndpoints
         Fahrzeug? fahrzeug = null
     )
     {
+        if (AuthUtils.IsAdmin(principal))
+        {
+            return null;
+        }
+
         var userResult = await LoadUserWithInitiativeAsync(principal, userId, db);
         if (userResult.Error != null)
         {
@@ -704,6 +709,11 @@ public static class FahrzeugServiceEndpoints
         if (user == null)
         {
             return (null, Results.NotFound("Benutzer wurde nicht gefunden."));
+        }
+
+        if (AuthUtils.IsAdmin(principal))
+        {
+            return (user, null);
         }
 
         if (user.InitiativeId <= 0)
