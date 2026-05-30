@@ -79,6 +79,7 @@ public static class FahrtenEndpoints
         app.MapPut("/api/v1/fahrten/{id:int}", async (int id, UpdateFahrtenDto request, AppDbContext db) =>
         {
             var fahrt = await db.Fahrten
+                .Include(f => f.Teilstrecken)
                 .FirstOrDefaultAsync(f => f.Id == id);
 
             if (fahrt is null)

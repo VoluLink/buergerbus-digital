@@ -51,7 +51,9 @@ public record UpdateFahrtenDto(
     int? FahrerId,     // optional (Zuweisung später möglich)
     int? FahrzeugId,   // optional
 
-    int InitiativeId
+    int InitiativeId,
+    
+    List<CreateTeilstreckeDto> Teilstrecken
 );
 
 public record TeilstreckeDto(

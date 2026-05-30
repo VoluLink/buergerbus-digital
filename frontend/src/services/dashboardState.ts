@@ -122,6 +122,13 @@ function mapTeilstreckenToPassengers(teilstrecken?: BackendTeilstreckeDto[] | nu
   }))
 }
 
+function toLocalDateString(date: Date) {
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
 export function mapBackendRideToCalendarRide(dto: BackendFahrtDto): CalendarRide {
   const type = mapBackendTypeToRideType(dto.fahrttyp)
 
@@ -143,7 +150,7 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFah
 
   return {
   titel: ride.title,
-  datum: ride.date.toISOString(),
+  datum: toLocalDateString(ride.date),
   zielort: firstPassenger?.destinationAddress || '',
   fahrttyp: ride.type,
 

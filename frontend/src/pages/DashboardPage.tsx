@@ -756,38 +756,60 @@ async function confirmDeleteRide() {
     })
   }
 
+  async function reloadFahrten() {
+    const data = await getFahrten()
+
+    const mapped = data.map(mapBackendRideToCalendarRide)
+
+    setCalendarRides(mapped)
+  }
+
   async function saveRide(statusOverride?: RideStatus) {
     console.log('SAVE RIDE START')
     if (rideType === 'rental') {
       const rideTime = rentalTimeFrom && rentalTimeTo ? `${rentalTimeFrom}-${rentalTimeTo}` : rentalTimeFrom || rentalTimeTo
 
-      if (rideInEditId !== null) {
-        const editedDate = normalizeDate(new Date(rentalDateFrom || toDateInputValue(selectedDate)))
-        setCalendarRides((currentRides) =>
-          currentRides.map((ride) =>
-            ride.id === rideInEditId
-              ? {
-                  ...ride,
-                  date: editedDate,
-                  type: 'rental',
-                  status: statusOverride ?? 'rental',
-                  title: rentalName.trim() || 'Vermietung',
-                  time: rideTime,
-                  driverName: '',
-                  passengers: [],
-                  remarks: rentalRemarks.trim(),
-                }
-              : ride,
-          ),
-        )
-        setCompletedPassengerKeys((current) => current.filter((entry) => !entry.startsWith(`${rideInEditId}:`)))
-        setExpandedRideIds((current) => current.filter((id) => id !== rideInEditId))
-        setCurrentMonth(new Date(editedDate.getFullYear(), editedDate.getMonth(), 1))
-        setSelectedDate(editedDate)
-        setRideInEditId(null)
-        setIsRideDialogOpen(false)
-        return
-      }
+    if (rideInEditId !== null) {
+      const editedDate = normalizeDate(
+      new Date(rentalDateFrom || toDateInputValue(selectedDate))
+    )
+
+  const payload = mapCalendarRideToBackendWriteDto({
+    id: rideInEditId,
+    date: editedDate,
+    type: 'rental',
+    status: statusOverride ?? 'rental',
+    title: rentalName.trim() || 'Vermietung',
+    time: rideTime,
+    driverName: '',
+    passengers: [],
+    remarks: rentalRemarks.trim(),
+  } as any)
+
+    await updateFahrt(rideInEditId, payload)
+
+    const rides = await getFahrten()
+    setCalendarRides(rides.map(mapBackendRideToCalendarRide))
+
+    setCompletedPassengerKeys((current) =>
+      current.filter((entry) => !entry.startsWith(`${rideInEditId}:`))
+    )
+
+    setExpandedRideIds((current) =>
+      current.filter((id) => id !== rideInEditId)
+    )
+
+    setCurrentMonth(
+      new Date(editedDate.getFullYear(), editedDate.getMonth(), 1)
+    )
+
+    setSelectedDate(editedDate)
+
+    setRideInEditId(null)
+    setIsRideDialogOpen(false)
+
+    return
+  }
 
       const fromDate = normalizeDate(new Date(rentalDateFrom || toDateInputValue(selectedDate)))
       const toDate = normalizeDate(new Date(rentalDateTo || rentalDateFrom || toDateInputValue(selectedDate)))
@@ -835,39 +857,52 @@ async function confirmDeleteRide() {
       id: index + 1,
     }))
 
-    if (rideInEditId !== null) {
-      setCalendarRides((currentRides) =>
-        currentRides.map((ride) => {
-          if (ride.id !== rideInEditId) {
-            return ride
-          }
+if (rideInEditId !== null) {
+  const baseStatus =
+    statusOverride ??
+    getRideStatusByType(rideType, driverName)
 
-          const baseStatus =
-            statusOverride
-            ?? (ride.type === 'theme' ? 'theme' : getRideStatusByType(rideType, driverName))
+const existingRide = calendarRides.find(
+  (r) => r.id === rideInEditId
+)
 
-          return {
-            ...ride,
-            date: normalizeDate(selectedDate),
-            type: rideType,
-            status: baseStatus,
-            title:
-              rideType === 'theme'
-                ? activeForm.themeTitle.trim() || 'Themenfahrt'
-                : 'Standardfahrt',
-            time: firstPassenger?.time ?? '',
-            driverName,
-            passengers,
-            remarks: activeForm.remarks.trim(),
-          }
-        }),
-      )
-      setCompletedPassengerKeys((current) => current.filter((entry) => !entry.startsWith(`${rideInEditId}:`)))
+const tempRide: CalendarRide = {
+  id: rideInEditId,
+  date: normalizeDate(selectedDate),
+  type: rideType,
+  status: baseStatus,
+  title:
+    rideType === 'theme'
+      ? activeForm.themeTitle.trim() || 'Themenfahrt'
+      : 'Standardfahrt',
+  time: firstPassenger?.time ?? '',
+  driverName,
+  passengers: activeForm.passengers.length > 0
+    ? activeForm.passengers.map((p, i) => ({ ...p, id: i + 1 }))
+    : existingRide?.passengers ?? [],
+  remarks: activeForm.remarks.trim(),
+}
 
-      setRideInEditId(null)
-      setIsRideDialogOpen(false)
-      return
-    }
+const payload = mapCalendarRideToBackendWriteDto(tempRide)
+
+const response = await updateFahrt(rideInEditId, payload)
+
+const backendRide = mapBackendRideToCalendarRide(response)
+
+setCalendarRides((currentRides) =>
+  currentRides.map((ride) =>
+    ride.id === rideInEditId ? backendRide : ride
+  ),
+)
+
+  setCompletedPassengerKeys((current) =>
+    current.filter((entry) => !entry.startsWith(`${rideInEditId}:`)),
+  )
+
+  setRideInEditId(null)
+  setIsRideDialogOpen(false)
+  return
+}
 
     const baseStatus = statusOverride ?? getRideStatusByType(rideType, driverName)
 
