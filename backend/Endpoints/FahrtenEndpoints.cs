@@ -62,6 +62,8 @@ public static class FahrtenEndpoints
 
                 await db.Entry(fahrt)
                     .Collection(f => f.Teilstrecken)
+                    .Query()
+                    .Include(t => t.Fahrgast)
                     .LoadAsync();
 
                 return Results.Ok(FahrtenMapper.ToDto(fahrt));
@@ -77,19 +79,25 @@ public static class FahrtenEndpoints
         // UPDATE
         // =========================================================
         app.MapPut("/api/v1/fahrten/{id:int}", async (int id, UpdateFahrtenDto request, AppDbContext db) =>
-        {
-            var fahrt = await db.Fahrten
+{
+             var fahrt = await db.Fahrten
                 .Include(f => f.Teilstrecken)
+                .ThenInclude(t => t.Fahrgast)
                 .FirstOrDefaultAsync(f => f.Id == id);
 
             if (fahrt is null)
-                return Results.NotFound("Fahrt wurde nicht gefunden.");
+            return Results.NotFound("Fahrt wurde nicht gefunden.");
 
             FahrtenMapper.ApplyUpdate(fahrt, request);
 
             await db.SaveChangesAsync();
 
-            return Results.Ok(FahrtenMapper.ToDto(fahrt));
+            var reloaded = await db.Fahrten
+            .Include(f => f.Teilstrecken)
+            .ThenInclude(t => t.Fahrgast)
+            .FirstOrDefaultAsync(f => f.Id == id);
+
+            return Results.Ok(FahrtenMapper.ToDto(reloaded!));
         });
 
 

@@ -787,9 +787,7 @@ async function confirmDeleteRide() {
   } as any)
 
     await updateFahrt(rideInEditId, payload)
-
-    const rides = await getFahrten()
-    setCalendarRides(rides.map(mapBackendRideToCalendarRide))
+    await reloadFahrten()
 
     setCompletedPassengerKeys((current) =>
       current.filter((entry) => !entry.startsWith(`${rideInEditId}:`))
