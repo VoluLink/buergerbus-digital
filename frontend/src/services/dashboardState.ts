@@ -224,19 +224,28 @@ function serializeState(state: DashboardStateSnapshot) {
    BACKEND API
 ========================= */
 
-async function tryLoadFromBackend(): Promise<CalendarRide[] | null> {
+/*async function tryLoadFromBackend(): Promise<CalendarRide[] | null> {
   try {
-<<<<<<< HEAD
     const response = await apiFetch(endpoint, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
     })
-=======
     const res = await fetch(`${API_BASE_URL}/api/v1/fahrten`)
     if (!res.ok) return null
->>>>>>> frontend.backend.Fahrt
+
+    const data: BackendFahrtDto[] = await res.json()
+    return data.map(mapBackendRideToCalendarRide)
+  } catch {
+    return null
+  }
+}*/
+
+async function tryLoadFromBackend(): Promise<CalendarRide[] | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/fahrten`)
+    if (!res.ok) return null
 
     const data: BackendFahrtDto[] = await res.json()
     return data.map(mapBackendRideToCalendarRide)
@@ -245,9 +254,8 @@ async function tryLoadFromBackend(): Promise<CalendarRide[] | null> {
   }
 }
 
-async function trySaveToBackend(rides: CalendarRide[]) {
+/*async function trySaveToBackend(rides: CalendarRide[]) {
   try {
-<<<<<<< HEAD
     await apiFetch(endpoint, {
       method: 'POST',
       headers: {
@@ -255,7 +263,6 @@ async function trySaveToBackend(rides: CalendarRide[]) {
       },
       body: JSON.stringify(rides.map(mapCalendarRideToBackendWriteDto)),
     })
-=======
     for (const ride of rides) {
       await fetch(`${API_BASE_URL}/api/v1/fahrten`, {
         method: 'POST',
@@ -263,7 +270,20 @@ async function trySaveToBackend(rides: CalendarRide[]) {
         body: JSON.stringify(mapCalendarRideToBackendWriteDto(ride)),
       })
     }
->>>>>>> frontend.backend.Fahrt
+  } catch {
+    // ignore
+  }
+}*/
+
+async function trySaveToBackend(rides: CalendarRide[]) {
+  try {
+    for (const ride of rides) {
+      await fetch(`${API_BASE_URL}/api/v1/fahrten`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mapCalendarRideToBackendWriteDto(ride)),
+      })
+    }
   } catch {
     // ignore
   }

@@ -34,7 +34,7 @@ public static class InitiativeEndpoints
             var damageTask = db.Schaeden.AsNoTracking().CountAsync(s => s.InitiativeId == id);
             var ridesTask = db.Fahrten.AsNoTracking().CountAsync(f => f.InitiativeId == id);
             var passengersTask = db.Fahrgaeste.AsNoTracking().CountAsync(f => f.InitiativeId == id);
-            var segmentsTask = db.Teilstrecken.AsNoTracking().CountAsync(t => t.InitiativeId == id);
+            var segmentsTask = db.Fahrten.AsNoTracking().Where(f => f.InitiativeId == id).SelectMany(f => f.Teilstrecken).CountAsync();
             var notificationsTask = db.Benachrichtigungen.AsNoTracking().CountAsync(b => b.InitiativeId == id);
             var deadlinesTask = db.Loeschfristen.AsNoTracking().CountAsync(l => l.InitiativeId == id);
 
@@ -234,7 +234,7 @@ public static class InitiativeEndpoints
                 // Delete initiative-owned data (children first).
                 if (preview.Affected.RideSegments > 0)
                 {
-                    await db.Teilstrecken.Where(t => t.InitiativeId == id).ExecuteDeleteAsync();
+                    await db.Fahrten.Where(f => f.InitiativeId == id).SelectMany(f => f.Teilstrecken).ExecuteDeleteAsync();
                 }
 
                 if (preview.Affected.DeletionDeadlines > 0)

@@ -614,19 +614,12 @@ function DashboardPage() {
     setRidePendingDelete(null)
   }
 
-<<<<<<< ours
-  function confirmDeleteRide() {
-    if (isRideCrudRestricted) {
-      return
-    }
-
-    if (!ridePendingDelete) {
-      return
-    }
-=======
 async function confirmDeleteRide() {
+  if (isRideCrudRestricted) {
+    return
+  }
+
   if (!ridePendingDelete) return
->>>>>>> theirs
 
   const rideId = ridePendingDelete.id
 
@@ -789,13 +782,11 @@ async function confirmDeleteRide() {
     })
   }
 
-<<<<<<< ours
-  function saveRide(statusOverride?: RideStatus) {
-    if (isRideCrudRestricted) {
-      return
-    }
+  //function saveRide(statusOverride?: RideStatus) {
+   // if (isRideCrudRestricted) {
+   //   return
+    //}
 
-=======
   async function reloadFahrten() {
     const data = await getFahrten()
 
@@ -805,8 +796,10 @@ async function confirmDeleteRide() {
   }
 
   async function saveRide(statusOverride?: RideStatus) {
+    if (isRideCrudRestricted) {
+      return
+    }
     console.log('SAVE RIDE START')
->>>>>>> theirs
     if (rideType === 'rental') {
       const rideTime = rentalTimeFrom && rentalTimeTo ? `${rentalTimeFrom}-${rentalTimeTo}` : rentalTimeFrom || rentalTimeTo
 
