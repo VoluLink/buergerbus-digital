@@ -22,7 +22,7 @@ export async function createFahrt(data: any) {
 }
 
 /* =========================
-   GET ALL
+   GET ALL 
 ========================= */
 
 export async function getFahrten() {
@@ -37,7 +37,7 @@ export async function getFahrten() {
 }
 
 /* =========================
-   GET BY ID
+   GET BY IDs
 ========================= */
 
 export async function getFahrt(id: number) {
