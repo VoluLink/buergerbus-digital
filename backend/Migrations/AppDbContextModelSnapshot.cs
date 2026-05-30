@@ -274,14 +274,14 @@ namespace BuergerbusAPI.Migrations
                     b.Property<DateTime?>("Endzeit")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<int>("FahrerId")
+                    b.Property<int?>("FahrerId")
                         .HasColumnType("int");
 
                     b.Property<string>("Fahrttyp")
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<int>("FahrzeugId")
+                    b.Property<int?>("FahrzeugId")
                         .HasColumnType("int");
 
                     b.Property<int>("InitiativeId")
@@ -492,9 +492,6 @@ namespace BuergerbusAPI.Migrations
                     b.Property<int>("FahrtId")
                         .HasColumnType("int");
 
-                    b.Property<int>("InitiativeId")
-                        .HasColumnType("int");
-
                     b.Property<int?>("Reihenfolge")
                         .HasColumnType("int");
 
@@ -511,8 +508,6 @@ namespace BuergerbusAPI.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("FahrgastId");
-
-                    b.HasIndex("InitiativeId");
 
                     b.HasIndex("FahrtId", "FahrgastId")
                         .IsUnique();
@@ -654,14 +649,12 @@ namespace BuergerbusAPI.Migrations
                     b.HasOne("BuergerbusAPI.Models.Fahrer", "Fahrer")
                         .WithMany("Fahrten")
                         .HasForeignKey("FahrerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("BuergerbusAPI.Models.Fahrzeug", "Fahrzeug")
                         .WithMany("Fahrten")
                         .HasForeignKey("FahrzeugId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("BuergerbusAPI.Models.Initiativen", "Initiative")
                         .WithMany("Fahrten")
@@ -739,17 +732,9 @@ namespace BuergerbusAPI.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("BuergerbusAPI.Models.Initiativen", "Initiative")
-                        .WithMany("Teilstrecken")
-                        .HasForeignKey("InitiativeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("Fahrgast");
 
                     b.Navigation("Fahrt");
-
-                    b.Navigation("Initiative");
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.Wartungen", b =>
@@ -825,8 +810,6 @@ namespace BuergerbusAPI.Migrations
                     b.Navigation("Loeschfristen");
 
                     b.Navigation("Schaeden");
-
-                    b.Navigation("Teilstrecken");
 
                     b.Navigation("Wartungen");
                 });

@@ -150,6 +150,7 @@ app.MapFahrzeugServiceEndpoints();
 app.MapFahrgastEndpoints();
 app.MapFahrerEndpoints();
 
+app.MapFahrtenEndpoints();
 app.MapControllers();
 
 try

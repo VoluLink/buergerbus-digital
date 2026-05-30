@@ -15,12 +15,12 @@
         public string AngelegtVon { get; set; }
 
        // 1..n - Fahrer..Fahrten
-        public int FahrerId { get; set; }
-        public Fahrer Fahrer { get; set; }
+        public int? FahrerId { get; set; }
+        public Fahrer? Fahrer { get; set; }
 
         // 1..n - Fahrzeug..Fahrten
-        public int FahrzeugId { get; set; }
-        public Fahrzeug Fahrzeug { get; set; }
+        public int? FahrzeugId { get; set; }
+        public Fahrzeug? Fahrzeug { get; set; }
 
         // Initiative muss in jeder Tabelle sein (Multi-Tenant System) => Landkreis als Datengrenze
         public int InitiativeId { get; set; }

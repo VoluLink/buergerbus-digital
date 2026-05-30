@@ -1,3 +1,12 @@
+import {
+  createFahrt,
+  getFahrten,
+  getFahrt,
+  updateFahrt,
+  deleteFahrt,
+} from '../services/fahrtApi'
+
+import { mapCalendarRideToBackendWriteDto, mapBackendRideToCalendarRide } from '../services/dashboardState'
 import { useEffect, useMemo, useState } from 'react'
 import {
   Bus,
@@ -27,6 +36,7 @@ import { loadDashboardState, saveDashboardState } from '../services/dashboardSta
 import { getFahrgaeste } from '../services/fahrgastApi'
 import type { CalendarRide, PassengerForm, RideStatus, RideType } from '../types/DashboardRide'
 import type { Fahrgast } from '../types/Fahrgast'
+
 
 type RideFormType = 'standard' | 'theme'
 type DayRole = 'dispo' | 'fahrer'
@@ -352,22 +362,18 @@ function DashboardPage() {
     let isCancelled = false
 
     async function hydrateDashboard() {
-      const snapshot = await loadDashboardState()
+    const rides = await getFahrten()
 
-      if (isCancelled) {
-        return
-      }
+    if (isCancelled) return
 
-      setCalendarRides(snapshot.rides)
-      setCompletedPassengerKeys(snapshot.completedPassengerKeys)
-      setNextRideId(snapshot.nextRideId)
-      setIsDashboardHydrated(true)
+    setCalendarRides(rides.map(mapBackendRideToCalendarRide))
+    setIsDashboardHydrated(true)
     }
 
     void hydrateDashboard()
 
     return () => {
-      isCancelled = true
+    isCancelled = true
     }
   }, [])
 
@@ -608,6 +614,7 @@ function DashboardPage() {
     setRidePendingDelete(null)
   }
 
+<<<<<<< ours
   function confirmDeleteRide() {
     if (isRideCrudRestricted) {
       return
@@ -616,18 +623,29 @@ function DashboardPage() {
     if (!ridePendingDelete) {
       return
     }
+=======
+async function confirmDeleteRide() {
+  if (!ridePendingDelete) return
+>>>>>>> theirs
 
-    const rideId = ridePendingDelete.id
+  const rideId = ridePendingDelete.id
 
-    setCalendarRides((currentRides) => currentRides.filter((ride) => ride.id !== rideId))
-    setCompletedPassengerKeys((current) => current.filter((entry) => !entry.startsWith(`${rideId}:`)))
+  await deleteFahrt(rideId)
 
-    if (rideInEditId === rideId) {
-      setRideInEditId(null)
-    }
+  setCalendarRides((current) =>
+    current.filter((r) => r.id !== rideId),
+  )
 
-    setRidePendingDelete(null)
+  setCompletedPassengerKeys((current) =>
+    current.filter((entry) => !entry.startsWith(`${rideId}:`)),
+  )
+
+  if (rideInEditId === rideId) {
+    setRideInEditId(null)
   }
+
+  setRidePendingDelete(null)
+}
 
   function addPassengerField() {
     if (rideType === 'rental') {
@@ -771,41 +789,66 @@ function DashboardPage() {
     })
   }
 
+<<<<<<< ours
   function saveRide(statusOverride?: RideStatus) {
     if (isRideCrudRestricted) {
       return
     }
 
+=======
+  async function reloadFahrten() {
+    const data = await getFahrten()
+
+    const mapped = data.map(mapBackendRideToCalendarRide)
+
+    setCalendarRides(mapped)
+  }
+
+  async function saveRide(statusOverride?: RideStatus) {
+    console.log('SAVE RIDE START')
+>>>>>>> theirs
     if (rideType === 'rental') {
       const rideTime = rentalTimeFrom && rentalTimeTo ? `${rentalTimeFrom}-${rentalTimeTo}` : rentalTimeFrom || rentalTimeTo
 
-      if (rideInEditId !== null) {
-        const editedDate = normalizeDate(new Date(rentalDateFrom || toDateInputValue(selectedDate)))
-        setCalendarRides((currentRides) =>
-          currentRides.map((ride) =>
-            ride.id === rideInEditId
-              ? {
-                  ...ride,
-                  date: editedDate,
-                  type: 'rental',
-                  status: statusOverride ?? 'rental',
-                  title: rentalName.trim() || 'Vermietung',
-                  time: rideTime,
-                  driverName: '',
-                  passengers: [],
-                  remarks: rentalRemarks.trim(),
-                }
-              : ride,
-          ),
-        )
-        setCompletedPassengerKeys((current) => current.filter((entry) => !entry.startsWith(`${rideInEditId}:`)))
-        setExpandedRideIds((current) => current.filter((id) => id !== rideInEditId))
-        setCurrentMonth(new Date(editedDate.getFullYear(), editedDate.getMonth(), 1))
-        setSelectedDate(editedDate)
-        setRideInEditId(null)
-        setIsRideDialogOpen(false)
-        return
-      }
+    if (rideInEditId !== null) {
+      const editedDate = normalizeDate(
+      new Date(rentalDateFrom || toDateInputValue(selectedDate))
+    )
+
+  const payload = mapCalendarRideToBackendWriteDto({
+    id: rideInEditId,
+    date: editedDate,
+    type: 'rental',
+    status: statusOverride ?? 'rental',
+    title: rentalName.trim() || 'Vermietung',
+    time: rideTime,
+    driverName: '',
+    passengers: [],
+    remarks: rentalRemarks.trim(),
+  } as any)
+
+    await updateFahrt(rideInEditId, payload)
+    await reloadFahrten()
+
+    setCompletedPassengerKeys((current) =>
+      current.filter((entry) => !entry.startsWith(`${rideInEditId}:`))
+    )
+
+    setExpandedRideIds((current) =>
+      current.filter((id) => id !== rideInEditId)
+    )
+
+    setCurrentMonth(
+      new Date(editedDate.getFullYear(), editedDate.getMonth(), 1)
+    )
+
+    setSelectedDate(editedDate)
+
+    setRideInEditId(null)
+    setIsRideDialogOpen(false)
+
+    return
+  }
 
       const fromDate = normalizeDate(new Date(rentalDateFrom || toDateInputValue(selectedDate)))
       const toDate = normalizeDate(new Date(rentalDateTo || rentalDateFrom || toDateInputValue(selectedDate)))
@@ -853,39 +896,52 @@ function DashboardPage() {
       id: index + 1,
     }))
 
-    if (rideInEditId !== null) {
-      setCalendarRides((currentRides) =>
-        currentRides.map((ride) => {
-          if (ride.id !== rideInEditId) {
-            return ride
-          }
+if (rideInEditId !== null) {
+  const baseStatus =
+    statusOverride ??
+    getRideStatusByType(rideType, driverName)
 
-          const baseStatus =
-            statusOverride
-            ?? (ride.type === 'theme' ? 'theme' : getRideStatusByType(rideType, driverName))
+const existingRide = calendarRides.find(
+  (r) => r.id === rideInEditId
+)
 
-          return {
-            ...ride,
-            date: normalizeDate(selectedDate),
-            type: rideType,
-            status: baseStatus,
-            title:
-              rideType === 'theme'
-                ? activeForm.themeTitle.trim() || 'Themenfahrt'
-                : 'Standardfahrt',
-            time: firstPassenger?.time ?? '',
-            driverName,
-            passengers,
-            remarks: activeForm.remarks.trim(),
-          }
-        }),
-      )
-      setCompletedPassengerKeys((current) => current.filter((entry) => !entry.startsWith(`${rideInEditId}:`)))
+const tempRide: CalendarRide = {
+  id: rideInEditId,
+  date: normalizeDate(selectedDate),
+  type: rideType,
+  status: baseStatus,
+  title:
+    rideType === 'theme'
+      ? activeForm.themeTitle.trim() || 'Themenfahrt'
+      : 'Standardfahrt',
+  time: firstPassenger?.time ?? '',
+  driverName,
+  passengers: activeForm.passengers.length > 0
+    ? activeForm.passengers.map((p, i) => ({ ...p, id: i + 1 }))
+    : existingRide?.passengers ?? [],
+  remarks: activeForm.remarks.trim(),
+}
 
-      setRideInEditId(null)
-      setIsRideDialogOpen(false)
-      return
-    }
+const payload = mapCalendarRideToBackendWriteDto(tempRide)
+
+const response = await updateFahrt(rideInEditId, payload)
+
+const backendRide = mapBackendRideToCalendarRide(response)
+
+setCalendarRides((currentRides) =>
+  currentRides.map((ride) =>
+    ride.id === rideInEditId ? backendRide : ride
+  ),
+)
+
+  setCompletedPassengerKeys((current) =>
+    current.filter((entry) => !entry.startsWith(`${rideInEditId}:`)),
+  )
+
+  setRideInEditId(null)
+  setIsRideDialogOpen(false)
+  return
+}
 
     const baseStatus = statusOverride ?? getRideStatusByType(rideType, driverName)
 
@@ -904,8 +960,16 @@ function DashboardPage() {
       remarks: activeForm.remarks.trim(),
     }
 
-    setCalendarRides((current) => [...current, nextRide])
-    setNextRideId((currentId) => currentId + 1)
+    const payload = mapCalendarRideToBackendWriteDto(nextRide)
+
+    // 1. Backend speichern
+    const createdRide = await createFahrt(payload)
+
+    // 2. Backend Response in UI-Format umwandeln
+    const backendRide = mapBackendRideToCalendarRide(createdRide)
+
+// 3. UI mit echter DB-Fahrt updaten
+    setCalendarRides((current) => [...current, backendRide])
     setRideInEditId(null)
     setIsRideDialogOpen(false)
   }

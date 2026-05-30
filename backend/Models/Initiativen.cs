@@ -17,7 +17,7 @@
         public List<Wartungen> Wartungen { get; set; } = new();
         public List<Schaden> Schaeden { get; set; } = new();
         public List<Loeschfristen> Loeschfristen { get; set; } = new();
-        public List<Teilstrecke> Teilstrecken { get; set; } = new();
+       // public List<Teilstrecke> Teilstrecken { get; set; } = new();
 
     }
 }
