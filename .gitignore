@@ -39,9 +39,6 @@ backend/out/
 backend/*.user
 backend/*.suo
 
-backend/appsettings.json
-backend/appsettings.Development.json
-
 # =========================
 
 # IDE / OS
@@ -63,3 +60,13 @@ Thumbs.db
 *.key
 *.p12
 *.crt
+.env
+*.local
+.vs/
+
+# =========================
+
+# ERLAUBT
+
+# =========================
+!.env.example

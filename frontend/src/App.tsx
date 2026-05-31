@@ -1,39 +1,30 @@
-import Header from './components/Header'
-import Navigation from './components/Navigation'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import ProtectedRoute from './components/ProtectedRoute'
 import DashboardPage from './pages/DashboardPage'
-import FahrerPage from './pages/FahrerPage'
-import FahrtenPage from './pages/FahrtenPage'
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
-
-function AppLayout() {
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="mx-auto w-full max-w-6xl px-4 py-6">
-        <Header />
-
-        <div className="mt-6 grid gap-6 md:grid-cols-[240px_1fr]">
-          <aside className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-            <Navigation />
-          </aside>
-
-          <main className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-            <Outlet />
-          </main>
-        </div>
-      </div>
-    </div>
-  )
-}
+import LoginPage from './pages/LoginPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ProfilePage from './pages/ProfilePage'
+import FahrerinfosPage from './pages/FahrerinfosPage'
+import FahrzeuginfosPage from './pages/FahrzeuginfosPage'
+import FahrgastinfosPage from './pages/FahrgastinfosPage'
+import RollenverteilungPage from './pages/RollenverteilungPage'
+import InitiativenPage from './pages/InitiativenPage'
 
 function App() {
   return (
     <Routes>
-      <Route element={<AppLayout />}>
-        <Route index element={<DashboardPage />} />
-        <Route path="fahrten" element={<FahrtenPage />} />
-        <Route path="fahrer" element={<FahrerPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/" element={<LoginPage />} />
+      <Route path="/passwort-vergessen" element={<ForgotPasswordPage />} />
+      <Route element={<ProtectedRoute />}>
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/profil" element={<ProfilePage />} />
+        <Route path="/fahrerinfos" element={<FahrerinfosPage />} />
+        <Route path="/fahrzeuginfos" element={<FahrzeuginfosPage />} />
+        <Route path="/fahrgastinfos" element={<FahrgastinfosPage />} />
+        <Route path="/initiativen" element={<InitiativenPage />} />
+        <Route path="/rollenverteilung" element={<RollenverteilungPage />} />
       </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }

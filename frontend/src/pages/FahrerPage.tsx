@@ -1,5 +1,5 @@
 import { fahrerDaten } from '../services/api'
-import type { Fahrer } from '../types/Fahrer'
+import type { FahrerKontakt } from '../services/api'
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -20,7 +20,7 @@ const fahrerFormSchema = z.object({
 type FahrerFormValues = z.infer<typeof fahrerFormSchema>
 
 function FahrerPage() {
-  const [extraFahrer, setExtraFahrer] = useState<Fahrer[]>([])
+  const [extraFahrer, setExtraFahrer] = useState<FahrerKontakt[]>([])
 
   const {
     register,

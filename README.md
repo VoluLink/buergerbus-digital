@@ -185,12 +185,15 @@ Dadurch wird eine hohe Wartbarkeit und klare Trennung der Verantwortlichkeiten e
 
 ## Voraussetzungen
 
+- Git
 - Docker
 - Docker Compose
-- Git
+
+Für den optionalen lokalen Start ohne Docker werden zusätzlich benötigt:
+
 - Node.js
 - .NET SDK
-- MariaDB (optional lokal)
+- MariaDB oder eine andere kompatible Datenbank
 
 ---
 
@@ -198,17 +201,116 @@ Dadurch wird eine hohe Wartbarkeit und klare Trennung der Verantwortlichkeiten e
 
 ```bash
 git clone https://gitlab.rz.htw-berlin.de/softwareentwicklungsprojekt/sose2026/team-6-buergerbus-digital-landesstiftung-hessen.git
+cd team-6-buergerbus-digital-landesstiftung-hessen
 ```
 
 ---
+## Start unter Linux mit `start.sh`
 
-# Projekt starten
+Unter Linux kann das Projekt über das mitgelieferte Startskript gestartet werden:
+
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+Das Skript führt dich durch die Installation und Konfiguration der `.env`-Datei.
+
+---
+
+## Start ohne `start.sh`
+
+Falls das Projekt nicht über `start.sh` gestartet werden soll, muss die Umgebungsdatei manuell vorbereitet werden.
+
+Dazu wird die Beispiel-Datei kopiert:
+
+```bash
+cp .env.example .env
+```
+
+Danach müssen die Werte in der `.env` angepasst werden.
+
+Beispiel:
+
+```env
+DB_HOST=db
+DB_PORT=3306
+DB_NAME=HIER_DB_NAME
+DB_USER=HIER_USER
+DB_PASSWORD=CHANGE_ME_DATABASE_PASSWORD
+DB_ROOT_PASSWORD=CHANGE_ME_ROOT_PASSWORD
+
+FRONTEND_ORIGIN=http://localhost:5173
+VITE_API_BASE_URL=http://localhost:5000
+
+SEED_ADMIN_EMAIL=admin@example.com
+SEED_ADMIN_PASSWORD=CHANGE_ME_ADMIN_PASSWORD
+SEED_INITIATIVE_NAME=Default
+
+JWT_SECRET=CHANGE_ME_USE_LONG_RANDOM_SECRET
+JWT_ISSUER=BuergerbusAPI
+JWT_AUDIENCE=BuergerbusFrontend
+JWT_EXPIRES_MINUTES=60
+```
+
+Ein sicherer JWT-Secret kann zum Beispiel so erzeugt werden:
+
+```bash
+openssl rand -base64 64
+```
+
+Danach kann das Projekt mit Docker Compose gestartet werden:
 
 ```bash
 docker compose up --build
 ```
 
+Optional kann das Projekt im Hintergrund gestartet werden:
+
+```bash
+docker compose up -d --build
+```
+
 ---
+
+## Projekt stoppen
+
+```bash
+docker compose down
+```
+
+Falls zusätzlich auch Docker-Volumes gelöscht werden sollen, zum Beispiel Datenbankdaten:
+
+```bash
+docker compose down -v
+```
+
+Achtung: `docker compose down -v` löscht persistente Daten wie Datenbankinhalte.
+
+---
+
+
+# Lokale URLs und Ports
+
+> Hinweis: Solange noch kein SSL-Zertifikat eingerichtet ist, erfolgt der Zugriff über `http://`.
+> Nach der Einrichtung eines SSL-Zertifikats wird der Zugriff über `https://` ermöglicht.
+
+| Dienst | URL | Port | Beschreibung |
+|------|------|------:|---|
+| Frontend (Vite Dev Server) | http://localhost:5173 | 5173 | React-Entwicklungsserver |
+| Backend (ASP.NET Core API) | http://localhost:5000 | 5000 | REST-API (HTTP) |
+| Backend (HTTPS) | http://localhost:5001 | 5001 | REST-API (HTTPS) |
+| MariaDB | localhost:3306 | 3306 | Datenbankserver |
+| phpMyAdmin (optional) | http://localhost:8080 | 8080 | Weboberfläche für MariaDB |
+| NGINX Reverse Proxy | http://localhost:80 | 80 | Reverse Proxy |
+| NGINX Reverse Proxy (HTTPS) | http://localhost:443 | 443 | Reverse Proxy mit TLS |
+| NGINX Proxy Manager Admin | http://localhost:81 | 81 | Administrationsoberfläche |
+
+---
+
+## Lokaler Start ohne Docker optional
+
+Die folgenden Schritte sind nur erforderlich, wenn Frontend und Backend getrennt ohne Docker Compose gestartet werden sollen.
 
 # Frontend lokal starten
 
@@ -226,20 +328,6 @@ npm run dev
 cd backend
 dotnet restore
 dotnet run
-```
-
----
-
-# Datenbankkonfiguration
-
-Standardkonfiguration:
-
-```env
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=buergerbus
-DB_USER=db_user
-DB_PASSWORD=your_password
 ```
 
 ---
@@ -310,14 +398,6 @@ https://www.gnu.org/licenses/gpl-3.0.de.html
 | Rolf Philip Maximilian Faber | ER Diagramm |
 | Julian Faber | UI-Entwurf |
 | Gesamte Gruppe | Technische Spezifikation & Entwicklung |
-
----
-
-# GitLab Repository
-
-```text
-https://gitlab.rz.htw-berlin.de/softwareentwicklungsprojekt/sose2026/team-6-buergerbus-digital-landesstiftung-hessen
-```
 
 ---
 
