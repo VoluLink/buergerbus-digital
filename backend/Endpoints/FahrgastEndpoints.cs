@@ -88,22 +88,36 @@ public static class FahrgastEndpoints
         {
             var principal = httpContext.User;
             var isAdmin = AuthUtils.IsAdmin(principal);
-            var initiativeId = AuthUtils.GetInitiativeId(principal);
-            if (!isAdmin)
+            var claimInitiativeId = AuthUtils.GetInitiativeId(principal);
+
+            int targetInitiativeId;
+            if (isAdmin)
             {
-                if (!initiativeId.HasValue)
+                if (!request.InitiativeId.HasValue || request.InitiativeId.Value <= 0)
+                {
+                    return Results.BadRequest("Initiative muss angegeben werden.");
+                }
+
+                targetInitiativeId = request.InitiativeId.Value;
+            }
+            else
+            {
+                if (!claimInitiativeId.HasValue)
+                {
+                    return Results.BadRequest("Benutzer hat keine Initiative zugeordnet.");
+                }
+
+                if (request.InitiativeId.HasValue && request.InitiativeId.Value != claimInitiativeId.Value)
                 {
                     return Results.Forbid();
                 }
 
-                if (request.InitiativeId != initiativeId.Value)
-                {
-                    return Results.Forbid();
-                }
+                targetInitiativeId = claimInitiativeId.Value;
             }
 
             var initiative = await db.Initiativen
-                .FirstOrDefaultAsync(i => i.Id == request.InitiativeId);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(i => i.Id == targetInitiativeId);
 
             if (initiative is null)
             {
@@ -122,7 +136,7 @@ public static class FahrgastEndpoints
                 GeaendertAm = null,
                 LetzteNutzung = request.LetzteNutzung,
                 Aktiv = request.Aktiv,
-                InitiativeId = request.InitiativeId
+                InitiativeId = targetInitiativeId
             };
 
             db.Fahrgaeste.Add(fahrgast);
@@ -147,18 +161,31 @@ public static class FahrgastEndpoints
         {
             var principal = httpContext.User;
             var isAdmin = AuthUtils.IsAdmin(principal);
-            var initiativeId = AuthUtils.GetInitiativeId(principal);
-            if (!isAdmin)
+            var claimInitiativeId = AuthUtils.GetInitiativeId(principal);
+
+            int targetInitiativeId;
+            if (isAdmin)
             {
-                if (!initiativeId.HasValue)
+                if (!request.InitiativeId.HasValue || request.InitiativeId.Value <= 0)
+                {
+                    return Results.BadRequest("Initiative muss angegeben werden.");
+                }
+
+                targetInitiativeId = request.InitiativeId.Value;
+            }
+            else
+            {
+                if (!claimInitiativeId.HasValue)
+                {
+                    return Results.BadRequest("Benutzer hat keine Initiative zugeordnet.");
+                }
+
+                if (request.InitiativeId.HasValue && request.InitiativeId.Value != claimInitiativeId.Value)
                 {
                     return Results.Forbid();
                 }
 
-                if (request.InitiativeId != initiativeId.Value)
-                {
-                    return Results.Forbid();
-                }
+                targetInitiativeId = claimInitiativeId.Value;
             }
 
             var fahrgast = await db.Fahrgaeste
@@ -170,13 +197,14 @@ public static class FahrgastEndpoints
                 return Results.NotFound("Fahrgast wurde nicht gefunden.");
             }
 
-            if (!isAdmin && fahrgast.InitiativeId != initiativeId)
+            if (!isAdmin && fahrgast.InitiativeId != claimInitiativeId)
             {
                 return Results.Forbid();
             }
 
             var initiative = await db.Initiativen
-                .FirstOrDefaultAsync(i => i.Id == request.InitiativeId);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(i => i.Id == targetInitiativeId);
 
             if (initiative is null)
             {
@@ -190,7 +218,7 @@ public static class FahrgastEndpoints
             fahrgast.Telefonnummer = request.Telefonnummer;
             fahrgast.Bemerkung = request.Bemerkung;
             fahrgast.GeaendertAm = DateTime.UtcNow;
-            fahrgast.InitiativeId = initiative.Id;
+            fahrgast.InitiativeId = targetInitiativeId;
             fahrgast.LetzteNutzung = request.LetzteNutzung;
             fahrgast.Aktiv = request.Aktiv;
 

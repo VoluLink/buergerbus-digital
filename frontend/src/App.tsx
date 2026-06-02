@@ -9,6 +9,7 @@ import FahrzeuginfosPage from './pages/FahrzeuginfosPage'
 import FahrgastinfosPage from './pages/FahrgastinfosPage'
 import RollenverteilungPage from './pages/RollenverteilungPage'
 import InitiativenPage from './pages/InitiativenPage'
+import UserProfilePage from './pages/UserProfilePage'
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profil" element={<ProfilePage />} />
+        <Route path="/users/:id/profile" element={<UserProfilePage />} />
         <Route path="/fahrerinfos" element={<FahrerinfosPage />} />
         <Route path="/fahrzeuginfos" element={<FahrzeuginfosPage />} />
         <Route path="/fahrgastinfos" element={<FahrgastinfosPage />} />

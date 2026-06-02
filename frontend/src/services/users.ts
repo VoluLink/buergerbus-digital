@@ -92,6 +92,9 @@ export async function fetchUserProfile(userId: number): Promise<UserProfile> {
     if (response.status === 403) {
       throw new Error('Keine Berechtigung.')
     }
+    if (response.status === 404) {
+      throw new Error('Benutzer wurde nicht gefunden.')
+    }
     const errorText = await response.text()
     throw new Error(errorText || 'Profil konnte nicht geladen werden.')
   }

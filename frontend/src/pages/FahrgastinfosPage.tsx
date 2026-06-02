@@ -5,11 +5,15 @@ import {
   createFahrgast,
   deleteFahrgast,
   getFahrgaeste,
+  type FahrgastUpsertRequest,
   updateFahrgast,
 } from '../services/fahrgastApi'
 import type { Fahrgast, FahrgastFormData } from '../types/Fahrgast'
 import UserMenuButton from '../components/UserMenuButton'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
+import { useAuth } from '../context/AuthContext'
+import { getInitiativen } from '../services/initiativeApi'
+import type { Initiative } from '../types/Initiative'
 
 function formatDateDisplay(value: string) {
   if (!value) {
@@ -48,32 +52,36 @@ function createEmptyForm(): FahrgastFormData {
     bemerkung: '',
     letzteNutzung: '',
     aktiv: 'true',
-    initiativeId: '1',
+    initiativeId: '',
   }
 }
 
-function toGuestModel(form: FahrgastFormData, existing: Fahrgast | null, nextId: number): Fahrgast {
-  const nowIso = new Date().toISOString()
-
-  return {
-    id: existing?.id ?? nextId,
+function toFahrgastUpsertRequest(form: FahrgastFormData, options: { isAdmin: boolean }): FahrgastUpsertRequest {
+  const payload: FahrgastUpsertRequest = {
     vorname: form.vorname.trim(),
     nachname: form.nachname.trim(),
     adresse: form.adresse.trim(),
-    email: form.email.trim(),
-    telefonnummer: form.telefonnummer.trim(),
-    bemerkung: form.bemerkung.trim(),
-    angelegtAm: existing?.angelegtAm ?? nowIso,
-    geaendertAm: existing ? nowIso : '',
-    letzteNutzung: form.letzteNutzung ? `${form.letzteNutzung}T00:00:00Z` : nowIso,
+    email: form.email.trim() ? form.email.trim() : null,
+    telefonnummer: form.telefonnummer.trim() ? form.telefonnummer.trim() : null,
+    bemerkung: form.bemerkung.trim() ? form.bemerkung.trim() : null,
+    letzteNutzung: form.letzteNutzung ? `${form.letzteNutzung}T00:00:00Z` : null,
     aktiv: form.aktiv === 'true',
-    initiativeId: Number(form.initiativeId),
   }
+
+  if (options.isAdmin) {
+    const parsedInitiativeId = Number(form.initiativeId)
+    if (!Number.isNaN(parsedInitiativeId)) {
+      payload.initiativeId = parsedInitiativeId
+    }
+  }
+
+  return payload
 }
 
 function FahrgastinfosPage() {
   const navigate = useNavigate()
-  const { canManageDataCrud, isDisponent, isFahrer } = useRoleVisibility()
+  const { currentUser } = useAuth()
+  const { canManageDataCrud, isAdmin, isDisponent, isFahrer } = useRoleVisibility()
   const isCrudRestricted = !canManageDataCrud
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -81,10 +89,14 @@ function FahrgastinfosPage() {
   const [guests, setGuests] = useState<Fahrgast[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [loadError, setLoadError] = useState('')
+  const [editError, setEditError] = useState('')
+  const [createError, setCreateError] = useState('')
   const [selectedGuestId, setSelectedGuestId] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [editForm, setEditForm] = useState<FahrgastFormData>(createEmptyForm())
   const [createForm, setCreateForm] = useState<FahrgastFormData>(createEmptyForm())
+  const [initiatives, setInitiatives] = useState<Initiative[]>([])
+  const [initiativesError, setInitiativesError] = useState('')
 
   const selectedGuest = guests.find((entry) => entry.id === selectedGuestId) ?? null
 
@@ -119,6 +131,31 @@ function FahrgastinfosPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!isAdmin) {
+      return
+    }
+
+    let isActive = true
+    setInitiativesError('')
+
+    void getInitiativen()
+      .then((loaded) => {
+        if (isActive) {
+          setInitiatives(loaded)
+        }
+      })
+      .catch((err) => {
+        if (isActive) {
+          setInitiativesError(err instanceof Error ? err.message : 'Initiativen konnten nicht geladen werden.')
+        }
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [isAdmin])
+
   const filteredGuests = guests.filter((entry) => {
     const haystack = `${entry.vorname} ${entry.nachname} ${entry.adresse} ${entry.telefonnummer}`.toLowerCase()
     return haystack.includes(searchQuery.trim().toLowerCase())
@@ -143,6 +180,7 @@ function FahrgastinfosPage() {
     }
 
     setEditForm(createFormFromGuest(selectedGuest))
+    setEditError('')
     setIsEditModalOpen(true)
   }
 
@@ -173,11 +211,24 @@ function FahrgastinfosPage() {
       return
     }
 
-    const updatedGuest = toGuestModel(editForm, selectedGuest, selectedGuest.id)
-    const savedGuest = await updateFahrgast(selectedGuest.id, updatedGuest)
+    setEditError('')
 
-    setGuests((prev) => prev.map((entry) => (entry.id === selectedGuest.id ? savedGuest : entry)))
-    setIsEditModalOpen(false)
+    try {
+      const payload = toFahrgastUpsertRequest(editForm, { isAdmin })
+
+      if (isAdmin) {
+        if (!payload.initiativeId || payload.initiativeId <= 0) {
+          setEditError('Bitte eine Initiative auswählen.')
+          return
+        }
+      }
+
+      const savedGuest = await updateFahrgast(selectedGuest.id, payload)
+      setGuests((prev) => prev.map((entry) => (entry.id === selectedGuest.id ? savedGuest : entry)))
+      setIsEditModalOpen(false)
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Fahrgast konnte nicht gespeichert werden.')
+    }
   }
 
   async function handleDeleteGuest() {
@@ -206,7 +257,12 @@ function FahrgastinfosPage() {
       return
     }
 
-    setCreateForm(createEmptyForm())
+    const defaultInitiativeId = isAdmin && initiatives.length > 0 ? String(initiatives[0].id) : ''
+    setCreateForm({
+      ...createEmptyForm(),
+      initiativeId: defaultInitiativeId,
+    })
+    setCreateError('')
     setIsCreateModalOpen(true)
   }
 
@@ -219,13 +275,26 @@ function FahrgastinfosPage() {
       return
     }
 
-    const nextId = guests.length > 0 ? Math.max(...guests.map((entry) => entry.id)) + 1 : 1
-    const newGuest = toGuestModel(createForm, null, nextId)
-    const savedGuest = await createFahrgast(newGuest)
+    setCreateError('')
 
-    setGuests((prev) => [...prev, savedGuest])
-    setSelectedGuestId(savedGuest.id)
-    setIsCreateModalOpen(false)
+    try {
+      const payload = toFahrgastUpsertRequest(createForm, { isAdmin })
+
+      if (isAdmin) {
+        if (!payload.initiativeId || payload.initiativeId <= 0) {
+          setCreateError('Bitte eine Initiative auswählen.')
+          return
+        }
+      }
+
+      const savedGuest = await createFahrgast(payload)
+
+      setGuests((prev) => [...prev, savedGuest])
+      setSelectedGuestId(savedGuest.id)
+      setIsCreateModalOpen(false)
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Fahrgast konnte nicht angelegt werden.')
+    }
   }
 
   return (
@@ -468,6 +537,9 @@ function FahrgastinfosPage() {
                 void handleSaveGuestChanges()
               }}
             >
+              {editError ? (
+                <p className="sm:col-span-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{editError}</p>
+              ) : null}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Vorname</label>
                 <input
@@ -541,13 +613,28 @@ function FahrgastinfosPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Initiative-ID</label>
-                <input
-                  type="number"
-                  value={editForm.initiativeId}
-                  onChange={(event) => handleEditFormChange('initiativeId', event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                />
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Initiative</label>
+                {isAdmin ? (
+                  <select
+                    value={editForm.initiativeId}
+                    onChange={(event) => handleEditFormChange('initiativeId', event.target.value)}
+                    className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  >
+                    <option value="" disabled>Bitte wählen</option>
+                    {initiatives.map((initiative) => (
+                      <option key={initiative.id} value={String(initiative.id)}>
+                        {initiative.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={selectedGuest?.initiativeName ?? currentUser?.initiative?.name ?? '-'}
+                    disabled
+                    className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                  />
+                )}
               </div>
 
               <div className="sm:col-span-2">
@@ -608,6 +695,13 @@ function FahrgastinfosPage() {
                 void handleCreateGuest()
               }}
             >
+              {createError ? (
+                <p className="sm:col-span-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{createError}</p>
+              ) : null}
+
+              {initiativesError && isAdmin ? (
+                <p className="sm:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{initiativesError}</p>
+              ) : null}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Vorname</label>
                 <input
@@ -681,13 +775,28 @@ function FahrgastinfosPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Initiative-ID</label>
-                <input
-                  type="number"
-                  value={createForm.initiativeId}
-                  onChange={(event) => handleCreateFormChange('initiativeId', event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                />
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Initiative</label>
+                {isAdmin ? (
+                  <select
+                    value={createForm.initiativeId}
+                    onChange={(event) => handleCreateFormChange('initiativeId', event.target.value)}
+                    className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  >
+                    <option value="" disabled>Bitte wählen</option>
+                    {initiatives.map((initiative) => (
+                      <option key={initiative.id} value={String(initiative.id)}>
+                        {initiative.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={currentUser?.initiative?.name ?? '-'}
+                    disabled
+                    className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                  />
+                )}
               </div>
 
               <div className="sm:col-span-2">

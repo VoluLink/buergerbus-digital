@@ -61,7 +61,8 @@ public static class FahrtenMapper
                       t.Fahrgast.GeaendertAm,
                       t.Fahrgast.LetzteNutzung,
                       t.Fahrgast.Aktiv,
-                      t.Fahrgast.InitiativeId
+                        t.Fahrgast.InitiativeId,
+                        t.Fahrgast.Initiative?.Name
                 )   
             
         );
