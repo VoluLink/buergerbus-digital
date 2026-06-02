@@ -2,27 +2,18 @@ import { useEffect, useRef, useState } from 'react'
 import { Bus, Menu, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import UserMenuButton from '../components/UserMenuButton'
+import { useAuth } from '../context/AuthContext'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
 import { setStoredToken } from '../services/httpClient'
 import {
   createBenutzer,
   fetchInitiatives,
   fetchRoles,
-  fetchUserProfile,
   getUsers,
   updateUserInitiative,
   updateUserRoles,
 } from '../services/users'
-import type { InitiativeSummary, RoleSummary, UserProfile, UserSummary } from '../types/UserProfile'
-
-function formatRoleLabel(role: string, roles: RoleSummary[]) {
-  const matchedRole = roles.find((entry) => entry.name.toLowerCase() === role.toLowerCase())
-  if (matchedRole) {
-    return matchedRole.name
-  }
-
-  return role.charAt(0).toUpperCase() + role.slice(1)
-}
+import type { InitiativeSummary, RoleSummary, UserSummary } from '../types/UserProfile'
 
 function getRoleActiveClass(roleName: string) {
   const normalized = roleName.toLowerCase()
@@ -42,22 +33,10 @@ function getRoleActiveClass(roleName: string) {
   return 'bg-slate-800 text-white'
 }
 
-function buildDisplayName(profile: UserProfile | null) {
-  if (!profile) {
-    return ''
-  }
-
-  const nameParts = [profile.vorname, profile.nachname].filter(Boolean)
-  if (nameParts.length > 0) {
-    return nameParts.join(' ')
-  }
-
-  return profile.username || profile.email
-}
-
 function RollenverteilungPage() {
   const navigate = useNavigate()
-  const { canManageRoleAssignments, isFahrer } = useRoleVisibility()
+  const { currentUser } = useAuth()
+  const { canManageRoleAssignments, isAdmin, isDisponent, isFahrer } = useRoleVisibility()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -74,10 +53,6 @@ function RollenverteilungPage() {
   const [saveSuccess, setSaveSuccess] = useState('')
   const successTimerRef = useRef<number | null>(null)
   const [savingUserId, setSavingUserId] = useState<number | null>(null)
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
-  const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null)
-  const [isProfileLoading, setIsProfileLoading] = useState(false)
-  const [profileError, setProfileError] = useState('')
 
   const [createForm, setCreateForm] = useState({
     roleId: '',
@@ -146,9 +121,6 @@ function RollenverteilungPage() {
         setUsers(response.items)
         setTotalItems(response.totalItems)
         setTotalPages(response.totalPages)
-        setSelectedUserId(null)
-        setSelectedProfile(null)
-        setProfileError('')
       } catch (err) {
         if (isActive) {
           setLoadError(err instanceof Error ? err.message : 'Nutzer konnten nicht geladen werden.')
@@ -201,22 +173,6 @@ function RollenverteilungPage() {
     navigate(path)
   }
 
-  async function handleSelectUser(userId: number) {
-    setSelectedUserId(userId)
-    setSelectedProfile(null)
-    setProfileError('')
-    setIsProfileLoading(true)
-
-    try {
-      const profile = await fetchUserProfile(userId)
-      setSelectedProfile(profile)
-    } catch (err) {
-      setProfileError(err instanceof Error ? err.message : 'Profil konnte nicht geladen werden.')
-    } finally {
-      setIsProfileLoading(false)
-    }
-  }
-
   function toggleRole(userId: number, role: string) {
     if (!canManageRoleAssignments) {
       return
@@ -263,10 +219,6 @@ function RollenverteilungPage() {
           prev.map((entry) =>
             entry.id === userId ? { ...entry, roles: saved.roles, activeRole: saved.activeRole ?? nextActiveRole } : entry,
           ),
-        )
-
-        setSelectedProfile((prev) =>
-          prev && prev.id === userId ? { ...prev, roles: saved.roles, activeRole: saved.activeRole ?? nextActiveRole } : prev,
         )
       })
       .catch((err) => {
@@ -315,12 +267,6 @@ function RollenverteilungPage() {
             entry.id === userId ? { ...entry, initiative: savedInitiative } : entry,
           ),
         )
-
-        setSelectedProfile((prev) =>
-          prev && prev.id === userId
-            ? { ...prev, initiative: savedInitiative }
-            : prev,
-        )
       })
       .catch((err) => {
         setUsers((prev) =>
@@ -331,8 +277,6 @@ function RollenverteilungPage() {
         setSaveError(err instanceof Error ? err.message : 'Initiative konnte nicht gespeichert werden.')
       })
   }
-
-  const displayName = buildDisplayName(selectedProfile)
 
   const allowedRoleOrder = ['admin', 'disponent', 'fahrer', 'gast']
   const createRoleOptions = roles
@@ -535,14 +479,20 @@ function RollenverteilungPage() {
                   </tr>
                 ) : (
                   users.map((user) => {
-                    const isSelected = selectedUserId === user.id
+                    const canViewProfile =
+                      isAdmin
+                      || (currentUser?.id != null && currentUser.id === user.id)
+                      || (
+                        isDisponent
+                        && currentUser?.initiative?.id != null
+                        && user.initiative?.id != null
+                        && currentUser.initiative.id === user.initiative.id
+                      )
 
                     return (
                       <tr
                         key={user.id}
-                        className={`border-b border-slate-100 hover:bg-slate-50 ${
-                          isSelected ? 'bg-slate-50' : ''
-                        }`}
+                        className="border-b border-slate-100 hover:bg-slate-50"
                       >
                       <td className="px-2 py-3 text-slate-700 truncate">{user.id}</td>
                       <td className="px-2 py-3 text-slate-700 truncate">{user.username}</td>
@@ -594,8 +544,14 @@ function RollenverteilungPage() {
                       <td className="px-2 py-3">
                         <button
                           type="button"
-                          onClick={() => handleSelectUser(user.id)}
-                          className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
+                          onClick={() => navigate(`/users/${user.id}/profile`)}
+                          disabled={!canViewProfile}
+                          title={
+                            canViewProfile
+                              ? 'Profil öffnen'
+                              : 'Keine Berechtigung: Fremde Profile nur für Admin oder Disponent gleicher Initiative.'
+                          }
+                          className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 transition enabled:hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Profil anzeigen
                         </button>
@@ -649,66 +605,6 @@ function RollenverteilungPage() {
                 Weiter
               </button>
             </div>
-          </div>
-
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-            <h2 className="text-lg font-semibold text-slate-800">Ausgewähltes Profil</h2>
-            {isProfileLoading ? (
-              <p className="mt-2 text-sm text-slate-500">Profil wird geladen...</p>
-            ) : profileError ? (
-              <p className="mt-2 text-sm text-rose-600">{profileError}</p>
-            ) : selectedProfile ? (
-              <div className="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Name</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-800">{displayName}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">E-Mail</p>
-                  <p className="mt-1 text-sm text-slate-700">{selectedProfile.email}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Benutzername</p>
-                  <p className="mt-1 text-sm text-slate-700">{selectedProfile.username}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Initiative</p>
-                  <p className="mt-1 text-sm text-slate-700">
-                    {selectedProfile.initiative?.name ?? 'Nicht gesetzt'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Rollen</p>
-                  <p className="mt-1 text-sm text-slate-700">
-                    {selectedProfile.activeRole
-                      ? `Aktiv: ${formatRoleLabel(selectedProfile.activeRole, roles)}`
-                      : selectedProfile.roles.length > 0
-                        ? `Aktiv: ${formatRoleLabel(selectedProfile.roles[0], roles)}`
-                      : 'Keine Rollen'}
-                  </p>
-                  {selectedProfile.roles.length > 1 ? (
-                    <p className="mt-1 text-xs text-slate-500">
-                      Weitere Rollen: {selectedProfile.roles
-                        .filter((role) => role !== selectedProfile.activeRole)
-                        .map((role) => formatRoleLabel(role, roles))
-                        .join(', ')}
-                    </p>
-                  ) : null}
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Fahrerprofil</p>
-                  <p className="mt-1 text-sm text-slate-700">
-                    {selectedProfile.fahrer
-                      ? `ID ${selectedProfile.fahrer.id}`
-                      : 'Nicht vorhanden'}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <p className="mt-2 text-sm text-slate-500">
-                Wähle einen Benutzer aus, um Profildetails zu sehen.
-              </p>
-            )}
           </div>
         </section>
       </div>

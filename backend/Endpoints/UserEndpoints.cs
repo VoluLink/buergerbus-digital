@@ -347,14 +347,10 @@ public static class UserEndpoints
         ) =>
         {
             var principal = httpContext.User;
-            if (!AuthUtils.IsAdmin(principal))
-            {
-                var tokenUserId = AuthUtils.GetUserId(principal);
-                if (!tokenUserId.HasValue || tokenUserId.Value != id)
-                {
-                    return Results.Forbid();
-                }
-            }
+            var tokenUserId = AuthUtils.GetUserId(principal);
+            var isAdmin = AuthUtils.IsAdmin(principal);
+            var isDisponent = principal.IsInRole("Disponent");
+            var currentInitiativeId = AuthUtils.GetInitiativeId(principal);
 
             var user = await db.Benutzer
                 .Include(u => u.Initiative)
@@ -367,7 +363,19 @@ public static class UserEndpoints
             {
                 return Results.NotFound("Benutzer wurde nicht gefunden.");
             }
-            
+
+            if (!isAdmin)
+            {
+                var isOwnProfile = tokenUserId.HasValue && tokenUserId.Value == id;
+                var isSameInitiativeDisponent = isDisponent
+                    && currentInitiativeId.HasValue
+                    && user.InitiativeId == currentInitiativeId.Value;
+
+                if (!isOwnProfile && !isSameInitiativeDisponent)
+                {
+                    return Results.Forbid();
+                }
+            }
 
             return Results.Ok(UserMapper.CreateUserProfile(user));
         })
