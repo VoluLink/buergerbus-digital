@@ -11,6 +11,7 @@ export interface FahrgastBackendDto {
   LetzteNutzung: string
   Aktiv: boolean
   InitiativeId: number
+  InitiativeName?: string | null
 }
 
 export interface Fahrgast {
@@ -26,6 +27,7 @@ export interface Fahrgast {
   letzteNutzung: string
   aktiv: boolean
   initiativeId: number
+  initiativeName?: string | null
 }
 
 export interface FahrgastFormData {
@@ -54,6 +56,7 @@ export function mapDtoToFahrgast(dto: FahrgastBackendDto): Fahrgast {
     letzteNutzung: dto.LetzteNutzung,
     aktiv: dto.Aktiv,
     initiativeId: dto.InitiativeId,
+    initiativeName: dto.InitiativeName ?? null,
   }
 }
 
@@ -71,5 +74,6 @@ export function mapFahrgastToDto(fahrgast: Fahrgast): FahrgastBackendDto {
     LetzteNutzung: fahrgast.letzteNutzung,
     Aktiv: fahrgast.aktiv,
     InitiativeId: fahrgast.initiativeId,
+    InitiativeName: fahrgast.initiativeName ?? null,
   }
 }

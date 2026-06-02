@@ -1,7 +1,18 @@
 import { API_BASE_URL } from './api'
 import { apiFetch } from './httpClient'
-import type { Fahrgast} from '../types/Fahrgast'
-import { mapFahrgastToDto } from '../types/Fahrgast'
+import type { Fahrgast } from '../types/Fahrgast'
+
+export type FahrgastUpsertRequest = {
+  vorname: string
+  nachname: string
+  adresse: string
+  email?: string | null
+  telefonnummer?: string | null
+  bemerkung?: string | null
+  letzteNutzung?: string | null
+  aktiv: boolean
+  initiativeId?: number
+}
 
 
 export async function getFahrgaeste(): Promise<Fahrgast[]> {
@@ -17,15 +28,14 @@ export async function getFahrgaeste(): Promise<Fahrgast[]> {
   return response.json()
 }
 
-export async function createFahrgast(fahrgast: Fahrgast): Promise<Fahrgast> {
-  const dto = mapFahrgastToDto(fahrgast)
+export async function createFahrgast(payload: FahrgastUpsertRequest): Promise<Fahrgast> {
 
   const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrgaeste`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(dto),
+    body: JSON.stringify(payload),
   })
 
   if (!response.ok) {
@@ -39,15 +49,14 @@ export async function createFahrgast(fahrgast: Fahrgast): Promise<Fahrgast> {
   return response.json()
 }
 
-export async function updateFahrgast(fahrgastId: number, fahrgast: Fahrgast): Promise<Fahrgast> {
-  const dto = mapFahrgastToDto(fahrgast)
+export async function updateFahrgast(fahrgastId: number, payload: FahrgastUpsertRequest): Promise<Fahrgast> {
 
   const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrgaeste/${fahrgastId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(dto),
+    body: JSON.stringify(payload),
   })
 
   if (!response.ok) {
