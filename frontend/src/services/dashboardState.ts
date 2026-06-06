@@ -46,7 +46,7 @@ type BackendFahrtWriteDto = {
   endzeit: string | null
   bemerkung: string | null
   status: string
-
+  angelegtAm: string
   angelegtVon: string
 
   fahrerId: number | null
@@ -162,7 +162,11 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFah
   endzeit: null,
   bemerkung: ride.remarks || null,
   status: mapRideStatusToBackendStatus(ride.status),
-
+  
+  angelegtAm: `${toLocalDateString(new Date())}T${new Date()
+  .toTimeString()
+  .slice(0, 8)}`,
+  
   angelegtVon: 'Disponent',
 
   fahrerId: null,

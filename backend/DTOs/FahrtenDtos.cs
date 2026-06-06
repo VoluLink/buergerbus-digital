@@ -29,6 +29,7 @@ public record CreateFahrtenDto(
     DateTime? Endzeit,
     string? Bemerkung,
     string Status,
+    DateTime AngelegtAm,
     string AngelegtVon,
 
     int? FahrerId,     // optional

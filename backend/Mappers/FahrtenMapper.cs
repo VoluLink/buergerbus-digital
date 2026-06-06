@@ -84,7 +84,7 @@ public static class FahrtenMapper
             Bemerkung = dto.Bemerkung,
             Status = dto.Status,
             AngelegtVon = dto.AngelegtVon,
-            AngelegtAm = DateTime.UtcNow,
+            AngelegtAm = dto.AngelegtAm,
 
             FahrerId = dto.FahrerId,
             FahrzeugId = dto.FahrzeugId,
