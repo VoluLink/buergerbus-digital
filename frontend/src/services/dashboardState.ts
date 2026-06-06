@@ -1,6 +1,7 @@
 import { API_BASE_URL } from './api'
 import { apiFetch } from './httpClient'
 import type { CalendarRide, PassengerForm, RideStatus, RideType } from '../types/DashboardRide'
+import type { FahrerListItem } from '../types/FahrerListItem'
 
 type DashboardStateSnapshot = {
   rides: CalendarRide[]
@@ -132,8 +133,13 @@ function toLocalDateString(date: Date) {
   return `${yyyy}-${mm}-${dd}`
 }
 
-export function mapBackendRideToCalendarRide(dto: BackendFahrtDto): CalendarRide {
+export function mapBackendRideToCalendarRide(dto: BackendFahrtDto, fahrerListe: FahrerListItem[] = []): CalendarRide {
   const type = mapBackendTypeToRideType(dto.fahrttyp)
+  const safeFahrerListe = Array.isArray(fahrerListe) ? fahrerListe : []
+
+  const fahrer = safeFahrerListe.find(
+    (f) => f.fahrerId === dto.fahrerId,
+  )
 
   return {
     id: dto.id,
@@ -142,7 +148,7 @@ export function mapBackendRideToCalendarRide(dto: BackendFahrtDto): CalendarRide
     status: mapBackendStatusToRideStatus(dto.status, type),
     title: dto.titel,
     time: extractHourMinute(dto.startzeit),
-    driverName: '',
+    driverName: fahrer?.name ?? '',
     fahrerId: dto.fahrerId ?? null,
     passengers: mapTeilstreckenToPassengers(dto.teilstrecken),
     remarks: dto.bemerkung ?? '',
@@ -249,13 +255,18 @@ function serializeState(state: DashboardStateSnapshot) {
   }
 }*/
 
-async function tryLoadFromBackend(): Promise<CalendarRide[] | null> {
+async function tryLoadFromBackend(
+  fahrerListe: FahrerListItem[]
+): Promise<CalendarRide[] | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/v1/fahrten`)
     if (!res.ok) return null
 
     const data: BackendFahrtDto[] = await res.json()
-    return data.map(mapBackendRideToCalendarRide)
+
+    return data.map((dto) =>
+      mapBackendRideToCalendarRide(dto, fahrerListe)
+    )
   } catch {
     return null
   }
@@ -300,16 +311,19 @@ async function trySaveToBackend(rides: CalendarRide[]) {
    PUBLIC API (FRONTEND)
 ========================= */
 
-export async function loadDashboardState(): Promise<DashboardStateSnapshot> {
+export async function loadDashboardState(
+  fahrerListe: FahrerListItem[]
+): Promise<DashboardStateSnapshot> {
   const local = parseStoredState(localStorage.getItem(DASHBOARD_STORAGE_KEY))
-  const backend = await tryLoadFromBackend()
+  const backend = await tryLoadFromBackend(fahrerListe)
 
   if (!backend) return local
 
   return {
     rides: backend,
     completedPassengerKeys: local.completedPassengerKeys,
-    nextRideId: backend.reduce((m, r) => Math.max(m, r.id), 0) + 1,
+    nextRideId:
+      backend.reduce((m, r) => Math.max(m, r.id), 0) + 1,
   }
 }
 

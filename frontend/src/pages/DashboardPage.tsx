@@ -369,18 +369,26 @@ function DashboardPage() {
     let isCancelled = false
 
     async function hydrateDashboard() {
-    const rides = await getFahrten()
+      const [rides, fahrer] = await Promise.all([
+        getFahrten(),
+        getAllFahrer(),
+      ])
 
-    if (isCancelled) return
+      if (isCancelled) return
 
-    setCalendarRides(rides.map(mapBackendRideToCalendarRide))
-    setIsDashboardHydrated(true)
+      const mapped = rides.map((dto) =>
+        mapBackendRideToCalendarRide(dto, fahrer)
+      )
+
+      setCalendarRides(mapped)
+      setFahrerListe(fahrer)
+      setIsDashboardHydrated(true)
     }
 
     void hydrateDashboard()
 
     return () => {
-    isCancelled = true
+      isCancelled = true
     }
   }, [])
 
