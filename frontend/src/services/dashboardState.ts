@@ -156,10 +156,8 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFah
   fahrttyp: ride.type,
 
   startzeit: ride.time
-    ? new Date(
-        `${ride.date.toISOString().split('T')[0]}T${ride.time}:00`
-      ).toISOString()
-    : new Date(ride.date).toISOString(),
+    ? `${toLocalDateString(ride.date)}T${ride.time}:00`
+    : `${toLocalDateString(ride.date)}T00:00:00`,
 
   endzeit: null,
   bemerkung: ride.remarks || null,
@@ -176,11 +174,9 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFah
     abholadresse: p.pickupAddress,
     zieladresse: p.destinationAddress,
 
-    startzeit: p.time
-      ? new Date(
-          `${ride.date.toISOString().split('T')[0]}T${p.time}:00`
-        ).toISOString()
-      : null,
+  startzeit: p.time
+    ? `${toLocalDateString(ride.date)}T${p.time}:00`
+    : null,
 
     endzeit: null,
     reihenfolge: 0,
