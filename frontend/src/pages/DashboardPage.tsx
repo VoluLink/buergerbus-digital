@@ -44,6 +44,7 @@ type DayRole = 'dispo' | 'fahrer'
 type CalendarView = 'Monat' | 'Woche' | 'Tag'
 
 type RideFormState = {
+  fahrerId: number | null
   driverName: string
   themeTitle: string
   remarks: string
@@ -260,12 +261,14 @@ function createEmptyPassenger(id: number): PassengerForm {
 function createInitialRideForms() {
   return {
     standard: {
+      fahrerId: null,
       driverName: '',
       themeTitle: '',
       remarks: '',
       passengers: [createEmptyPassenger(1)],
     },
     theme: {
+      fahrerId: null,
       driverName: '',
       themeTitle: '',
       remarks: '',
@@ -793,6 +796,8 @@ async function confirmDeleteRide() {
       ...currentState,
       [rideType]: {
         ...currentState[rideType],
+
+        fahrerId: selectedFahrer.fahrerId,
         driverName: selectedFahrer.name,
       },
     }))
@@ -910,6 +915,7 @@ async function confirmDeleteRide() {
           title: rentalName.trim() || 'Vermietung',
           time: rideTime,
           driverName: '',
+          fahrerId: null,
           passengers: [],
           remarks: rentalRemarks.trim(),
         })
@@ -957,6 +963,7 @@ const tempRide: CalendarRide = {
       : 'Standardfahrt',
   time: firstPassenger?.time ?? '',
   driverName,
+  fahrerId: activeForm.fahrerId,
   passengers: activeForm.passengers.length > 0
     ? activeForm.passengers.map((p, i) => ({ ...p, id: i + 1 }))
     : existingRide?.passengers ?? [],
@@ -997,6 +1004,7 @@ setCalendarRides((currentRides) =>
           : 'Standardfahrt',
       time: firstPassenger?.time ?? '',
       driverName,
+      fahrerId: activeForm.fahrerId,
       passengers,
       remarks: activeForm.remarks.trim(),
     }

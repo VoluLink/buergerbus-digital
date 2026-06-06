@@ -34,6 +34,8 @@ type BackendFahrtDto = {
   endzeit?: string | null
   bemerkung?: string | null
   status: string
+  fahrerId?: number | null
+  fahrzeugId?: number | null
   teilstrecken?: BackendTeilstreckeDto[] | null
 }
 
@@ -141,6 +143,7 @@ export function mapBackendRideToCalendarRide(dto: BackendFahrtDto): CalendarRide
     title: dto.titel,
     time: extractHourMinute(dto.startzeit),
     driverName: '',
+    fahrerId: dto.fahrerId ?? null,
     passengers: mapTeilstreckenToPassengers(dto.teilstrecken),
     remarks: dto.bemerkung ?? '',
   }
@@ -173,7 +176,7 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFah
 
   angelegtVon: 'Disponent',
 
-  fahrerId: null,
+  fahrerId: ride.fahrerId,
   fahrzeugId: null,
 
   initiativeId: 1,
