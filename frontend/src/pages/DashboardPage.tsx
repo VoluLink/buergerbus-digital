@@ -36,6 +36,7 @@ import { loadDashboardState, saveDashboardState } from '../services/dashboardSta
 import { getFahrgaeste } from '../services/fahrgastApi'
 import type { CalendarRide, PassengerForm, RideStatus, RideType } from '../types/DashboardRide'
 import type { Fahrgast } from '../types/Fahrgast'
+import { getAllFahrer } from '../services/fahrerList'
 
 
 type RideFormType = 'standard' | 'theme'
@@ -313,6 +314,9 @@ function DashboardPage() {
   const [nextPassengerId, setNextPassengerId] = useState(2)
   const [isDashboardHydrated, setIsDashboardHydrated] = useState(false)
   const [knownGuests, setKnownGuests] = useState<Fahrgast[]>([])
+  const [fahrerListe, setFahrerListe] = useState<any[]>([])
+  const [fahrerSuche, setFahrerSuche] = useState('')
+  const [selectedFahrerId, setSelectedFahrerId] = useState<number | null>(null)
 
   const remarksPlaceholder = useMemo(() => {
     if (rideType === 'theme') {
@@ -395,6 +399,30 @@ function DashboardPage() {
     }
 
     void loadKnownGuests()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let isCancelled = false
+
+    async function loadFahrer() {
+      try {
+        const data = await getAllFahrer()
+
+        if (!isCancelled) {
+        setFahrerListe(data)
+        }
+      } catch {
+        if (!isCancelled) {
+          setFahrerListe([])
+        }
+      }
+    }
+
+    void loadFahrer()
 
     return () => {
       isCancelled = true
@@ -746,6 +774,26 @@ async function confirmDeleteRide() {
             pickupAddress: selectedGuest.adresse || '',
           }
         }),
+      },
+    }))
+  }
+
+  function autofillFahrer(selectedFahrerId: number) {
+    const selectedFahrer = fahrerListe.find(
+      (f) => f.fahrerId === selectedFahrerId,
+    )
+
+    if (!selectedFahrer) {
+      return
+    }
+
+    setSelectedFahrerId(selectedFahrer.fahrerId)
+
+    setRideFormsByType((currentState) => ({
+      ...currentState,
+      [rideType]: {
+        ...currentState[rideType],
+        driverName: selectedFahrer.name,
       },
     }))
   }
@@ -1731,6 +1779,36 @@ setCalendarRides((currentRides) =>
                       placeholder="Name des Fahrers"
                       className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/15"
                     />
+                    {(activeRideForm?.driverName ?? '').trim().length > 0 ? (
+                      <div className="mt-1 max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+                        {fahrerListe
+                          .filter((driver) => {
+                            const query = activeRideForm.driverName.trim().toLowerCase()
+
+                            const searchable =
+                              `${driver.name} ${driver.telefonnummer ?? ''}`.toLowerCase()
+
+                            return searchable.includes(query)
+                          })
+                          .slice(0, 6)
+                          .map((driver) => (
+                            <button
+                              key={driver.fahrerId}
+                              type="button"
+                              onClick={() => autofillFahrer(driver.fahrerId)}
+                              className="flex w-full flex-col items-start border-b border-slate-100 px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 last:border-b-0"
+                            >
+                              <span className="font-semibold text-slate-800">
+                                {driver.name}
+                              </span>
+
+                              <span className="text-xs text-slate-500">
+                                {driver.telefonnummer ?? 'Keine Telefonnummer'}
+                              </span>
+                            </button>
+                          ))}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/50 p-3">
