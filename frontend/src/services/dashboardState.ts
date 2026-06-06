@@ -148,6 +148,10 @@ export function mapBackendRideToCalendarRide(dto: BackendFahrtDto): CalendarRide
 
 export function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFahrtWriteDto {
   const firstPassenger = ride.passengers[0]
+  const earliestTime = ride.passengers
+    .map(p => p.time)
+    .filter((t): t is string => !!t)
+    .sort()[0]
 
   return {
   titel: ride.title,
@@ -155,8 +159,8 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFah
   zielort: firstPassenger?.destinationAddress || '',
   fahrttyp: ride.type,
 
-  startzeit: ride.time
-    ? `${toLocalDateString(ride.date)}T${ride.time}:00`
+  startzeit: earliestTime
+    ? `${toLocalDateString(ride.date)}T${earliestTime}:00`
     : `${toLocalDateString(ride.date)}T00:00:00`,
 
   endzeit: null,
@@ -166,7 +170,7 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFah
   angelegtAm: `${toLocalDateString(new Date())}T${new Date()
   .toTimeString()
   .slice(0, 8)}`,
-  
+
   angelegtVon: 'Disponent',
 
   fahrerId: null,
