@@ -982,7 +982,7 @@ const payload = mapCalendarRideToBackendWriteDto(tempRide)
 
 const response = await updateFahrt(rideInEditId, payload)
 
-const backendRide = mapBackendRideToCalendarRide(response)
+const backendRide = mapBackendRideToCalendarRide(response, fahrerListe)
 
 setCalendarRides((currentRides) =>
   currentRides.map((ride) =>
@@ -1023,7 +1023,7 @@ setCalendarRides((currentRides) =>
     const createdRide = await createFahrt(payload)
 
     // 2. Backend Response in UI-Format umwandeln
-    const backendRide = mapBackendRideToCalendarRide(createdRide)
+    const backendRide = mapBackendRideToCalendarRide(createdRide,fahrerListe)
 
 // 3. UI mit echter DB-Fahrt updaten
     setCalendarRides((current) => [...current, backendRide])

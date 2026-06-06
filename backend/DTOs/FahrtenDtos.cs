@@ -11,11 +11,10 @@ public record FahrtenDto(
     string? Bemerkung,
     string Status,
     DateTime AngelegtAm,
-    string AngelegtVon,
-
+    int AngelegtVonUserId,
+    string AngelegtVonUserName,
     int? FahrerId,
     int? FahrzeugId,
-
     int InitiativeId,
     List<TeilstreckeDto> Teilstrecken
 );
@@ -31,11 +30,8 @@ public record CreateFahrtenDto(
     string Status,
     DateTime AngelegtAm,
     string AngelegtVon,
-
     int? FahrerId,     // optional
     int? FahrzeugId,   // optional
-
-    int InitiativeId,
     List<CreateTeilstreckeDto> Teilstrecken
 );
 
@@ -48,12 +44,8 @@ public record UpdateFahrtenDto(
     DateTime? Endzeit,
     string? Bemerkung,
     string Status,
-
     int? FahrerId,     // optional (Zuweisung später möglich)
     int? FahrzeugId,   // optional
-
-    int InitiativeId,
-    
     List<CreateTeilstreckeDto> Teilstrecken
 );
 

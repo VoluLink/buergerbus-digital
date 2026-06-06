@@ -40,5 +40,7 @@ namespace BuergerbusAPI.Models
 
         // Benutzer kann ein Fahrer sein (1:1)
         public Fahrer? Fahrer { get; set; }
+
+        public List<Fahrten> AngelegteFahrten { get; set; } = new();
     }
 }

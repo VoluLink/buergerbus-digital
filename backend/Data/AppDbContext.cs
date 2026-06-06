@@ -91,6 +91,14 @@ namespace BuergerbusAPI.Data
                 .HasForeignKey(f => f.FahrzeugId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+
+            // Fahrt -> Benutzer (1:1)
+            modelBuilder.Entity<Fahrten>()
+                .HasOne(f => f.AngelegtVonUser)
+                .WithMany(b => b.AngelegteFahrten)
+                .HasForeignKey(f => f.AngelegtVonUserId);
+                 
+
             // Fahrer <-> Fahrzeug (n:m)
 
             modelBuilder.Entity<FahrerFahrzeug>()

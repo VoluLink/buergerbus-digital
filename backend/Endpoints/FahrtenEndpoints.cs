@@ -3,6 +3,7 @@ using BuergerbusAPI.DTOs;
 using BuergerbusAPI.Mappers;
 using BuergerbusAPI.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace BuergerbusAPI.Endpoints;
 
@@ -49,10 +50,25 @@ public static class FahrtenEndpoints
         // =========================================================
         // CREATE
         // =========================================================
-        app.MapPost("/api/v1/fahrten", async (CreateFahrtenDto request, AppDbContext db) =>
+        app.MapPost("/api/v1/fahrten", async (
+            CreateFahrtenDto request,
+            AppDbContext db,
+            HttpContext httpContext
+        ) =>
         {
             try
             {
+                var userIdClaim = httpContext.User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null)
+                    return Results.Unauthorized();
+
+                var initiativeClaim = httpContext.User.FindFirst("initiativeId");
+                if (initiativeClaim == null)
+                    return Results.Unauthorized();
+
+                var userId = int.Parse(userIdClaim.Value);
+                var initiativeId = int.Parse(initiativeClaim.Value);
+
                 if (request.Teilstrecken == null)
                     return Results.BadRequest("Teilstrecken dürfen nicht null sein.");
 
@@ -60,6 +76,10 @@ public static class FahrtenEndpoints
                     return Results.BadRequest("Eine Fahrt darf maximal 8 Teilstrecken haben.");
 
                 var fahrt = FahrtenMapper.ToEntity(request);
+
+                // Werte ausschließlich aus dem JWT setzen
+                fahrt.AngelegtVonUserId = userId;
+                fahrt.InitiativeId = initiativeId;
 
                 db.Fahrten.Add(fahrt);
                 await db.SaveChangesAsync();
@@ -70,13 +90,18 @@ public static class FahrtenEndpoints
                     .Include(t => t.Fahrgast)
                     .LoadAsync();
 
+                await db.Entry(fahrt)
+                    .Reference(f => f.AngelegtVonUser)
+                    .LoadAsync();
+
                 return Results.Ok(FahrtenMapper.ToDto(fahrt));
             }
             catch (Exception ex)
             {
                 return Results.Problem(ex.Message);
             }
-        });
+        })
+        .RequireAuthorization();
 
 
         // =========================================================

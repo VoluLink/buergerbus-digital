@@ -1,11 +1,12 @@
 import { API_BASE_URL } from './api'
+import { apiFetch } from './httpClient'
 
 /* =========================
    CREATE
 ========================= */
 
 export async function createFahrt(data: any) {
-  const res = await fetch(`${API_BASE_URL}/api/v1/fahrten`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -26,7 +27,7 @@ export async function createFahrt(data: any) {
 ========================= */
 
 export async function getFahrten() {
-  const res = await fetch(`${API_BASE_URL}/api/v1/fahrten`)
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten`)
 
   if (!res.ok) {
     const err = await res.text()
@@ -41,7 +42,7 @@ export async function getFahrten() {
 ========================= */
 
 export async function getFahrt(id: number) {
-  const res = await fetch(`${API_BASE_URL}/api/v1/fahrten/${id}`)
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten/${id}`)
 
   if (!res.ok) {
     const err = await res.text()
@@ -56,7 +57,7 @@ export async function getFahrt(id: number) {
 ========================= */
 
 export async function updateFahrt(id: number, data: any) {
-  const res = await fetch(`${API_BASE_URL}/api/v1/fahrten/${id}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -77,7 +78,7 @@ export async function updateFahrt(id: number, data: any) {
 ========================= */
 
 export async function deleteFahrt(id: number) {
-  const res = await fetch(`${API_BASE_URL}/api/v1/fahrten/${id}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten/${id}`, {
     method: 'DELETE',
   })
 

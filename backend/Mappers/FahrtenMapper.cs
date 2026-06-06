@@ -21,12 +21,15 @@ public static class FahrtenMapper
             f.Bemerkung,
             f.Status,
             f.AngelegtAm,
-            f.AngelegtVon,
+
+            f.AngelegtVonUserId,
+
+            f.AngelegtVonUser?.Nutzername ?? "",
 
             f.FahrerId,
             f.FahrzeugId,
-
             f.InitiativeId,
+
             (f.Teilstrecken ?? new List<Teilstrecke>())
                 .OrderBy(t => t.Startzeit)
                 .Select(ToDto)
@@ -49,25 +52,23 @@ public static class FahrtenMapper
             t.Status,
             t.FahrgastId,
             t.FahrtId,
-
             t.Fahrgast == null
                 ? null
                 : new FahrgastDto(
-                      t.Fahrgast.Id,
-                      t.Fahrgast.Vorname,
-                      t.Fahrgast.Nachname,
-                      t.Fahrgast.Adresse,
-                      t.Fahrgast.Email,
-                      t.Fahrgast.Telefonnummer,
-                      t.Fahrgast.Bemerkung,
-                      t.Fahrgast.AngelegtAm,
-                      t.Fahrgast.GeaendertAm,
-                      t.Fahrgast.LetzteNutzung,
-                      t.Fahrgast.Aktiv,
-                        t.Fahrgast.InitiativeId,
-                        t.Fahrgast.Initiative?.Name
-                )   
-            
+                    t.Fahrgast.Id,
+                    t.Fahrgast.Vorname,
+                    t.Fahrgast.Nachname,
+                    t.Fahrgast.Adresse,
+                    t.Fahrgast.Email,
+                    t.Fahrgast.Telefonnummer,
+                    t.Fahrgast.Bemerkung,
+                    t.Fahrgast.AngelegtAm,
+                    t.Fahrgast.GeaendertAm,
+                    t.Fahrgast.LetzteNutzung,
+                    t.Fahrgast.Aktiv,
+                    t.Fahrgast.InitiativeId,
+                    t.Fahrgast.Initiative?.Name
+                )
         );
     }
 
@@ -86,13 +87,11 @@ public static class FahrtenMapper
             Endzeit = dto.Endzeit,
             Bemerkung = dto.Bemerkung,
             Status = dto.Status,
-            AngelegtVon = dto.AngelegtVon,
+
             AngelegtAm = dto.AngelegtAm,
 
             FahrerId = dto.FahrerId,
             FahrzeugId = dto.FahrzeugId,
-
-            InitiativeId = dto.InitiativeId,
 
             Teilstrecken = dto.Teilstrecken?
                 .Select(ToEntity)
@@ -101,7 +100,7 @@ public static class FahrtenMapper
     }
 
     // =========================================================
-    // CREATE TEILSTRECKE DTO -> ENTITY
+    // TEILSTRECKE DTO -> ENTITY
     // =========================================================
     public static Teilstrecke ToEntity(CreateTeilstreckeDto dto)
     {
@@ -118,28 +117,27 @@ public static class FahrtenMapper
     }
 
     // =========================================================
-    // UPDATE (partiell auf Entity anwenden)
+    // UPDATE
     // =========================================================
-   public static void ApplyUpdate(Fahrten f, UpdateFahrtenDto dto)
+    public static void ApplyUpdate(Fahrten f, UpdateFahrtenDto dto)
     {
-    f.Titel = dto.Titel;
-    f.Datum = dto.Datum;
-    f.Zielort = dto.Zielort;
-    f.Fahrttyp = dto.Fahrttyp;
-    f.Startzeit = dto.Startzeit;
-    f.Endzeit = dto.Endzeit;
-    f.Bemerkung = dto.Bemerkung;
-    f.Status = dto.Status;
+        f.Titel = dto.Titel;
+        f.Datum = dto.Datum;
+        f.Zielort = dto.Zielort;
+        f.Fahrttyp = dto.Fahrttyp;
+        f.Startzeit = dto.Startzeit;
+        f.Endzeit = dto.Endzeit;
+        f.Bemerkung = dto.Bemerkung;
+        f.Status = dto.Status;
 
-    f.FahrerId = dto.FahrerId;
-    f.FahrzeugId = dto.FahrzeugId;
-    f.InitiativeId = dto.InitiativeId;
+        f.FahrerId = dto.FahrerId;
+        f.FahrzeugId = dto.FahrzeugId;
 
-    f.Teilstrecken.Clear();
+        f.Teilstrecken.Clear();
 
-    foreach (var t in dto.Teilstrecken ?? new())
-    {
-        f.Teilstrecken.Add(FahrtenMapper.ToEntity(t));
-    }
+        foreach (var t in dto.Teilstrecken ?? new())
+        {
+            f.Teilstrecken.Add(ToEntity(t));
+        }
     }
 }

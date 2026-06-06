@@ -261,9 +261,8 @@ namespace BuergerbusAPI.Migrations
                     b.Property<DateTime>("AngelegtAm")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("AngelegtVon")
-                        .IsRequired()
-                        .HasColumnType("longtext");
+                    b.Property<int>("AngelegtVonUserId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Bemerkung")
                         .HasColumnType("longtext");
@@ -303,6 +302,8 @@ namespace BuergerbusAPI.Migrations
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AngelegtVonUserId");
 
                     b.HasIndex("FahrerId");
 
@@ -646,6 +647,12 @@ namespace BuergerbusAPI.Migrations
 
             modelBuilder.Entity("BuergerbusAPI.Models.Fahrten", b =>
                 {
+                    b.HasOne("BuergerbusAPI.Models.Benutzer", "AngelegtVonUser")
+                        .WithMany("AngelegteFahrten")
+                        .HasForeignKey("AngelegtVonUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("BuergerbusAPI.Models.Fahrer", "Fahrer")
                         .WithMany("Fahrten")
                         .HasForeignKey("FahrerId")
@@ -661,6 +668,8 @@ namespace BuergerbusAPI.Migrations
                         .HasForeignKey("InitiativeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("AngelegtVonUser");
 
                     b.Navigation("Fahrer");
 
@@ -758,6 +767,8 @@ namespace BuergerbusAPI.Migrations
 
             modelBuilder.Entity("BuergerbusAPI.Models.Benutzer", b =>
                 {
+                    b.Navigation("AngelegteFahrten");
+
                     b.Navigation("Benachrichtigungen");
 
                     b.Navigation("BenutzerRollen");

@@ -12,7 +12,8 @@
         public string? Bemerkung { get; set; }
         public string Status { get; set; }
         public DateTime AngelegtAm {  get; set; }
-        public string AngelegtVon { get; set; }
+        public int AngelegtVonUserId { get; set; }
+        public Benutzer AngelegtVonUser { get; set; } = null!;
 
        // 1..n - Fahrer..Fahrten
         public int? FahrerId { get; set; }

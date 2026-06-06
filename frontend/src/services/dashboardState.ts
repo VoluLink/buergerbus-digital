@@ -55,8 +55,6 @@ type BackendFahrtWriteDto = {
   fahrerId: number | null
   fahrzeugId: number | null
 
-  initiativeId: number  
-
   teilstrecken: Array<{
     abholadresse: string
     zieladresse: string
@@ -184,8 +182,6 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFah
 
   fahrerId: ride.fahrerId,
   fahrzeugId: null,
-
-  initiativeId: 1,
 
   teilstrecken: ride.passengers.map((p) => ({
     abholadresse: p.pickupAddress,
