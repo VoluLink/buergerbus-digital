@@ -36,7 +36,11 @@ public static class FahrtenEndpoints
                 .FirstOrDefaultAsync(f => f.Id == id);
 
             if (fahrt is null)
-                return Results.NotFound("Fahrt wurde nicht gefunden.");
+            return Results.NotFound("Fahrt wurde nicht gefunden.");
+
+            fahrt.Teilstrecken = fahrt.Teilstrecken
+                .OrderBy(t => t.Startzeit)
+                .ToList();
 
             return Results.Ok(FahrtenMapper.ToDto(fahrt));
         });

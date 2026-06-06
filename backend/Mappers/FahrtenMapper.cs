@@ -27,7 +27,10 @@ public static class FahrtenMapper
             f.FahrzeugId,
 
             f.InitiativeId,
-            f.Teilstrecken.Select(ToDto).ToList()
+            (f.Teilstrecken ?? new List<Teilstrecke>())
+                .OrderBy(t => t.Startzeit)
+                .Select(ToDto)
+                .ToList()
         );
     }
 
