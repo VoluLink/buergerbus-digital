@@ -1,15 +1,18 @@
 import { useState, type FormEvent } from 'react'
 import { Bus, ChevronLeft } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { requestPasswordReset } from '../services/passwordReset'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const neutralSuccessMessage = 'Falls ein Konto mit dieser E-Mail existiert, wurde eine E-Mail zum Zurücksetzen versendet.'
 
 function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     const trimmedEmail = email.trim().toLowerCase()
@@ -27,9 +30,16 @@ function ForgotPasswordPage() {
     }
 
     setError(null)
-    setSuccessMessage(
-      'Die Passwort-Zurücksetzung ist noch nicht aktiv. Die eingegebene E-Mail-Adresse wurde nur im Frontend geprüft.',
-    )
+    setIsSubmitting(true)
+
+    try {
+      await requestPasswordReset({ email: trimmedEmail })
+      setSuccessMessage(neutralSuccessMessage)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Passwort-Zurücksetzung konnte nicht angefordert werden.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -50,7 +60,7 @@ function ForgotPasswordPage() {
                   Passwort vergessen
                 </h1>
                 <p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">
-                  Aktuell gibt es noch keinen Versand von E-Mails und keine Backend-Anbindung.
+                  Wir senden dir einen sicheren Link zum Zurücksetzen deines Passworts.
                 </p>
               </div>
             </div>
@@ -95,9 +105,10 @@ function ForgotPasswordPage() {
 
               <button
                 type="submit"
+                disabled={isSubmitting}
                 className="w-full rounded-full bg-sky-600 px-6 py-4 text-base font-semibold text-white shadow-[0_18px_40px_rgba(2,132,199,0.15)] transition hover:bg-sky-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-200"
               >
-                Link anfordern
+                {isSubmitting ? 'Link wird angefordert...' : 'Link anfordern'}
               </button>
             </form>
 
