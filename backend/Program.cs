@@ -32,6 +32,18 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<IPasswordHasher<Benutzer>, PasswordHasher<Benutzer>>();
 builder.Services.AddScoped<JwtService>();
+builder.Services.AddSingleton(new EmailSettings
+{
+    SmtpHost = GetRequiredSetting(builder, "EMAIL_SMTP_HOST"),
+    SmtpPort = GetRequiredIntSetting(builder, "EMAIL_SMTP_PORT"),
+    Username = builder.Configuration["EMAIL_SMTP_USERNAME"] ?? string.Empty,
+    Password = builder.Configuration["EMAIL_SMTP_PASSWORD"] ?? string.Empty,
+    FromAddress = GetRequiredSetting(builder, "EMAIL_FROM_ADDRESS"),
+    FromName = GetRequiredSetting(builder, "EMAIL_FROM_NAME"),
+    UseSsl = GetRequiredBoolSetting(builder, "EMAIL_USE_SSL"),
+    FrontendUrl = GetRequiredSetting(builder, "FRONTEND_URL")
+});
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddControllers();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -236,4 +248,37 @@ static ServerVersion ResolveMySqlServerVersion()
     }
 
     return ServerVersion.Parse("11.0.0-mariadb");
+}
+
+static string GetRequiredSetting(WebApplicationBuilder builder, string key)
+{
+    var value = builder.Configuration[key] ?? Environment.GetEnvironmentVariable(key);
+    if (string.IsNullOrWhiteSpace(value))
+    {
+        throw new InvalidOperationException($"{key} is missing or invalid.");
+    }
+
+    return value.Trim();
+}
+
+static int GetRequiredIntSetting(WebApplicationBuilder builder, string key)
+{
+    var value = GetRequiredSetting(builder, key);
+    if (!int.TryParse(value, out var parsed) || parsed <= 0)
+    {
+        throw new InvalidOperationException($"{key} is missing or invalid.");
+    }
+
+    return parsed;
+}
+
+static bool GetRequiredBoolSetting(WebApplicationBuilder builder, string key)
+{
+    var value = GetRequiredSetting(builder, key);
+    if (!bool.TryParse(value, out var parsed))
+    {
+        throw new InvalidOperationException($"{key} is missing or invalid.");
+    }
+
+    return parsed;
 }

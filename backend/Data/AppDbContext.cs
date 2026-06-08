@@ -18,6 +18,7 @@ namespace BuergerbusAPI.Data
         public DbSet<Benutzer> Benutzer { get; set; }
         public DbSet<Rollen> Rollen { get; set; }
         public DbSet<BenutzerRolle> BenutzerRollen { get; set; }
+        public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
 
         // Fahrten-System
         public DbSet<Fahrten> Fahrten { get; set; }
@@ -163,6 +164,16 @@ namespace BuergerbusAPI.Data
                 .HasOne(b => b.Initiative)
                 .WithMany(i => i.Benutzer)
                 .HasForeignKey(b => b.InitiativeId);
+
+            modelBuilder.Entity<PasswordResetToken>()
+                .HasOne(t => t.Benutzer)
+                .WithMany(b => b.PasswordResetTokens)
+                .HasForeignKey(t => t.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PasswordResetToken>()
+                .HasIndex(t => t.TokenHash)
+                .IsUnique();
 
             // Initiative -> Fahrten (1:n)
 

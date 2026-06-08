@@ -42,5 +42,7 @@ namespace BuergerbusAPI.Models
         public Fahrer? Fahrer { get; set; }
 
         public List<Fahrten> AngelegteFahrten { get; set; } = new();
+
+        public List<PasswordResetToken> PasswordResetTokens { get; set; } = new();
     }
 }

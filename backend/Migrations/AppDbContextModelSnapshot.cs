@@ -418,6 +418,40 @@ namespace BuergerbusAPI.Migrations
                     b.ToTable("Loeschfristen");
                 });
 
+            modelBuilder.Entity("BuergerbusAPI.Models.PasswordResetToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PasswordResetTokens");
+                });
+
             modelBuilder.Entity("BuergerbusAPI.Models.Rollen", b =>
                 {
                     b.Property<int>("Id")
@@ -708,6 +742,17 @@ namespace BuergerbusAPI.Migrations
                     b.Navigation("Initiative");
                 });
 
+            modelBuilder.Entity("BuergerbusAPI.Models.PasswordResetToken", b =>
+                {
+                    b.HasOne("BuergerbusAPI.Models.Benutzer", "Benutzer")
+                        .WithMany("PasswordResetTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Benutzer");
+                });
+
             modelBuilder.Entity("BuergerbusAPI.Models.Schaden", b =>
                 {
                     b.HasOne("BuergerbusAPI.Models.Fahrzeug", "Fahrzeug")
@@ -774,6 +819,8 @@ namespace BuergerbusAPI.Migrations
                     b.Navigation("BenutzerRollen");
 
                     b.Navigation("Fahrer");
+
+                    b.Navigation("PasswordResetTokens");
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.Fahrer", b =>
