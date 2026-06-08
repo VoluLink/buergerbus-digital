@@ -2,11 +2,15 @@ export type NotificationType = 'GeneralInfo' | 'SystemMaintenance' | 'VehicleMai
 
 export type NotificationRecipientGroup = 'All' | 'Admins' | 'Disponents' | 'Drivers'
 
+export type NotificationRecipientRole = 'Admin' | 'Disponent' | 'Fahrer'
+
 export interface SendNotificationRequest {
-  recipientGroup: NotificationRecipientGroup
   subject: string
   message: string
   type: NotificationType
+  initiativeIds: number[]
+  roles: NotificationRecipientRole[]
+  recipientGroup?: NotificationRecipientGroup
 }
 
 export interface NotificationSendResult {

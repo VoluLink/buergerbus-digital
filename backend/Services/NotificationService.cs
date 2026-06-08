@@ -23,6 +23,9 @@ public class NotificationService : INotificationService
     private const string GroupAdmins = "Admins";
     private const string GroupDisponents = "Disponents";
     private const string GroupDrivers = "Drivers";
+    private const string RoleAdmin = "Admin";
+    private const string RoleDisponent = "Disponent";
+    private const string RoleDriver = "Fahrer";
 
     private readonly AppDbContext _db;
     private readonly IEmailService _emailService;
@@ -54,9 +57,11 @@ public class NotificationService : INotificationService
         var subject = request.Subject.Trim();
         var message = request.Message.Trim();
         var type = request.Type.Trim();
-        var recipientGroup = NormalizeGroup(request.RecipientGroup);
+        var initiativeIds = NormalizeInitiativeIds(request.InitiativeIds);
+        var roles = NormalizeRoles(request.Roles, request.RecipientGroup);
+        var recipientGroup = await BuildRecipientGroupLabelAsync(initiativeIds, roles, request.RecipientGroup);
 
-        var recipients = await ResolveRecipientsAsync(recipientGroup, request.RecipientUserIds);
+        var recipients = await ResolveRecipientsAsync(initiativeIds, roles, request.RecipientUserIds);
         if (recipients.Count == 0)
         {
             throw new InvalidOperationException("Keine Empfänger gefunden.");
@@ -225,23 +230,27 @@ public class NotificationService : INotificationService
                 .ToList());
     }
 
-    private async Task<List<Benutzer>> ResolveRecipientsAsync(string recipientGroup, List<int>? recipientUserIds)
+    private async Task<List<Benutzer>> ResolveRecipientsAsync(List<int> initiativeIds, List<string> roles, List<int>? recipientUserIds)
     {
         var users = await _db.Benutzer
             .AsNoTracking()
+            .Include(user => user.Initiative)
             .Include(user => user.BenutzerRollen)
                 .ThenInclude(userRole => userRole.Rolle)
             .Where(user => user.Aktiv)
             .ToListAsync();
 
-        var filtered = recipientGroup switch
+        var filtered = users.AsEnumerable();
+
+        if (initiativeIds.Count > 0)
         {
-            GroupAll => users,
-            GroupAdmins => users.Where(user => HasRole(user, "Admin")).ToList(),
-            GroupDisponents => users.Where(user => HasRole(user, "Disponent")).ToList(),
-            GroupDrivers => users.Where(user => HasRole(user, "Fahrer")).ToList(),
-            _ => throw new InvalidOperationException("Empfängergruppe ist ungültig.")
-        };
+            filtered = filtered.Where(user => initiativeIds.Contains(user.InitiativeId));
+        }
+
+        if (roles.Count > 0)
+        {
+            filtered = filtered.Where(user => roles.Any(role => HasRole(user, role)));
+        }
 
         if (recipientUserIds is { Count: > 0 })
         {
@@ -253,7 +262,7 @@ public class NotificationService : INotificationService
                 .ToList();
         }
 
-        return filtered;
+        return filtered.ToList();
     }
 
     private static bool HasRole(Benutzer user, string roleName)
@@ -262,24 +271,117 @@ public class NotificationService : INotificationService
             string.Equals(userRole.Rolle?.Rollenname, roleName, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static string NormalizeGroup(string recipientGroup)
+    private static List<int> NormalizeInitiativeIds(List<int>? initiativeIds)
     {
-        var normalized = recipientGroup.Trim();
-        if (!string.Equals(normalized, GroupAll, StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(normalized, GroupAdmins, StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(normalized, GroupDisponents, StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(normalized, GroupDrivers, StringComparison.OrdinalIgnoreCase))
+        return initiativeIds is { Count: > 0 }
+            ? initiativeIds.Where(id => id > 0).Distinct().ToList()
+            : new List<int>();
+    }
+
+    private static List<string> NormalizeRoles(List<string>? roles, string? legacyRecipientGroup)
+    {
+        var normalizedRoles = (roles ?? new List<string>())
+            .Select(NormalizeRole)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (normalizedRoles.Count > 0)
         {
-            throw new InvalidOperationException("Empfängergruppe ist ungültig.");
+            return normalizedRoles;
         }
 
-        return normalized switch
+        if (string.IsNullOrWhiteSpace(legacyRecipientGroup))
         {
-            var value when string.Equals(value, GroupAll, StringComparison.OrdinalIgnoreCase) => GroupAll,
-            var value when string.Equals(value, GroupAdmins, StringComparison.OrdinalIgnoreCase) => GroupAdmins,
-            var value when string.Equals(value, GroupDisponents, StringComparison.OrdinalIgnoreCase) => GroupDisponents,
-            var value when string.Equals(value, GroupDrivers, StringComparison.OrdinalIgnoreCase) => GroupDrivers,
-            _ => GroupAll,
+            return normalizedRoles;
+        }
+
+        return NormalizeLegacyGroupToRoles(legacyRecipientGroup);
+    }
+
+    private static string NormalizeRole(string roleName)
+    {
+        var normalized = roleName.Trim();
+
+        return normalized.ToLowerInvariant() switch
+        {
+            "admin" or "admins" => RoleAdmin,
+            "disponent" or "disponenten" or "disponents" => RoleDisponent,
+            "fahrer" or "drivers" => RoleDriver,
+            _ => throw new InvalidOperationException("Rolle ist ungültig."),
+        };
+    }
+
+    private static List<string> NormalizeLegacyGroupToRoles(string legacyRecipientGroup)
+    {
+        var normalized = legacyRecipientGroup.Trim();
+
+        if (string.Equals(normalized, GroupAll, StringComparison.OrdinalIgnoreCase))
+        {
+            return new List<string>();
+        }
+
+        if (string.Equals(normalized, GroupAdmins, StringComparison.OrdinalIgnoreCase))
+        {
+            return new List<string> { RoleAdmin };
+        }
+
+        if (string.Equals(normalized, GroupDisponents, StringComparison.OrdinalIgnoreCase))
+        {
+            return new List<string> { RoleDisponent };
+        }
+
+        if (string.Equals(normalized, GroupDrivers, StringComparison.OrdinalIgnoreCase))
+        {
+            return new List<string> { RoleDriver };
+        }
+
+        throw new InvalidOperationException("Empfängergruppe ist ungültig.");
+    }
+
+    private async Task<string> BuildRecipientGroupLabelAsync(List<int> initiativeIds, List<string> roles, string? legacyRecipientGroup)
+    {
+        var initiativeLabel = initiativeIds.Count == 0
+            ? "Alle Initiativen"
+            : string.Join(", ", await _db.Initiativen
+                .AsNoTracking()
+                .Where(initiative => initiativeIds.Contains(initiative.Id))
+                .OrderBy(initiative => initiative.Name)
+                .Select(initiative => initiative.Name)
+                .ToListAsync());
+
+        var roleLabel = roles.Count == 0
+            ? "Alle Rollen"
+            : string.Join(", ", roles.Select(GetRoleLabel));
+
+        if (initiativeIds.Count == 0 && roles.Count == 0 && !string.IsNullOrWhiteSpace(legacyRecipientGroup))
+        {
+            return $"Filter: Initiative {initiativeLabel}, Rolle {GetLegacyGroupLabel(legacyRecipientGroup)}";
+        }
+
+        return $"Filter: Initiative {initiativeLabel}, Rolle {roleLabel}";
+    }
+
+    private static string GetRoleLabel(string roleName)
+    {
+        return roleName switch
+        {
+            RoleAdmin => "Admins",
+            RoleDisponent => "Disponenten",
+            RoleDriver => "Fahrer",
+            _ => roleName,
+        };
+    }
+
+    private static string GetLegacyGroupLabel(string recipientGroup)
+    {
+        return recipientGroup.Trim() switch
+        {
+            var value when string.Equals(value, GroupAll, StringComparison.OrdinalIgnoreCase) => "Alle Rollen",
+            var value when string.Equals(value, GroupAdmins, StringComparison.OrdinalIgnoreCase) => "Admins",
+            var value when string.Equals(value, GroupDisponents, StringComparison.OrdinalIgnoreCase) => "Disponenten",
+            var value when string.Equals(value, GroupDrivers, StringComparison.OrdinalIgnoreCase) => "Fahrer",
+            _ => recipientGroup.Trim(),
         };
     }
 

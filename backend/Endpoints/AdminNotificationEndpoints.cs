@@ -15,7 +15,6 @@ public static class AdminNotificationEndpoints
         {
             var subject = request.Subject?.Trim();
             var message = request.Message?.Trim();
-            var recipientGroup = request.RecipientGroup?.Trim();
             var type = request.Type?.Trim();
 
             if (string.IsNullOrWhiteSpace(subject))
@@ -26,11 +25,6 @@ public static class AdminNotificationEndpoints
             if (string.IsNullOrWhiteSpace(message))
             {
                 return Results.BadRequest("Nachricht ist erforderlich.");
-            }
-
-            if (string.IsNullOrWhiteSpace(recipientGroup))
-            {
-                return Results.BadRequest("Empfängergruppe ist erforderlich.");
             }
 
             if (string.IsNullOrWhiteSpace(type))
@@ -51,7 +45,6 @@ public static class AdminNotificationEndpoints
                     {
                         Subject = subject,
                         Message = message,
-                        RecipientGroup = recipientGroup,
                         Type = type,
                     },
                     currentUserId);

@@ -1,10 +1,12 @@
 namespace BuergerbusAPI.DTOs;
 
 public record SendBroadcastNotificationRequest(
-    string RecipientGroup,
     string Subject,
     string Message,
     string Type,
+    List<int>? InitiativeIds = null,
+    List<string>? Roles = null,
+    string? RecipientGroup = null,
     List<int>? RecipientUserIds = null
 );
 

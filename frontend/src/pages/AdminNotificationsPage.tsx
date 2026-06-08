@@ -1,18 +1,22 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Bell, ChevronLeft, LoaderCircle, Mail, Send } from 'lucide-react'
+import { ChevronLeft, LoaderCircle, Mail, Send } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
+import { getInitiativen } from '../services/initiativeApi'
 import {
   getNotificationDetails,
   getNotifications,
   sendNotification,
 } from '../services/notifications'
+import { getUsers } from '../services/users'
+import type { Initiative } from '../types/Initiative'
 import type {
   NotificationDetails,
-  NotificationRecipientGroup,
   NotificationSummary,
   NotificationType,
+  NotificationRecipientRole,
 } from '../types/Notifications'
+import type { UserSummary } from '../types/UserProfile'
 
 const notificationTypeOptions: Array<{ value: NotificationType; label: string; description: string }> = [
   { value: 'GeneralInfo', label: 'Allgemeine Information', description: 'Normale Systemnachricht an ausgewählte Nutzergruppen.' },
@@ -20,12 +24,23 @@ const notificationTypeOptions: Array<{ value: NotificationType; label: string; d
   { value: 'VehicleMaintenance', label: 'Fahrzeugwartung', description: 'Hinweis zu Wartung oder technischem Fahrzeugstatus.' },
 ]
 
-const recipientGroupOptions: Array<{ value: NotificationRecipientGroup; label: string; description: string }> = [
-  { value: 'All', label: 'Alle aktiven Nutzer', description: 'Senden an alle aktiven Konten.' },
-  { value: 'Admins', label: 'Admins', description: 'Nur Benutzer mit Admin-Rolle.' },
-  { value: 'Disponents', label: 'Disponenten', description: 'Nur Benutzer mit Disponenten-Rolle.' },
-  { value: 'Drivers', label: 'Fahrer', description: 'Nur Benutzer mit Fahrer-Rolle.' },
+const recipientRoleOptions: Array<{ value: NotificationRecipientRole; label: string; description: string }> = [
+  { value: 'Admin', label: 'Admins', description: 'Nur Benutzer mit Admin-Rolle.' },
+  { value: 'Disponent', label: 'Disponenten', description: 'Nur Benutzer mit Disponenten-Rolle.' },
+  { value: 'Fahrer', label: 'Fahrer', description: 'Nur Benutzer mit Fahrer-Rolle.' },
 ]
+
+const selectAllValue = 'all'
+
+function normalizeSelection(values: string[]) {
+  const uniqueValues = Array.from(new Set(values.filter(Boolean)))
+
+  if (uniqueValues.length === 0 || uniqueValues.includes(selectAllValue)) {
+    return [selectAllValue]
+  }
+
+  return uniqueValues
+}
 
 function formatDate(value: string | null | undefined) {
   if (!value) {
@@ -59,18 +74,83 @@ function getStatusClass(status: string) {
 function AdminNotificationsPage() {
   const { isAdmin } = useRoleVisibility()
   const [type, setType] = useState<NotificationType>('GeneralInfo')
-  const [recipientGroup, setRecipientGroup] = useState<NotificationRecipientGroup>('All')
+  const [selectedInitiativeValues, setSelectedInitiativeValues] = useState<string[]>([selectAllValue])
+  const [selectedRoleValues, setSelectedRoleValues] = useState<string[]>([selectAllValue])
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitMessage, setSubmitMessage] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [initiatives, setInitiatives] = useState<Initiative[]>([])
+  const [previewUsers, setPreviewUsers] = useState<UserSummary[]>([])
+  const [isLoadingFilterData, setIsLoadingFilterData] = useState(true)
+  const [filterDataError, setFilterDataError] = useState<string | null>(null)
   const [notifications, setNotifications] = useState<NotificationSummary[]>([])
   const [selectedNotificationId, setSelectedNotificationId] = useState<string | null>(null)
   const [selectedNotification, setSelectedNotification] = useState<NotificationDetails | null>(null)
   const [isLoadingHistory, setIsLoadingHistory] = useState(true)
   const [isLoadingDetails, setIsLoadingDetails] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
+
+  const selectedInitiativeIds = useMemo(
+    () => (selectedInitiativeValues.includes(selectAllValue)
+      ? []
+      : selectedInitiativeValues.map((value) => Number(value)).filter((value) => Number.isFinite(value))),
+    [selectedInitiativeValues],
+  )
+
+  const selectedRoles = useMemo(
+    () => (selectedRoleValues.includes(selectAllValue)
+      ? []
+      : selectedRoleValues.filter((value) => value !== selectAllValue) as NotificationRecipientRole[]),
+    [selectedRoleValues],
+  )
+
+  const selectedInitiativeLabels = useMemo(() => {
+    if (selectedInitiativeIds.length === 0) {
+      return ['Alle Initiativen']
+    }
+
+    return selectedInitiativeIds
+      .map((initiativeId) => initiatives.find((initiative) => initiative.id === initiativeId)?.name)
+      .filter((value): value is string => Boolean(value))
+  }, [initiatives, selectedInitiativeIds])
+
+  const selectedRoleLabels = useMemo(() => {
+    if (selectedRoles.length === 0) {
+      return ['Alle Rollen']
+    }
+
+    return selectedRoles.map((role) => {
+      const option = recipientRoleOptions.find((entry) => entry.value === role)
+      return option?.label ?? role
+    })
+  }, [selectedRoles])
+
+  const previewLabel = useMemo(() => {
+    return `Filter: Initiative ${selectedInitiativeLabels.join(', ')}, Rolle ${selectedRoleLabels.join(', ')}`
+  }, [selectedInitiativeLabels, selectedRoleLabels])
+
+  const previewCount = useMemo(() => {
+    return previewUsers.filter((user) => {
+      if (!user.isActive) {
+        return false
+      }
+
+      const matchesInitiative = selectedInitiativeIds.length === 0
+        || (user.initiative?.id != null && selectedInitiativeIds.includes(user.initiative.id))
+
+      if (!matchesInitiative) {
+        return false
+      }
+
+      if (selectedRoles.length === 0) {
+        return true
+      }
+
+      return user.roles.some((role) => selectedRoles.some((selectedRole) => role.toLowerCase() === selectedRole.toLowerCase()))
+    }).length
+  }, [previewUsers, selectedInitiativeIds, selectedRoles])
 
   const selectedSummary = useMemo(
     () => notifications.find((notification) => notification.id === selectedNotificationId) ?? null,
@@ -79,6 +159,37 @@ function AdminNotificationsPage() {
 
   useEffect(() => {
     let isCancelled = false
+
+    async function loadFilterData() {
+      setIsLoadingFilterData(true)
+      setFilterDataError(null)
+
+      try {
+        const [loadedInitiatives, firstPage] = await Promise.all([
+          getInitiativen(),
+          getUsers(1, 100),
+        ])
+
+        const loadedUsers = [...firstPage.items]
+        for (let page = 2; page <= firstPage.totalPages; page += 1) {
+          const nextPage = await getUsers(page, 100)
+          loadedUsers.push(...nextPage.items)
+        }
+
+        if (!isCancelled) {
+          setInitiatives(loadedInitiatives)
+          setPreviewUsers(loadedUsers)
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          setFilterDataError(error instanceof Error ? error.message : 'Filterdaten konnten nicht geladen werden.')
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingFilterData(false)
+        }
+      }
+    }
 
     async function loadNotifications() {
       setIsLoadingHistory(true)
@@ -101,6 +212,7 @@ function AdminNotificationsPage() {
       }
     }
 
+    void loadFilterData()
     void loadNotifications()
 
     return () => {
@@ -165,10 +277,11 @@ function AdminNotificationsPage() {
 
     try {
       const result = await sendNotification({
-        recipientGroup,
         subject: trimmedSubject,
         message: trimmedMessage,
         type,
+        initiativeIds: selectedInitiativeIds,
+        roles: selectedRoles,
       })
 
       const nextMessage = result.status === 'Sent'
@@ -213,7 +326,7 @@ function AdminNotificationsPage() {
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0053a0]">Adminbereich</p>
                 <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Benachrichtigungen</h1>
-                <p className="mt-3 text-sm leading-6 text-slate-500">Rundmails an Nutzergruppen senden und Versandstatus nachvollziehen.</p>
+                <p className="mt-3 text-sm leading-6 text-slate-500">Rundmails mit Initiative- und Rollenfiltern senden und Versandstatus nachvollziehen.</p>
               </div>
 
               <Link
@@ -255,44 +368,69 @@ function AdminNotificationsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700" htmlFor="recipient-group">Empfängergruppe</label>
+                    <label className="text-sm font-medium text-slate-700" htmlFor="initiative-filter">Initiative(n)</label>
                     <select
-                      id="recipient-group"
-                      value={recipientGroup}
-                      onChange={(event) => setRecipientGroup(event.target.value as NotificationRecipientGroup)}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/10"
+                      id="initiative-filter"
+                      multiple
+                      value={selectedInitiativeValues}
+                      onChange={(event) => setSelectedInitiativeValues(normalizeSelection(Array.from(event.currentTarget.selectedOptions, (option) => option.value)))}
+                      className="min-h-[10rem] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/10"
                     >
-                      {recipientGroupOptions.map((option) => (
+                      <option value={selectAllValue}>Alle Initiativen</option>
+                      {initiatives.map((initiative) => (
+                        <option key={initiative.id} value={String(initiative.id)}>{initiative.name}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500">Mehrfachauswahl mit Strg/Cmd möglich. Leer bzw. „Alle Initiativen“ sendet an alle Initiativen.</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700" htmlFor="recipient-roles">Rolle(n)</label>
+                    <select
+                      id="recipient-roles"
+                      multiple
+                      value={selectedRoleValues}
+                      onChange={(event) => setSelectedRoleValues(normalizeSelection(Array.from(event.currentTarget.selectedOptions, (option) => option.value)))}
+                      className="min-h-[9rem] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/10"
+                    >
+                      <option value={selectAllValue}>Alle Rollen / Alle aktiven Nutzer</option>
+                      {recipientRoleOptions.map((option) => (
                         <option key={option.value} value={option.value}>{option.label}</option>
                       ))}
                     </select>
+                    <p className="text-xs text-slate-500">Mehrfachauswahl mit Strg/Cmd möglich. Leer bzw. „Alle Rollen“ sendet an alle aktiven Nutzer.</p>
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700" htmlFor="subject">Betreff</label>
-                    <input
-                      id="subject"
-                      value={subject}
-                      onChange={(event) => setSubject(event.target.value)}
-                      placeholder="z. B. Geplante Wartung"
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/10"
+                <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                    <Mail className="h-4 w-4 text-slate-500" aria-hidden="true" />
+                    Empfängervorschau
+                  </div>
+                  {isLoadingFilterData ? (
+                    <p className="text-sm text-slate-500">Filterdaten werden geladen...</p>
+                  ) : filterDataError ? (
+                    <p className="text-sm text-rose-700">{filterDataError}</p>
+                  ) : (
+                    <>
+                      <p className="text-sm text-slate-700">Voraussichtliche Empfänger: {previewCount}</p>
+                      <p className="text-xs text-slate-500">{previewLabel}</p>
+                    </>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700" htmlFor="subject">Betreff</label>
+                  <input
+                    id="subject"
+                    value={subject}
+                    onChange={(event) => setSubject(event.target.value)}
+                    placeholder="z. B. Geplante Wartung"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/10"
                     />
                   </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                      <Mail className="h-4 w-4 text-slate-500" aria-hidden="true" />
-                      Vorschau-Hinweise
-                    </div>
-                    <ul className="mt-2 space-y-1 text-sm text-slate-600">
-                      <li>Betreff und Nachricht werden 1:1 per SMTP versendet.</li>
-                      <li>Jeder Empfänger erhält eine eigene E-Mail.</li>
-                      <li>Versandstatus wird in der Datenbank protokolliert.</li>
-                    </ul>
-                  </div>
-                </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700" htmlFor="message">Nachricht</label>
