@@ -15,22 +15,40 @@ import {
 } from '../services/users'
 import type { InitiativeSummary, RoleSummary, UserSummary } from '../types/UserProfile'
 
-function getRoleActiveClass(roleName: string) {
+function getRoleSelectedClass(roleName: string) {
   const normalized = roleName.toLowerCase()
 
   if (normalized === 'admin') {
-    return 'bg-[#0053a0] text-white'
+    return 'border-[#0053a0] bg-[#0053a0] text-white'
   }
 
   if (normalized === 'disponent') {
-    return 'bg-amber-500 text-white'
+    return 'border-amber-500 bg-amber-500 text-white'
   }
 
   if (normalized === 'fahrer') {
-    return 'bg-emerald-600 text-white'
+    return 'border-emerald-600 bg-emerald-600 text-white'
   }
 
-  return 'bg-slate-800 text-white'
+  return 'border-slate-800 bg-slate-800 text-white'
+}
+
+function getRoleInactiveClass(roleName: string) {
+  const normalized = roleName.toLowerCase()
+
+  if (normalized === 'admin') {
+    return 'border-[#0053a0]/30 bg-white text-[#0053a0] hover:bg-[#0053a0]/5'
+  }
+
+  if (normalized === 'disponent') {
+    return 'border-amber-300 bg-white text-amber-700 hover:bg-amber-50'
+  }
+
+  if (normalized === 'fahrer') {
+    return 'border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50'
+  }
+
+  return 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
 }
 
 function RollenverteilungPage() {
@@ -517,22 +535,19 @@ function RollenverteilungPage() {
                           {roles.length === 0 ? (
                             <span className="text-xs text-slate-400">Keine Rollen verfügbar</span>
                           ) : roles.map((role) => {
-                            const normalizedRole = role.name.toLowerCase()
-                            const isSelected = user.roles.map((entry) => entry.toLowerCase()).includes(normalizedRole)
-                            const isActive = user.activeRole?.toLowerCase() === normalizedRole
-
+                                const normalizedRole = role.name.toLowerCase()
+                                const selectedRoleNames = user.roles.map((entry) => entry.toLowerCase())
+                                const isSelected = selectedRoleNames.includes(normalizedRole)
                             return (
                               <button
                                 key={role.id}
                                 type="button"
                                 onClick={() => toggleRole(user.id, role.name)}
                                 disabled={!canManageRoleAssignments || savingUserId === user.id}
-                                className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition ${
-                                  isActive
-                                    ? `${getRoleActiveClass(role.name)} ring-2 ring-offset-2 ring-slate-200`
-                                    : isSelected
-                                      ? 'border border-[#0053a0] bg-[#0053a0] text-white'
-                                    : 'border border-slate-300 bg-white text-slate-500 hover:bg-slate-50'
+                                className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0053a0]/20 disabled:opacity-60 ${
+                                  isSelected
+                                    ? getRoleSelectedClass(role.name)
+                                    : getRoleInactiveClass(role.name)
                                 }`}
                               >
                                 {role.name}
