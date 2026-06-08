@@ -418,6 +418,87 @@ namespace BuergerbusAPI.Migrations
                     b.ToTable("Loeschfristen");
                 });
 
+            modelBuilder.Entity("BuergerbusAPI.Models.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("RecipientGroup")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("BuergerbusAPI.Models.NotificationRecipient", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("NotificationId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NotificationId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("NotificationRecipients");
+                });
+
             modelBuilder.Entity("BuergerbusAPI.Models.PasswordResetToken", b =>
                 {
                     b.Property<int>("Id")
@@ -742,6 +823,17 @@ namespace BuergerbusAPI.Migrations
                     b.Navigation("Initiative");
                 });
 
+            modelBuilder.Entity("BuergerbusAPI.Models.NotificationRecipient", b =>
+                {
+                    b.HasOne("BuergerbusAPI.Models.Notification", "Notification")
+                        .WithMany("Recipients")
+                        .HasForeignKey("NotificationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Notification");
+                });
+
             modelBuilder.Entity("BuergerbusAPI.Models.PasswordResetToken", b =>
                 {
                     b.HasOne("BuergerbusAPI.Models.Benutzer", "Benutzer")
@@ -870,6 +962,11 @@ namespace BuergerbusAPI.Migrations
                     b.Navigation("Schaeden");
 
                     b.Navigation("Wartungen");
+                });
+
+            modelBuilder.Entity("BuergerbusAPI.Models.Notification", b =>
+                {
+                    b.Navigation("Recipients");
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.Rollen", b =>

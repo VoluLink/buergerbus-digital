@@ -32,6 +32,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<IPasswordHasher<Benutzer>, PasswordHasher<Benutzer>>();
 builder.Services.AddScoped<JwtService>();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(new EmailSettings
 {
     SmtpHost = GetRequiredSetting(builder, "EMAIL_SMTP_HOST"),
@@ -44,6 +45,7 @@ builder.Services.AddSingleton(new EmailSettings
     FrontendUrl = GetRequiredSetting(builder, "FRONTEND_URL")
 });
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddControllers();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -156,6 +158,7 @@ app.UseAuthorization();
 
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
+app.MapAdminNotificationEndpoints();
 app.MapRoleEndpoints();
 app.MapInitiativeEndpoints();
 app.MapFahrzeugServiceEndpoints();

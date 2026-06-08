@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleUserRound,
+  Bell,
   MapPin,
   Menu,
   Plus,
@@ -280,7 +281,7 @@ function createInitialRideForms() {
 function DashboardPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
-  const { canManageDataCrud, isDisponent, isFahrer, isGast } = useRoleVisibility()
+  const { canManageDataCrud, isAdmin, isDisponent, isFahrer, isGast } = useRoleVisibility()
   const isRideCrudRestricted = !canManageDataCrud
   const visibleTopFilters = isDisponent
     ? topFilters.filter((filter) => filter !== 'Meine Fahrten')
@@ -1162,6 +1163,17 @@ setCalendarRides((currentRides) =>
               >
                 <ChevronRight className="h-4 w-4" aria-hidden="true" />
               </button>
+
+              {isAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => navigate('/admin/benachrichtigungen')}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-[#0053a0]/20 bg-[#0053a0]/5 px-4 py-2.5 text-sm font-semibold text-[#0053a0] transition hover:bg-[#0053a0]/10"
+                >
+                  <Bell className="h-4 w-4" aria-hidden="true" />
+                  Benachrichtigungen
+                </button>
+              ) : null}
 
               {!isRideCrudRestricted ? (
                 <button
