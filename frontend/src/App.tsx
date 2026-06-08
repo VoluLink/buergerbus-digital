@@ -4,6 +4,7 @@ import DashboardPage from './pages/DashboardPage'
 import LoginPage from './pages/LoginPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import AdminNotificationsPage from './pages/AdminNotificationsPage'
 import ProfilePage from './pages/ProfilePage'
 import FahrerinfosPage from './pages/FahrerinfosPage'
 import FahrzeuginfosPage from './pages/FahrzeuginfosPage'
@@ -19,6 +20,7 @@ function App() {
       <Route path="/passwort-vergessen" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route element={<ProtectedRoute />}>
+        <Route path="/admin/benachrichtigungen" element={<AdminNotificationsPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profil" element={<ProfilePage />} />
         <Route path="/users/:id/profile" element={<UserProfilePage />} />

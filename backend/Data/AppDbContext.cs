@@ -19,6 +19,8 @@ namespace BuergerbusAPI.Data
         public DbSet<Rollen> Rollen { get; set; }
         public DbSet<BenutzerRolle> BenutzerRollen { get; set; }
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
+        public DbSet<NotificationRecipient> NotificationRecipients { get; set; }
 
         // Fahrten-System
         public DbSet<Fahrten> Fahrten { get; set; }
@@ -173,6 +175,16 @@ namespace BuergerbusAPI.Data
 
             modelBuilder.Entity<PasswordResetToken>()
                 .HasIndex(t => t.TokenHash)
+                .IsUnique();
+
+            modelBuilder.Entity<Notification>()
+                .HasMany(n => n.Recipients)
+                .WithOne(r => r.Notification)
+                .HasForeignKey(r => r.NotificationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<NotificationRecipient>()
+                .HasIndex(r => new { r.NotificationId, r.UserId })
                 .IsUnique();
 
             // Initiative -> Fahrten (1:n)

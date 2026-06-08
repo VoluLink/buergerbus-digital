@@ -35,9 +35,13 @@ public static class UserEndpoints
         app.MapPost("/api/v1/benutzer", async (
             CreateBenutzerRequest request,
             AppDbContext db,
-            IPasswordHasher<Benutzer> passwordHasher
+            IPasswordHasher<Benutzer> passwordHasher,
+            INotificationService notificationService,
+            ILoggerFactory loggerFactory
         ) =>
         {
+            var logger = loggerFactory.CreateLogger("UserEndpoints");
+
             if (string.IsNullOrWhiteSpace(request.Name))
             {
                 return Results.BadRequest("Name ist erforderlich.");
@@ -145,6 +149,15 @@ public static class UserEndpoints
                 });
             }
 
+            var inviteToken = PasswordResetTokenHelper.GenerateToken();
+            db.PasswordResetTokens.Add(new PasswordResetToken
+            {
+                UserId = user.Id,
+                TokenHash = PasswordResetTokenHelper.HashToken(inviteToken),
+                ExpiresAt = DateTime.UtcNow.AddMinutes(60),
+                CreatedAt = DateTime.UtcNow,
+            });
+
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
 
@@ -158,6 +171,15 @@ public static class UserEndpoints
             if (loadedUser is null)
             {
                 return Results.Problem("Benutzer wurde angelegt, konnte aber nicht geladen werden.");
+            }
+
+            try
+            {
+                await notificationService.SendUserCreatedEmailAsync(loadedUser, inviteToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Einladungs-E-Mail für Benutzer {UserId} konnte nicht versendet werden.", loadedUser.Id);
             }
 
             return Results.Created($"/api/v1/users/{loadedUser.Id}", UserMapper.CreateUserProfile(loadedUser));
