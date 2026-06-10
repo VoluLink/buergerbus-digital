@@ -270,6 +270,9 @@ namespace BuergerbusAPI.Migrations
                     b.Property<DateTime>("Datum")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<DateTime?>("DatumBis")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<DateTime?>("Endzeit")
                         .HasColumnType("datetime(6)");
 

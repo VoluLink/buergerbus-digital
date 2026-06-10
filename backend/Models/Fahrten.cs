@@ -29,5 +29,8 @@
 
         //Liste für FahrtFahrgaste
         public List<Teilstrecke> Teilstrecken { get; set; } = new();
+
+        // für Vermietung
+        public DateTime? DatumBis {get; set;}
     }
 }
