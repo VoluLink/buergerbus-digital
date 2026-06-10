@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router-dom'
 import type { FahrerListItem } from '../types/FahrerListItem'
 import { getAllFahrer } from '../services/fahrerList'
 import UserMenuButton from '../components/UserMenuButton'
+import { useRoleVisibility } from '../hooks/useRoleVisibility'
 
 function FahrerinfosPage() {
   const navigate = useNavigate()
+  const { canManageInitiatives } = useRoleVisibility()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [drivers, setDrivers] = useState<FahrerListItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -178,14 +180,16 @@ function FahrerinfosPage() {
                 Fahrgastinfos
               </button>
 
-              <button
-                type="button"
-                onClick={() => goToPage('/initiativen')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <Bus className="h-5 w-5" aria-hidden="true" />
-                Initiativen
-              </button>
+              {canManageInitiatives ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/initiativen')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <Bus className="h-5 w-5" aria-hidden="true" />
+                  Initiativen
+                </button>
+              ) : null}
 
               <button
                 type="button"

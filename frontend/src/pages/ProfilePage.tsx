@@ -45,7 +45,7 @@ function formatRoleLabel(role: string) {
 function ProfilePage() {
   const navigate = useNavigate()
   const { currentUser, isLoading, error, refreshProfile } = useAuth()
-  const { isDisponent, isFahrer } = useRoleVisibility()
+  const { canManageInitiatives, isFahrer } = useRoleVisibility()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isAccountActive, setIsAccountActive] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -583,7 +583,7 @@ function ProfilePage() {
                 </button>
               ) : null}
 
-              {!isFahrer ? (
+              {canManageInitiatives ? (
                 <button
                   type="button"
                   onClick={() => goToPage('/initiativen')}
@@ -594,7 +594,7 @@ function ProfilePage() {
                 </button>
               ) : null}
 
-              {!isDisponent && !isFahrer ? (
+              {!isFahrer ? (
                 <button
                   type="button"
                   onClick={() => goToPage('/rollenverteilung')}

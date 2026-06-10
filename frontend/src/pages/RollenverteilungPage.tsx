@@ -54,7 +54,8 @@ function getRoleInactiveClass(roleName: string) {
 function RollenverteilungPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
-  const { canManageRoleAssignments, isAdmin, isDisponent, isFahrer } = useRoleVisibility()
+  const { canManageInitiatives, canManageRoleAssignments, isAdmin, isDisponent, isFahrer } = useRoleVisibility()
+  const currentInitiativeId = currentUser?.initiative?.id ?? null
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -168,7 +169,7 @@ function RollenverteilungPage() {
 
     setCreateForm({
       roleId: '',
-      initiativeId: '',
+      initiativeId: isDisponent && currentInitiativeId != null ? String(currentInitiativeId) : '',
       name: '',
       email: '',
       password: '',
@@ -299,6 +300,7 @@ function RollenverteilungPage() {
   const allowedRoleOrder = ['admin', 'disponent', 'fahrer', 'gast']
   const createRoleOptions = roles
     .filter((role) => allowedRoleOrder.includes(role.name.toLowerCase()))
+    .filter((role) => !isDisponent || role.name.toLowerCase() !== 'admin')
     .sort((a, b) => {
       const left = allowedRoleOrder.indexOf(a.name.toLowerCase())
       const right = allowedRoleOrder.indexOf(b.name.toLowerCase())
@@ -497,6 +499,18 @@ function RollenverteilungPage() {
                   </tr>
                 ) : (
                   users.map((user) => {
+                    const canManageUser =
+                      canManageRoleAssignments
+                      && (
+                        isAdmin
+                        || (
+                          isDisponent
+                          && currentInitiativeId != null
+                          && user.initiative?.id != null
+                          && user.initiative.id === currentInitiativeId
+                        )
+                      )
+
                     const canViewProfile =
                       isAdmin
                       || (currentUser?.id != null && currentUser.id === user.id)
@@ -520,7 +534,7 @@ function RollenverteilungPage() {
                           value={user.initiative?.id ?? ''}
                           onChange={(event) => handleInitiativeChange(user.id, event.target.value)}
                           className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-                          disabled={!canManageRoleAssignments || initiatives.length === 0}
+                          disabled={!canManageUser || initiatives.length === 0 || isDisponent}
                         >
                           <option value="">Keine Initiative</option>
                           {initiatives.map((initiative) => (
@@ -538,12 +552,13 @@ function RollenverteilungPage() {
                                 const normalizedRole = role.name.toLowerCase()
                                 const selectedRoleNames = user.roles.map((entry) => entry.toLowerCase())
                                 const isSelected = selectedRoleNames.includes(normalizedRole)
+                                const isAdminRole = normalizedRole === 'admin'
                             return (
                               <button
                                 key={role.id}
                                 type="button"
                                 onClick={() => toggleRole(user.id, role.name)}
-                                disabled={!canManageRoleAssignments || savingUserId === user.id}
+                                disabled={!canManageUser || savingUserId === user.id || (isDisponent && isAdminRole)}
                                 className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0053a0]/20 disabled:opacity-60 ${
                                   isSelected
                                     ? getRoleSelectedClass(role.name)
@@ -684,7 +699,7 @@ function RollenverteilungPage() {
                 </button>
               ) : null}
 
-              {!isFahrer ? (
+              {canManageInitiatives ? (
                 <button
                   type="button"
                   onClick={() => goToPage('/initiativen')}
@@ -695,7 +710,7 @@ function RollenverteilungPage() {
                 </button>
               ) : null}
 
-              {canManageRoleAssignments ? (
+              {!isFahrer ? (
                 <button
                   type="button"
                   onClick={() => goToPage('/rollenverteilung')}
@@ -772,7 +787,7 @@ function RollenverteilungPage() {
                   value={createForm.initiativeId}
                   onChange={(event) => setCreateForm((prev) => ({ ...prev, initiativeId: event.target.value }))}
                   className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
-                  disabled={!canManageRoleAssignments || initiatives.length === 0 || isCreating}
+                  disabled={!canManageRoleAssignments || initiatives.length === 0 || isCreating || isDisponent}
                 >
                   <option value="">Bitte wählen...</option>
                   {initiatives.map((initiative) => (

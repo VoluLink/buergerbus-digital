@@ -3,10 +3,14 @@ import { useAuth } from '../context/AuthContext'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
 import { getStoredToken } from '../services/httpClient'
 
-function ProtectedRoute() {
+type ProtectedRouteProps = {
+  allowedRoles?: string[]
+}
+
+function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   const location = useLocation()
   const { currentUser, isLoading } = useAuth()
-  const { isGast } = useRoleVisibility()
+  const { isGast, roles } = useRoleVisibility()
 
   if (isLoading) {
     return null
@@ -19,6 +23,10 @@ function ProtectedRoute() {
   }
 
   if (isGast && location.pathname !== '/dashboard') {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  if (allowedRoles && !roles.some((role) => allowedRoles.includes(role))) {
     return <Navigate to="/dashboard" replace />
   }
 
