@@ -3,7 +3,7 @@
 # FRONTEND (Node / React / Vite)
 
 # =========================
-
+gitlab-runner/
 frontend/node_modules/
 frontend/dist/
 frontend/dist-ssr/
