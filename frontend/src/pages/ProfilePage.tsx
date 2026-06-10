@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Bus,
+  LogOut,
   Menu,
   Settings,
   Trash2,
@@ -44,7 +45,7 @@ function formatRoleLabel(role: string) {
 
 function ProfilePage() {
   const navigate = useNavigate()
-  const { currentUser, isLoading, error, refreshProfile } = useAuth()
+  const { currentUser, isLoading, error, logout, refreshProfile } = useAuth()
   const { canManageInitiatives, isFahrer } = useRoleVisibility()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isAccountActive, setIsAccountActive] = useState(false)
@@ -106,6 +107,12 @@ function ProfilePage() {
   function goToPage(path: string) {
     closeSideMenu()
     navigate(path)
+  }
+
+  function handleLogout() {
+    closeSideMenu()
+    logout()
+    navigate('/', { replace: true })
   }
 
   function handleInputChange(field: keyof typeof formData, value: string) {
@@ -499,6 +506,15 @@ function ProfilePage() {
 
           {/* Action Buttons */}
           <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-4">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
+            >
+              <LogOut className="h-3 w-3" aria-hidden="true" />
+              Abmelden
+            </button>
+
             <button
               type="button"
               onClick={handleDeleteProfile}
