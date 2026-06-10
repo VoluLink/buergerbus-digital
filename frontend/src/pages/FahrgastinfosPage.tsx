@@ -81,7 +81,7 @@ function toFahrgastUpsertRequest(form: FahrgastFormData, options: { isAdmin: boo
 function FahrgastinfosPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
-  const { canManageDataCrud, isAdmin, isDisponent, isFahrer } = useRoleVisibility()
+  const { canManageDataCrud, canManageInitiatives, isAdmin, isDisponent, isFahrer } = useRoleVisibility()
   const isCrudRestricted = !canManageDataCrud
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -483,7 +483,7 @@ function FahrgastinfosPage() {
                 </button>
               ) : null}
 
-              {!isFahrer ? (
+              {canManageInitiatives ? (
                 <button
                   type="button"
                   onClick={() => goToPage('/initiativen')}
@@ -494,7 +494,7 @@ function FahrgastinfosPage() {
                 </button>
               ) : null}
 
-              {!isDisponent && !isFahrer ? (
+              {!isFahrer ? (
                 <button
                   type="button"
                   onClick={() => goToPage('/rollenverteilung')}

@@ -281,7 +281,7 @@ function createInitialRideForms() {
 function DashboardPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
-  const { canManageDataCrud, isAdmin, isDisponent, isFahrer, isGast } = useRoleVisibility()
+  const { canManageDataCrud, canManageInitiatives, isAdmin, isDisponent, isFahrer, isGast } = useRoleVisibility()
   const isRideCrudRestricted = !canManageDataCrud
   const visibleTopFilters = isDisponent
     ? topFilters.filter((filter) => filter !== 'Meine Fahrten')
@@ -1326,7 +1326,7 @@ setCalendarRides((currentRides) =>
                 </button>
               ) : null}
 
-              {!isFahrer && !isGast ? (
+              {canManageInitiatives ? (
                 <button
                   type="button"
                   onClick={() => goToPage('/initiativen')}
@@ -1338,7 +1338,7 @@ setCalendarRides((currentRides) =>
               ) : null}
 
 
-              {!isDisponent && !isFahrer && !isGast ? (
+              {!isFahrer && !isGast ? (
                 <button
                   type="button"
                   onClick={() => goToPage('/rollenverteilung')}
