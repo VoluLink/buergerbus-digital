@@ -11,6 +11,7 @@ export type RideStatus =
 export type PassengerForm = {
   id: number
   sourceGuestId?: number | null
+  saveAsGuest?: boolean
   name: string
   phone: string
   pickupAddress: string
@@ -26,6 +27,7 @@ export type CalendarRide = {
   title: string
   time: string
   fahrerId: number | null
+  fahrzeugId: number | null
   driverName: string
   passengers: PassengerForm[]
   remarks: string

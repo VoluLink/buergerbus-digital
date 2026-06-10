@@ -27,7 +27,9 @@
         public int InitiativeId { get; set; }
         public Initiativen Initiative { get; set; }
 
-        //Liste für FahrtFahrgaste
+        public List<FahrtTeilnehmer> Teilnehmer { get; set; } = new();
+
+        // Legacy-Navigation bleibt vorerst bestehen, bis die alte Spalte entfernt ist.
         public List<Teilstrecke> Teilstrecken { get; set; } = new();
     }
 }

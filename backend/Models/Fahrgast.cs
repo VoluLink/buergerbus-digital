@@ -20,7 +20,7 @@ namespace BuergerbusAPI.Models
         public int InitiativeId { get; set; }
         public Initiativen Initiative { get; set; }
 
-        //Liste für FahrtFahrgaste
+        // Übergangsnavigation für bestehende Teilstrecken.
         public List<Teilstrecke> Teilstrecken { get; set; } = new();
 
         //Loeschfrist des Fahrgastes
