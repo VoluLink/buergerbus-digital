@@ -17,6 +17,7 @@ import {
   ChevronRight,
   CircleUserRound,
   Bell,
+  LogOut,
   MapPin,
   Menu,
   Plus,
@@ -280,7 +281,7 @@ function createInitialRideForms() {
 
 function DashboardPage() {
   const navigate = useNavigate()
-  const { currentUser } = useAuth()
+  const { currentUser, logout } = useAuth()
   const { canManageDataCrud, canManageInitiatives, isAdmin, isDisponent, isFahrer, isGast } = useRoleVisibility()
   const isRideCrudRestricted = !canManageDataCrud
   const visibleTopFilters = isDisponent
@@ -821,6 +822,12 @@ async function confirmDeleteRide() {
     navigate(path)
   }
 
+  function handleLogout() {
+    closeSideMenu()
+    logout()
+    navigate('/', { replace: true })
+  }
+
   function shiftPeriod(amount: number) {
     if (selectedView === 'Monat') {
       setCurrentMonth((current) => addMonths(current, amount))
@@ -1263,6 +1270,15 @@ setCalendarRides((currentRides) =>
           </div>
         </section>
       </div>
+
+      <button
+        type="button"
+        onClick={handleLogout}
+        className="mb-6 ml-3 inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 py-3 text-sm font-semibold text-rose-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] transition hover:bg-rose-50 sm:ml-4 lg:ml-6"
+      >
+        <LogOut className="h-4 w-4" aria-hidden="true" />
+        Abmelden
+      </button>
 
       {isSideMenuOpen ? (
         <div className="fixed inset-0 z-30 bg-slate-900/45 backdrop-blur-[2px]" onClick={closeSideMenu}>
