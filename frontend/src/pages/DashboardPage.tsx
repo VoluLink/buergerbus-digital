@@ -873,6 +873,7 @@ async function confirmDeleteRide() {
   const payload = mapCalendarRideToBackendWriteDto({
     id: rideInEditId,
     date: editedDate,
+    dateBis: normalizeDate(new Date(rentalDateTo || rentalDateFrom || editedDate)),
     type: 'rental',
     status: statusOverride ?? 'rental',
     title: rentalName.trim() || 'Vermietung',
@@ -911,37 +912,44 @@ async function confirmDeleteRide() {
       const startDate = startsAfterEnds ? toDate : fromDate
       const endDate = startsAfterEnds ? fromDate : toDate
 
-      const nextRides: CalendarRide[] = []
-      let currentDate = startDate
-      let currentRideId = nextRideId
+      const rentalRide: CalendarRide = {
+      id: nextRideId,
+      date: startDate,
+      dateBis: endDate,
+      type: 'rental',
+      status: statusOverride ?? 'rental',
+      title: rentalName.trim() || 'Vermietung',
+      time: rideTime,
+      driverName: '',
+      fahrerId: null,
+      passengers: [],
+      remarks: rentalRemarks.trim(),
+    }
 
-      while (currentDate.getTime() <= endDate.getTime()) {
-        nextRides.push({
-          id: currentRideId,
-          date: normalizeDate(currentDate),
-          type: 'rental',
-          status: statusOverride ?? 'rental',
-          title: rentalName.trim() || 'Vermietung',
-          time: rideTime,
-          driverName: '',
-          fahrerId: null,
-          passengers: [],
-          remarks: rentalRemarks.trim(),
-        })
-        currentDate = addDays(currentDate, 1)
-        currentRideId += 1
-      }
+    const payload = mapCalendarRideToBackendWriteDto(rentalRide)
 
-      if (nextRides.length > 0) {
-        setCalendarRides((current) => [...current, ...nextRides])
-        setNextRideId(currentRideId)
-      }
+    console.log('RENTAL CREATE', payload)
 
-      setSelectedDate(startDate)
-      setCurrentMonth(new Date(startDate.getFullYear(), startDate.getMonth(), 1))
-      setRideInEditId(null)
-      setIsRideDialogOpen(false)
-      return
+    const createdRide = await createFahrt(payload)
+
+    const backendRide = mapBackendRideToCalendarRide(
+      createdRide,
+      fahrerListe
+    )
+
+    setCalendarRides((current) => [...current, backendRide])
+
+    setNextRideId((current) => current + 1)
+
+    setSelectedDate(startDate)
+    setCurrentMonth(
+      new Date(startDate.getFullYear(), startDate.getMonth(), 1)
+    )
+
+    setRideInEditId(null)
+    setIsRideDialogOpen(false)
+
+    return
     }
 
     const activeForm = rideFormsByType[rideType]
@@ -964,6 +972,7 @@ const existingRide = calendarRides.find(
 const tempRide: CalendarRide = {
   id: rideInEditId,
   date: normalizeDate(selectedDate),
+  dateBis: rentalDateTo ? normalizeDate(new Date(rentalDateTo)) : null,
   type: rideType,
   status: baseStatus,
   title:
@@ -1061,12 +1070,33 @@ setCalendarRides((currentRides) =>
   }, [isFahrer])
 
   const ridesByDay = useMemo(() => {
-    return filteredCalendarRides.reduce<Map<string, CalendarRide[]>>((accumulator, ride) => {
-      const rideDateKey = toDateKey(ride.date)
-      const currentRidesForDay = accumulator.get(rideDateKey) ?? []
-      accumulator.set(rideDateKey, [...currentRidesForDay, ride])
-      return accumulator
-    }, new Map())
+    return filteredCalendarRides.reduce<Map<string, CalendarRide[]>>(
+      (acc, ride) => {
+
+        const addToDay = (date: Date) => {
+          const key = toDateKey(date)
+          const list = acc.get(key) ?? []
+          acc.set(key, [...list, ride])
+        }
+
+        if (ride.type === 'rental' && ride.dateBis) {
+          let current = normalizeDate(new Date(ride.date))
+          const end = normalizeDate(new Date(ride.dateBis))
+
+          while (current.getTime() <= end.getTime()) {
+            addToDay(current)
+            current = addDays(current, 1)
+          }
+
+          return acc
+        }
+
+        addToDay(ride.date)
+
+        return acc
+      },
+      new Map(),
+    )
   }, [filteredCalendarRides])
 
   const monthDays = useMemo(() => buildMonthDays(currentMonth), [currentMonth])

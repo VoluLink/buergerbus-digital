@@ -16,7 +16,8 @@ public record FahrtenDto(
     int? FahrerId,
     int? FahrzeugId,
     int InitiativeId,
-    List<TeilstreckeDto> Teilstrecken
+    List<TeilstreckeDto> Teilstrecken,
+    DateTime? DatumBis
 );
 
 public record CreateFahrtenDto(
@@ -32,7 +33,8 @@ public record CreateFahrtenDto(
     string AngelegtVon,
     int? FahrerId,     // optional
     int? FahrzeugId,   // optional
-    List<CreateTeilstreckeDto> Teilstrecken
+    List<CreateTeilstreckeDto> Teilstrecken,
+    DateTime? DatumBis
 );
 
 public record UpdateFahrtenDto(
@@ -46,7 +48,8 @@ public record UpdateFahrtenDto(
     string Status,
     int? FahrerId,     // optional (Zuweisung später möglich)
     int? FahrzeugId,   // optional
-    List<CreateTeilstreckeDto> Teilstrecken
+    List<CreateTeilstreckeDto> Teilstrecken,
+    DateTime? DatumBis
 );
 
 public record TeilstreckeDto(

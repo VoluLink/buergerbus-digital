@@ -30,6 +30,7 @@ type BackendFahrtDto = {
   id: number
   titel: string
   datum: string
+  datumBis: string | null
   fahrttyp: string
   startzeit: string
   endzeit?: string | null
@@ -43,6 +44,7 @@ type BackendFahrtDto = {
 type BackendFahrtWriteDto = {
   titel: string
   datum: string
+  datumBis: string | null
   zielort: string
   fahrttyp: string
   startzeit: string
@@ -78,7 +80,14 @@ function mapBackendTypeToRideType(fahrttyp: string): RideType {
   const normalized = fahrttyp.trim().toLowerCase()
 
   if (normalized.includes('theme')) return 'theme'
-  if (normalized.includes('vermiet')) return 'rental'
+
+  if (
+    normalized.includes('vermiet') ||
+    normalized === 'rental'
+  ) {
+    return 'rental'
+  }
+
   return 'standard'
 }
 
@@ -142,6 +151,7 @@ export function mapBackendRideToCalendarRide(dto: BackendFahrtDto, fahrerListe: 
   return {
     id: dto.id,
     date: new Date(dto.datum),
+    dateBis: dto.datumBis ? new Date(dto.datumBis) : null,
     type,
     status: mapBackendStatusToRideStatus(dto.status, type),
     title: dto.titel,
@@ -154,6 +164,40 @@ export function mapBackendRideToCalendarRide(dto: BackendFahrtDto, fahrerListe: 
 }
 
 export function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFahrtWriteDto {
+    if (ride.type === 'rental') {
+    const [timeFrom, timeTo] = (ride.time ?? '').split('-')
+
+    return {
+      titel: ride.title,
+      datum: toLocalDateString(ride.date),
+      datumBis: ride.dateBis
+        ? toLocalDateString(ride.dateBis)
+        : null,
+
+      zielort: '',
+      fahrttyp: ride.type,
+
+      startzeit: `${toLocalDateString(ride.date)}T${timeFrom || '00:00'}:00`,
+        
+      endzeit: timeTo
+        ? `${toLocalDateString(
+            ride.dateBis ?? ride.date
+          )}T${timeTo}:00`
+        : null,
+
+      bemerkung: ride.remarks || null,
+      status: mapRideStatusToBackendStatus(ride.status),
+
+      angelegtAm: new Date().toISOString(),
+
+      angelegtVon: 'Disponent',
+
+      fahrerId: null,
+      fahrzeugId: null,
+
+      teilstrecken: [],
+    }
+  }
   const firstPassenger = ride.passengers[0]
   const earliestTime = ride.passengers
     .map(p => p.time)
@@ -163,6 +207,9 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFah
   return {
   titel: ride.title,
   datum: toLocalDateString(ride.date),
+  datumBis: ride.dateBis
+    ? toLocalDateString(ride.dateBis)
+    : null,
   zielort: firstPassenger?.destinationAddress || '',
   fahrttyp: ride.type,
 
