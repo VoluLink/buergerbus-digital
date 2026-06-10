@@ -35,8 +35,11 @@ import { useAuth } from '../context/AuthContext'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
 import { loadDashboardState, saveDashboardState } from '../services/dashboardState'
 import { getFahrgaeste } from '../services/fahrgastApi'
+import { getFahrzeuge } from '../services/fahrzeugApi'
+import { getInitiativen } from '../services/initiativeApi'
 import type { CalendarRide, PassengerForm, RideStatus, RideType } from '../types/DashboardRide'
 import type { Fahrgast } from '../types/Fahrgast'
+import type { Initiative } from '../types/Initiative'
 import { getAllFahrer } from '../services/fahrerList'
 
 
@@ -46,6 +49,7 @@ type CalendarView = 'Monat' | 'Woche' | 'Tag'
 
 type RideFormState = {
   fahrerId: number | null
+  fahrzeugId: number | null
   driverName: string
   themeTitle: string
   remarks: string
@@ -251,6 +255,7 @@ function createEmptyPassenger(id: number): PassengerForm {
   return {
     id,
     sourceGuestId: null,
+    saveAsGuest: false,
     name: '',
     phone: '',
     pickupAddress: '',
@@ -263,6 +268,7 @@ function createInitialRideForms() {
   return {
     standard: {
       fahrerId: null,
+      fahrzeugId: null,
       driverName: '',
       themeTitle: '',
       remarks: '',
@@ -270,6 +276,7 @@ function createInitialRideForms() {
     },
     theme: {
       fahrerId: null,
+      fahrzeugId: null,
       driverName: '',
       themeTitle: '',
       remarks: '',
@@ -319,8 +326,12 @@ function DashboardPage() {
   const [isDashboardHydrated, setIsDashboardHydrated] = useState(false)
   const [knownGuests, setKnownGuests] = useState<Fahrgast[]>([])
   const [fahrerListe, setFahrerListe] = useState<any[]>([])
+  const [fahrzeugListe, setFahrzeugListe] = useState<any[]>([])
+  const [initiativeListe, setInitiativeListe] = useState<Initiative[]>([])
   const [fahrerSuche, setFahrerSuche] = useState('')
   const [selectedFahrerId, setSelectedFahrerId] = useState<number | null>(null)
+  const [selectedInitiativeId, setSelectedInitiativeId] = useState<number | null>(currentUser?.initiative?.id ?? null)
+  const [rideSaveError, setRideSaveError] = useState<string | null>(null)
 
   const remarksPlaceholder = useMemo(() => {
     if (rideType === 'theme') {
@@ -366,12 +377,20 @@ function DashboardPage() {
     )
   }, [currentUser])
 
+  const visibleFahrzeuge = useMemo(() => {
+    if (canManageInitiatives && selectedInitiativeId != null) {
+      return fahrzeugListe.filter((vehicle) => vehicle.initiativeId === selectedInitiativeId)
+    }
+
+    return fahrzeugListe
+  }, [canManageInitiatives, fahrzeugListe, selectedInitiativeId])
+
   useEffect(() => {
     let isCancelled = false
 
     async function hydrateDashboard() {
       const [rides, fahrer] = await Promise.all([
-        getFahrten(),
+        getFahrten(selectedInitiativeId),
         getAllFahrer(),
       ])
 
@@ -391,7 +410,38 @@ function DashboardPage() {
     return () => {
       isCancelled = true
     }
-  }, [])
+  }, [selectedInitiativeId])
+
+  useEffect(() => {
+    if (!canManageInitiatives) {
+      return
+    }
+
+    let isCancelled = false
+
+    async function loadInitiatives() {
+      try {
+        const data = await getInitiativen()
+
+        if (!isCancelled) {
+          setInitiativeListe(data)
+          if (selectedInitiativeId == null && data.length > 0) {
+            setSelectedInitiativeId(data[0].id)
+          }
+        }
+      } catch {
+        if (!isCancelled) {
+          setInitiativeListe([])
+        }
+      }
+    }
+
+    void loadInitiatives()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [canManageInitiatives, selectedInitiativeId])
 
   useEffect(() => {
     let isCancelled = false
@@ -442,6 +492,30 @@ function DashboardPage() {
   }, [])
 
   useEffect(() => {
+    let isCancelled = false
+
+    async function loadFahrzeuge() {
+      try {
+        const data = await getFahrzeuge()
+
+        if (!isCancelled) {
+          setFahrzeugListe(data)
+        }
+      } catch {
+        if (!isCancelled) {
+          setFahrzeugListe([])
+        }
+      }
+    }
+
+    void loadFahrzeuge()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
     if (!isDashboardHydrated) {
       return
     }
@@ -474,6 +548,7 @@ function DashboardPage() {
       return
     }
 
+    setRideSaveError(null)
     setIsDayDialogOpen(false)
     setRideInEditId(null)
     setRideFormsByType(createInitialRideForms())
@@ -485,10 +560,17 @@ function DashboardPage() {
     setRentalTimeFrom('')
     setRentalTimeTo('')
     setNextPassengerId(2)
+
+    const initialVehicleId = visibleFahrzeuge.length === 1 ? visibleFahrzeuge[0].id : null
+    setRideFormsByType((currentState) => ({
+      standard: { ...currentState.standard, fahrzeugId: initialVehicleId },
+      theme: { ...currentState.theme, fahrzeugId: initialVehicleId },
+    }))
     setIsRideDialogOpen(true)
   }
 
   function closeRideDialog() {
+    setRideSaveError(null)
     setIsRideDialogOpen(false)
   }
 
@@ -528,6 +610,7 @@ function DashboardPage() {
           return {
             ...ride,
             driverName: '',
+            fahrzeugId: ride.fahrzeugId,
             status: getDefaultRideStatusForOpenRide(ride),
           }
         }
@@ -535,6 +618,7 @@ function DashboardPage() {
         return {
           ...ride,
           driverName: driverIdentity,
+          fahrzeugId: ride.fahrzeugId,
           status: ride.type === 'rental' ? 'rental' : ride.type === 'theme' ? 'theme' : 'assigned',
         }
       }),
@@ -626,6 +710,7 @@ function DashboardPage() {
 
     seededForms[ride.type] = {
       driverName: ride.driverName,
+      fahrzeugId: ride.fahrzeugId,
       themeTitle: ride.type === 'theme' ? ride.title : '',
       remarks: ride.remarks,
       passengers: passengersForEdit,
@@ -731,8 +816,8 @@ async function confirmDeleteRide() {
 
   function updatePassengerField(
     passengerId: number,
-    field: keyof Omit<PassengerForm, 'id' | 'sourceGuestId'>,
-    value: string,
+    field: keyof Omit<PassengerForm, 'id' | 'sourceGuestId' | 'saveAsGuest'>,
+    value: string | boolean,
   ) {
     if (rideType === 'rental') {
       return
@@ -775,17 +860,36 @@ async function confirmDeleteRide() {
             return {
               ...passenger,
               sourceGuestId: null,
+              saveAsGuest: false,
             }
           }
 
           return {
             ...passenger,
             sourceGuestId: selectedGuestId,
+            saveAsGuest: false,
             name: `${selectedGuest.vorname} ${selectedGuest.nachname}`.trim(),
             phone: selectedGuest.telefonnummer || '',
             pickupAddress: selectedGuest.adresse || '',
           }
         }),
+      },
+    }))
+  }
+
+  function updatePassengerSaveAsGuest(passengerId: number, value: boolean) {
+    setRideFormsByType((currentState) => ({
+      ...currentState,
+      [rideType]: {
+        ...currentState[rideType],
+        passengers: currentState[rideType].passengers.map((passenger) =>
+          passenger.id === passengerId
+            ? {
+                ...passenger,
+                saveAsGuest: value,
+              }
+            : passenger,
+        ),
       },
     }))
   }
@@ -808,6 +912,22 @@ async function confirmDeleteRide() {
 
         fahrerId: selectedFahrer.fahrerId,
         driverName: selectedFahrer.name,
+      },
+    }))
+  }
+
+  function autofillFahrzeug(selectedFahrzeugId: number) {
+    const selectedFahrzeug = fahrzeugListe.find((vehicle) => vehicle.id === selectedFahrzeugId)
+
+    if (!selectedFahrzeug) {
+      return
+    }
+
+    setRideFormsByType((currentState) => ({
+      ...currentState,
+      [rideType]: {
+        ...currentState[rideType],
+        fahrzeugId: selectedFahrzeug.id,
       },
     }))
   }
@@ -850,9 +970,9 @@ async function confirmDeleteRide() {
     //}
 
   async function reloadFahrten() {
-    const data = await getFahrten()
+    const data = await getFahrten(selectedInitiativeId)
 
-    const mapped = data.map(mapBackendRideToCalendarRide)
+    const mapped = data.map((dto) => mapBackendRideToCalendarRide(dto, fahrerListe))
 
     setCalendarRides(mapped)
   }
@@ -861,6 +981,17 @@ async function confirmDeleteRide() {
     if (isRideCrudRestricted) {
       return
     }
+
+    setRideSaveError(null)
+
+    const normalizeErrorMessage = (error: unknown) => {
+      const rawMessage = error instanceof Error ? error.message : 'Fehler beim Speichern der Fahrt.'
+
+      return rawMessage
+        .replace(/^"|"$/g, '')
+        .replace(/^Error:\s*/i, '')
+    }
+
     console.log('SAVE RIDE START')
     if (rideType === 'rental') {
       const rideTime = rentalTimeFrom && rentalTimeTo ? `${rentalTimeFrom}-${rentalTimeTo}` : rentalTimeFrom || rentalTimeTo
@@ -878,11 +1009,17 @@ async function confirmDeleteRide() {
     title: rentalName.trim() || 'Vermietung',
     time: rideTime,
     driverName: '',
+    fahrzeugId: null,
     passengers: [],
     remarks: rentalRemarks.trim(),
   } as any)
 
-    await updateFahrt(rideInEditId, payload)
+    try {
+      await updateFahrt(rideInEditId, payload)
+    } catch (error) {
+      setRideSaveError(normalizeErrorMessage(error))
+      return
+    }
     await reloadFahrten()
 
     setCompletedPassengerKeys((current) =>
@@ -925,6 +1062,7 @@ async function confirmDeleteRide() {
           time: rideTime,
           driverName: '',
           fahrerId: null,
+          fahrzeugId: null,
           passengers: [],
           remarks: rentalRemarks.trim(),
         })
@@ -973,13 +1111,14 @@ const tempRide: CalendarRide = {
   time: firstPassenger?.time ?? '',
   driverName,
   fahrerId: activeForm.fahrerId,
+  fahrzeugId: activeForm.fahrzeugId,
   passengers: activeForm.passengers.length > 0
     ? activeForm.passengers.map((p, i) => ({ ...p, id: i + 1 }))
     : existingRide?.passengers ?? [],
   remarks: activeForm.remarks.trim(),
 }
 
-const payload = mapCalendarRideToBackendWriteDto(tempRide)
+  const payload = mapCalendarRideToBackendWriteDto(tempRide, selectedInitiativeId)
 
 const response = await updateFahrt(rideInEditId, payload)
 
@@ -1014,14 +1153,21 @@ setCalendarRides((currentRides) =>
       time: firstPassenger?.time ?? '',
       driverName,
       fahrerId: activeForm.fahrerId,
+      fahrzeugId: activeForm.fahrzeugId,
       passengers,
       remarks: activeForm.remarks.trim(),
     }
 
-    const payload = mapCalendarRideToBackendWriteDto(nextRide)
+    const payload = mapCalendarRideToBackendWriteDto(nextRide, selectedInitiativeId)
 
     // 1. Backend speichern
-    const createdRide = await createFahrt(payload)
+    let createdRide
+    try {
+      createdRide = await createFahrt(payload)
+    } catch (error) {
+      setRideSaveError(normalizeErrorMessage(error))
+      return
+    }
 
     // 2. Backend Response in UI-Format umwandeln
     const backendRide = mapBackendRideToCalendarRide(createdRide,fahrerListe)
@@ -1114,6 +1260,27 @@ setCalendarRides((currentRides) =>
                 </button>
               ))}
             </div>
+
+            {canManageInitiatives ? (
+              <label className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600">
+                Initiative
+                <select
+                  value={selectedInitiativeId ?? ''}
+                  onChange={(event) => setSelectedInitiativeId(event.target.value ? Number(event.target.value) : null)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none"
+                >
+                  {initiativeListe.length > 0 ? (
+                    initiativeListe.map((initiative) => (
+                      <option key={initiative.id} value={initiative.id}>
+                        {initiative.name}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">Alle</option>
+                  )}
+                </select>
+              </label>
+            ) : null}
           </div>
 
           <UserMenuButton
@@ -1695,6 +1862,12 @@ setCalendarRides((currentRides) =>
             </header>
 
             <div className="max-h-[calc(96vh-170px)] overflow-y-auto px-6 py-6 sm:px-8">
+              {rideSaveError ? (
+                <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                  {rideSaveError}
+                </div>
+              ) : null}
+
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Fahrtart</p>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -1794,6 +1967,31 @@ setCalendarRides((currentRides) =>
                 </div>
               ) : (
                 <>
+                  <div className="mt-6">
+                    <label htmlFor="vehicle-name" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+                      <Bus className="h-4 w-4 text-[#0053a0]" aria-hidden="true" />
+                      Fahrzeug
+                    </label>
+                    <select
+                      id="vehicle-name"
+                      value={activeRideForm?.fahrzeugId ?? ''}
+                      onChange={(event) => autofillFahrzeug(Number(event.target.value))}
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/15"
+                    >
+                      <option value="">Fahrzeug auswählen</option>
+                      {visibleFahrzeuge.map((vehicle) => (
+                        <option key={vehicle.id} value={vehicle.id}>
+                          {vehicle.kennzeichen} – {vehicle.bezeichnung} – {vehicle.kapazitaet} Plätze
+                        </option>
+                      ))}
+                    </select>
+                    {visibleFahrzeuge.length === 0 ? (
+                      <p className="mt-2 text-sm text-amber-700">Kein Fahrzeug verfügbar.</p>
+                    ) : visibleFahrzeuge.length === 1 ? (
+                      <p className="mt-2 text-sm text-emerald-700">Ein Fahrzeug wurde automatisch vorausgewählt.</p>
+                    ) : null}
+                  </div>
+
                   <div className="mt-6">
                     <label htmlFor="driver-name" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
                       <UserRound className="h-4 w-4 text-[#0053a0]" aria-hidden="true" />
@@ -1904,6 +2102,21 @@ setCalendarRides((currentRides) =>
                                 </div>
                               ) : null}
                             </div>
+                            {passenger.sourceGuestId == null ? (
+                              <label className="sm:col-span-2 flex items-center gap-3 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-600">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(passenger.saveAsGuest)}
+                                  onChange={(event) => updatePassengerSaveAsGuest(passenger.id, event.target.checked)}
+                                  className="h-4 w-4 rounded border-slate-300"
+                                />
+                                Als Stammgast speichern
+                              </label>
+                            ) : (
+                              <div className="sm:col-span-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700">
+                                Stammgast ausgewählt
+                              </div>
+                            )}
                             <input
                               type="text"
                               value={passenger.phone}

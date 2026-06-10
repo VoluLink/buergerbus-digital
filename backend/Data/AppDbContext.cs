@@ -24,6 +24,7 @@ namespace BuergerbusAPI.Data
 
         // Fahrten-System
         public DbSet<Fahrten> Fahrten { get; set; }
+        public DbSet<FahrtTeilnehmer> FahrtTeilnehmer { get; set; }
         public DbSet<Teilstrecke> Teilstrecken { get; set; }
 
         // Fahrer
@@ -138,13 +139,29 @@ namespace BuergerbusAPI.Data
                 .WithMany(f => f.Teilstrecken)
                 .HasForeignKey(t => t.FahrtId);
 
+            // Fahrt -> FahrtTeilnehmer (1:n)
+
+            modelBuilder.Entity<FahrtTeilnehmer>()
+                .HasOne(tp => tp.Fahrt)
+                .WithMany(f => f.Teilnehmer)
+                .HasForeignKey(tp => tp.FahrtId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // FahrtTeilnehmer -> Teilstrecke (1:n)
+
+            modelBuilder.Entity<Teilstrecke>()
+                .HasOne(t => t.FahrtTeilnehmer)
+                .WithMany(tp => tp.Teilstrecken)
+                .HasForeignKey(t => t.FahrtTeilnehmerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // Fahrgast -> Teilstrecke (1:n)
 
             modelBuilder.Entity<Teilstrecke>()
                 .HasOne(t => t.Fahrgast)
                 .WithMany(f => f.Teilstrecken)
                 .HasForeignKey(t => t.FahrgastId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.SetNull);
 
             // Initiative -> Teilstrecke (1:n)
 
@@ -236,11 +253,12 @@ namespace BuergerbusAPI.Data
                 .WithMany(i => i.Loeschfristen)
                 .HasForeignKey(l => l.InitiativeId);
 
-            // Fahrgast darf pro Fahrt nur einmal vorkommen
+            // Legacy: Fahrgast darf pro Fahrt nur einmal vorkommen.
 
             modelBuilder.Entity<Teilstrecke>()
                 .HasIndex(t => new { t.FahrtId, t.FahrgastId })
                 .IsUnique();
+
         }
     }
 }
