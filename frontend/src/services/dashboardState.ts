@@ -148,7 +148,7 @@ export function mapBackendRideToCalendarRide(dto: BackendFahrtDto, fahrerListe: 
     (f) => f.fahrerId === dto.fahrerId,
   )
 
-  return {
+  return {  
     id: dto.id,
     date: new Date(dto.datum),
     dateBis: dto.datumBis ? new Date(dto.datumBis) : null,
@@ -156,6 +156,7 @@ export function mapBackendRideToCalendarRide(dto: BackendFahrtDto, fahrerListe: 
     status: mapBackendStatusToRideStatus(dto.status, type),
     title: dto.titel,
     time: extractHourMinute(dto.startzeit),
+    endTime: dto.endzeit,
     driverName: fahrer?.name ?? '',
     fahrerId: dto.fahrerId ?? null,
     passengers: mapTeilstreckenToPassengers(dto.teilstrecken),
@@ -188,7 +189,9 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFah
       bemerkung: ride.remarks || null,
       status: mapRideStatusToBackendStatus(ride.status),
 
-      angelegtAm: new Date().toISOString(),
+      angelegtAm: `${toLocalDateString(new Date())}T${new Date()
+      .toTimeString()
+      .slice(0, 8)}`,
 
       angelegtVon: 'Disponent',
 

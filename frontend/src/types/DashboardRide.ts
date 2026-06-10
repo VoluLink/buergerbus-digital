@@ -26,6 +26,7 @@ export type CalendarRide = {
   status: RideStatus
   title: string
   time: string
+  endTime?: string | null
   fahrerId: number | null
   driverName: string
   passengers: PassengerForm[]

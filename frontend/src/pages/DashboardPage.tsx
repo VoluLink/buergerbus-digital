@@ -606,16 +606,30 @@ function DashboardPage() {
 
     if (ride.type === 'rental') {
       const rideDateValue = toDateInputValue(ride.date)
-      const [timeFrom, timeTo] = ride.time.split('-')
+
       setRentalName(ride.title)
       setRentalRemarks(ride.remarks)
+
       setRentalDateFrom(rideDateValue)
-      setRentalDateTo(rideDateValue)
-      setRentalTimeFrom((timeFrom ?? '').trim())
-      setRentalTimeTo((timeTo ?? '').trim())
+
+      setRentalDateTo(
+        ride.dateBis
+          ? toDateInputValue(ride.dateBis)
+          : rideDateValue
+      )
+
+      setRentalTimeFrom((ride.time ?? '').trim())
+
+      setRentalTimeTo(
+        ride.endTime
+          ? ride.endTime.substring(11, 16)
+          : ''
+      )
+
       setRideFormsByType(createInitialRideForms())
       setNextPassengerId(2)
       setIsRideDialogOpen(true)
+
       return
     }
 
