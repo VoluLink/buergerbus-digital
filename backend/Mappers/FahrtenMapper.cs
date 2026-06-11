@@ -42,6 +42,8 @@ public static class FahrtenMapper
             teilnehmer.Nachname,
             teilnehmer.Adresse,
             teilnehmer.Telefonnummer,
+            teilnehmer.IstAbgehakt,
+            teilnehmer.AbgehaktAm,
             teilnehmer.IstTemporaer,
             teilnehmer.AlsStammgastGespeichert,
             (teilnehmer.Teilstrecken ?? new List<Teilstrecke>())
@@ -109,6 +111,8 @@ public static class FahrtenMapper
             Nachname = dto.Nachname,
             Adresse = dto.Adresse,
             Telefonnummer = dto.Telefonnummer,
+            IstAbgehakt = false,
+            AbgehaktAm = null,
             IstTemporaer = dto.FahrgastId is null && !dto.AlsStammgastSpeichern,
             AlsStammgastGespeichert = dto.AlsStammgastSpeichern,
         };

@@ -1,6 +1,6 @@
 import { API_BASE_URL } from './api'
 import { apiFetch } from './httpClient'
-import type { Fahrgast } from '../types/Fahrgast'
+import { mapDtoToFahrgast, type Fahrgast, type FahrgastBackendDto } from '../types/Fahrgast'
 
 export type FahrgastUpsertRequest = {
   vorname: string
@@ -25,7 +25,8 @@ export async function getFahrgaeste(): Promise<Fahrgast[]> {
     throw new Error('Fehler beim Laden der Fahrgäste')
   }
 
-  return response.json()
+  const data = (await response.json()) as FahrgastBackendDto[]
+  return data.map(mapDtoToFahrgast)
 }
 
 export async function createFahrgast(payload: FahrgastUpsertRequest): Promise<Fahrgast> {
@@ -46,7 +47,8 @@ export async function createFahrgast(payload: FahrgastUpsertRequest): Promise<Fa
     throw new Error(errorText || 'Fehler beim Erstellen')
   }
 
-  return response.json()
+  const data = (await response.json()) as FahrgastBackendDto
+  return mapDtoToFahrgast(data)
 }
 
 export async function updateFahrgast(fahrgastId: number, payload: FahrgastUpsertRequest): Promise<Fahrgast> {
@@ -67,10 +69,11 @@ export async function updateFahrgast(fahrgastId: number, payload: FahrgastUpsert
     throw new Error(errorText || 'Fehler beim Aktualisieren')
   }
 
-  return response.json()
+  const data = (await response.json()) as FahrgastBackendDto
+  return mapDtoToFahrgast(data)
 }
 
-export async function deleteFahrgast(fahrgastId: number): Promise<void> {
+export async function deletePassenger(fahrgastId: number): Promise<void> {
   const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrgaeste/${fahrgastId}`, {
     method: 'DELETE',
   })
@@ -83,3 +86,5 @@ export async function deleteFahrgast(fahrgastId: number): Promise<void> {
     throw new Error(errorText || 'Fehler beim Löschen')
   }
 }
+
+export const deleteFahrgast = deletePassenger

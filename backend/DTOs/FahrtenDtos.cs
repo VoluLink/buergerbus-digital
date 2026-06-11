@@ -51,9 +51,15 @@ public record FahrtTeilnehmerDto(
     string Nachname,
     string? Adresse,
     string? Telefonnummer,
+    bool IstAbgehakt,
+    DateTime? AbgehaktAm,
     bool IstTemporaer,
     bool AlsStammgastGespeichert,
     List<TeilstreckeDto> Teilstrecken
+);
+
+public record FahrtTeilnehmerCheckDto(
+    bool IstAbgehakt
 );
 
 public record CreateFahrtTeilnehmerDto(

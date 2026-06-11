@@ -1,14 +1,20 @@
-using Microsoft.EntityFrameworkCore.Metadata;
+﻿using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace BuergerbusAPI.Migrations
 {
+    /// <inheritdoc />
     public partial class AddFahrtTeilnehmer : Migration
     {
+        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropForeignKey(
+                name: "FK_Teilstrecken_Fahrgaeste_FahrgastId",
+                table: "Teilstrecken");
+
             migrationBuilder.AlterColumn<int>(
                 name: "FahrgastId",
                 table: "Teilstrecken",
@@ -39,8 +45,8 @@ namespace BuergerbusAPI.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Telefonnummer = table.Column<string>(type: "longtext", nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    IstTemporaer = table.Column<bool>(type: "tinyint(1)", nullable: false, defaultValue: false),
-                    AlsStammgastGespeichert = table.Column<bool>(type: "tinyint(1)", nullable: false, defaultValue: false)
+                    IstTemporaer = table.Column<bool>(type: "tinyint(1)", nullable: false),
+                    AlsStammgastGespeichert = table.Column<bool>(type: "tinyint(1)", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -49,8 +55,7 @@ namespace BuergerbusAPI.Migrations
                         name: "FK_FahrtTeilnehmer_Fahrgaeste_FahrgastId",
                         column: x => x.FahrgastId,
                         principalTable: "Fahrgaeste",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.SetNull);
+                        principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_FahrtTeilnehmer_Fahrten_FahrtId",
                         column: x => x.FahrtId,
@@ -61,40 +66,27 @@ namespace BuergerbusAPI.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateIndex(
-                name: "IX_FahrtTeilnehmer_FahrtId",
-                table: "FahrtTeilnehmer",
-                column: "FahrtId");
+                name: "IX_Teilstrecken_FahrtTeilnehmerId",
+                table: "Teilstrecken",
+                column: "FahrtTeilnehmerId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_FahrtTeilnehmer_FahrgastId",
                 table: "FahrtTeilnehmer",
                 column: "FahrgastId");
 
-            migrationBuilder.Sql(@"
-                INSERT INTO FahrtTeilnehmer (FahrtId, FahrgastId, Vorname, Nachname, Adresse, Telefonnummer, IstTemporaer, AlsStammgastGespeichert)
-                SELECT DISTINCT
-                    t.FahrtId,
-                    t.FahrgastId,
-                    f.Vorname,
-                    f.Nachname,
-                    f.Adresse,
-                    f.Telefonnummer,
-                    0,
-                    0
-                FROM Teilstrecken t
-                INNER JOIN Fahrgaeste f ON f.Id = t.FahrgastId;
-
-                UPDATE Teilstrecken t
-                INNER JOIN FahrtTeilnehmer ft
-                    ON ft.FahrtId = t.FahrtId
-                   AND ft.FahrgastId = t.FahrgastId
-                SET t.FahrtTeilnehmerId = ft.Id;
-            ");
-
             migrationBuilder.CreateIndex(
-                name: "IX_Teilstrecken_FahrtTeilnehmerId",
+                name: "IX_FahrtTeilnehmer_FahrtId",
+                table: "FahrtTeilnehmer",
+                column: "FahrtId");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Teilstrecken_Fahrgaeste_FahrgastId",
                 table: "Teilstrecken",
-                column: "FahrtTeilnehmerId");
+                column: "FahrgastId",
+                principalTable: "Fahrgaeste",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.SetNull);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Teilstrecken_FahrtTeilnehmer_FahrtTeilnehmerId",
@@ -105,8 +97,13 @@ namespace BuergerbusAPI.Migrations
                 onDelete: ReferentialAction.Cascade);
         }
 
+        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropForeignKey(
+                name: "FK_Teilstrecken_Fahrgaeste_FahrgastId",
+                table: "Teilstrecken");
+
             migrationBuilder.DropForeignKey(
                 name: "FK_Teilstrecken_FahrtTeilnehmer_FahrtTeilnehmerId",
                 table: "Teilstrecken");
@@ -127,9 +124,18 @@ namespace BuergerbusAPI.Migrations
                 table: "Teilstrecken",
                 type: "int",
                 nullable: false,
+                defaultValue: 0,
                 oldClrType: typeof(int),
                 oldType: "int",
                 oldNullable: true);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Teilstrecken_Fahrgaeste_FahrgastId",
+                table: "Teilstrecken",
+                column: "FahrgastId",
+                principalTable: "Fahrgaeste",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Cascade);
         }
     }
 }

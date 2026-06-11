@@ -93,3 +93,46 @@ export async function deleteFahrt(id: number) {
 
   return true
 }
+
+export async function updateFahrtteilnehmerAbgehakt(id: number, istAbgehakt: boolean) {
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrtteilnehmer/${id}/abgehakt`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ istAbgehakt }),
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(err || 'Fehler beim Speichern des Checkstatus')
+  }
+
+  return await res.json()
+}
+
+export async function meldeFahrerAn(fahrtId: number) {
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten/${fahrtId}/fahrer/anmelden`, {
+    method: 'PATCH',
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(err || 'Fehler beim Anmelden als Fahrer')
+  }
+
+  return await res.json()
+}
+
+export async function meldeFahrerAb(fahrtId: number) {
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten/${fahrtId}/fahrer/abmelden`, {
+    method: 'PATCH',
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(err || 'Fehler beim Abmelden als Fahrer')
+  }
+
+  return await res.json()
+}

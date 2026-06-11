@@ -4,6 +4,9 @@ import {
   getFahrt,
   updateFahrt,
   deleteFahrt,
+  updateFahrtteilnehmerAbgehakt,
+  meldeFahrerAn,
+  meldeFahrerAb,
 } from '../services/fahrtApi'
 
 import { mapCalendarRideToBackendWriteDto, mapBackendRideToCalendarRide } from '../services/dashboardState'
@@ -34,7 +37,7 @@ import { useNavigate } from 'react-router-dom'
 import UserMenuButton from '../components/UserMenuButton'
 import { useAuth } from '../context/AuthContext'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
-import { loadDashboardState, saveDashboardState } from '../services/dashboardState'
+import { saveDashboardState } from '../services/dashboardState'
 import { getFahrgaeste } from '../services/fahrgastApi'
 import { getFahrzeuge } from '../services/fahrzeugApi'
 import { getInitiativen } from '../services/initiativeApi'
@@ -195,6 +198,10 @@ function normalizeName(value: string) {
   return value.trim().toLocaleLowerCase('de-DE')
 }
 
+function normalizePassengerText(value?: string | null) {
+  return value ?? ''
+}
+
 function buildDriverDisplayName(username?: string, email?: string, firstName?: string, lastName?: string) {
   const nameParts = [firstName, lastName].filter(Boolean)
   if (nameParts.length > 0) {
@@ -217,7 +224,7 @@ function getRideStatusByType(rideType: RideType, driverName: string): RideStatus
     return 'rental'
   }
 
-  return driverName.trim() ? 'assigned' : 'open'
+  return normalizePassengerText(driverName).trim() ? 'assigned' : 'open'
 }
 
 function getDefaultRideStatusForOpenRide(ride: CalendarRide): RideStatus {
@@ -262,6 +269,8 @@ function createEmptyPassenger(id: number): PassengerForm {
     pickupAddress: '',
     destinationAddress: '',
     time: '',
+    istAbgehakt: false,
+    abgehaktAm: null,
   }
 }
 
@@ -321,7 +330,6 @@ function DashboardPage() {
   const [ridePendingDelete, setRidePendingDelete] = useState<CalendarRide | null>(null)
   const [expandedRideIds, setExpandedRideIds] = useState<number[]>([])
   const [collapsedDriverRideIds, setCollapsedDriverRideIds] = useState<number[]>([])
-  const [completedPassengerKeys, setCompletedPassengerKeys] = useState<string[]>([])
   const [nextRideId, setNextRideId] = useState(1)
   const [nextPassengerId, setNextPassengerId] = useState(2)
   const [isDashboardHydrated, setIsDashboardHydrated] = useState(false)
@@ -452,7 +460,7 @@ function DashboardPage() {
         const guests = await getFahrgaeste()
 
         if (!isCancelled) {
-          setKnownGuests(guests)
+          setKnownGuests(guests.filter((guest) => guest.aktiv))
         }
       } catch {
         if (!isCancelled) {
@@ -523,10 +531,9 @@ function DashboardPage() {
 
     void saveDashboardState({
       rides: calendarRides,
-      completedPassengerKeys,
       nextRideId,
     })
-  }, [calendarRides, completedPassengerKeys, isDashboardHydrated, nextRideId])
+  }, [calendarRides, isDashboardHydrated, nextRideId])
 
   function openDayDialog(date: Date) {
     if (isGast) {
@@ -591,39 +598,23 @@ function DashboardPage() {
     )
   }
 
-  function toggleDriverSelfAssignment(rideId: number) {
+  async function toggleDriverSelfAssignment(ride: CalendarRide) {
     const driverIdentity = currentDriverDisplayName || currentUser?.username || currentUser?.email || ''
 
     if (!driverIdentity) {
       return
     }
 
-    setCalendarRides((currentRides) =>
-      currentRides.map((ride) => {
-        if (ride.id !== rideId) {
-          return ride
-        }
+    const isAssignedToCurrentDriver = ride.status === 'assigned'
+      && normalizeName(ride.driverName) === normalizeName(driverIdentity)
 
-        const isAssignedToCurrentDriver = ride.status === 'assigned'
-          && normalizeName(ride.driverName) === normalizeName(driverIdentity)
+    if (isAssignedToCurrentDriver) {
+      await meldeFahrerAb(ride.id)
+    } else {
+      await meldeFahrerAn(ride.id)
+    }
 
-        if (isAssignedToCurrentDriver) {
-          return {
-            ...ride,
-            driverName: '',
-            fahrzeugId: ride.fahrzeugId,
-            status: getDefaultRideStatusForOpenRide(ride),
-          }
-        }
-
-        return {
-          ...ride,
-          driverName: driverIdentity,
-          fahrzeugId: ride.fahrzeugId,
-          status: ride.type === 'rental' ? 'rental' : ride.type === 'theme' ? 'theme' : 'assigned',
-        }
-      }),
-    )
+    await reloadFahrten()
   }
 
   function canToggleDriverAssignment(ride: CalendarRide) {
@@ -635,48 +626,9 @@ function DashboardPage() {
     return ride.status === 'open' || isAssignedToCurrentDriver
   }
 
-  function buildPassengerKey(rideId: number, passengerId: number) {
-    return `${rideId}:${passengerId}`
-  }
-
-  function togglePassengerCompleted(rideId: number, passengerId: number) {
-    const key = buildPassengerKey(rideId, passengerId)
-
-    setCompletedPassengerKeys((current) => {
-      const next = current.includes(key)
-        ? current.filter((entry) => entry !== key)
-        : [...current, key]
-
-      setCalendarRides((currentRides) =>
-        currentRides.map((ride) => {
-          if (ride.id !== rideId || ride.passengers.length === 0) {
-            return ride
-          }
-
-          const allPassengersCompleted = ride.passengers.every((passenger) =>
-            next.includes(buildPassengerKey(ride.id, passenger.id)),
-          )
-
-          if (allPassengersCompleted) {
-            return {
-              ...ride,
-              status: 'completed',
-            }
-          }
-
-          if (ride.status === 'completed') {
-            return {
-              ...ride,
-              status: getDefaultRideStatusForOpenRide(ride),
-            }
-          }
-
-          return ride
-        }),
-      )
-
-      return next
-    })
+  async function togglePassengerCompleted(rideId: number, passengerId: number, checked: boolean) {
+    await updateFahrtteilnehmerAbgehakt(passengerId, checked)
+    await reloadFahrten()
   }
 
   function openEditRideDialog(ride: CalendarRide) {
@@ -704,15 +656,17 @@ function DashboardPage() {
       return
     }
 
-    const seededForms = createInitialRideForms()
-    const passengersForEdit = ride.passengers.length > 0
+    const seededForms: Record<RideFormType, RideFormState> = createInitialRideForms()
+    const passengersForEdit: PassengerForm[] = ride.passengers.length > 0
       ? ride.passengers
       : [createEmptyPassenger(1)]
+    const rideFormKey: RideFormType = ride.type === 'theme' ? 'theme' : 'standard'
 
-    seededForms[ride.type] = {
+    seededForms[rideFormKey] = {
       driverName: ride.driverName,
+      fahrerId: ride.fahrerId,
       fahrzeugId: ride.fahrzeugId,
-      themeTitle: ride.type === 'theme' ? ride.title : '',
+      themeTitle: rideFormKey === 'theme' ? ride.title : '',
       remarks: ride.remarks,
       passengers: passengersForEdit,
     }
@@ -753,10 +707,6 @@ async function confirmDeleteRide() {
 
   setCalendarRides((current) =>
     current.filter((r) => r.id !== rideId),
-  )
-
-  setCompletedPassengerKeys((current) =>
-    current.filter((entry) => !entry.startsWith(`${rideId}:`)),
   )
 
   if (rideInEditId === rideId) {
@@ -869,9 +819,9 @@ async function confirmDeleteRide() {
             ...passenger,
             sourceGuestId: selectedGuestId,
             saveAsGuest: false,
-            name: `${selectedGuest.vorname} ${selectedGuest.nachname}`.trim(),
-            phone: selectedGuest.telefonnummer || '',
-            pickupAddress: selectedGuest.adresse || '',
+            name: `${normalizePassengerText(selectedGuest.vorname)} ${normalizePassengerText(selectedGuest.nachname)}`.trim(),
+            phone: normalizePassengerText(selectedGuest.telefonnummer),
+            pickupAddress: normalizePassengerText(selectedGuest.adresse),
           }
         }),
       },
@@ -1029,10 +979,6 @@ async function confirmDeleteRide() {
     }
     await reloadFahrten()
 
-    setCompletedPassengerKeys((current) =>
-      current.filter((entry) => !entry.startsWith(`${rideInEditId}:`))
-    )
-
     setExpandedRideIds((current) =>
       current.filter((id) => id !== rideInEditId)
     )
@@ -1091,7 +1037,7 @@ async function confirmDeleteRide() {
 
     const activeForm = rideFormsByType[rideType]
     const firstPassenger = activeForm.passengers[0]
-    const driverName = activeForm.driverName.trim()
+    const driverName = normalizePassengerText(activeForm.driverName).trim()
     const passengers = activeForm.passengers.map((passenger, index) => ({
       ...passenger,
       id: index + 1,
@@ -1113,7 +1059,7 @@ const tempRide: CalendarRide = {
   status: baseStatus,
   title:
     rideType === 'theme'
-      ? activeForm.themeTitle.trim() || 'Themenfahrt'
+      ? normalizePassengerText(activeForm.themeTitle).trim() || 'Themenfahrt'
       : 'Standardfahrt',
   time: firstPassenger?.time ?? '',
   driverName,
@@ -1122,7 +1068,7 @@ const tempRide: CalendarRide = {
   passengers: activeForm.passengers.length > 0
     ? activeForm.passengers.map((p, i) => ({ ...p, id: i + 1 }))
     : existingRide?.passengers ?? [],
-  remarks: activeForm.remarks.trim(),
+  remarks: normalizePassengerText(activeForm.remarks).trim(),
 }
 
   const payload = mapCalendarRideToBackendWriteDto(tempRide, selectedInitiativeId)
@@ -1136,10 +1082,6 @@ setCalendarRides((currentRides) =>
     ride.id === rideInEditId ? backendRide : ride
   ),
 )
-
-  setCompletedPassengerKeys((current) =>
-    current.filter((entry) => !entry.startsWith(`${rideInEditId}:`)),
-  )
 
   setRideInEditId(null)
   setIsRideDialogOpen(false)
@@ -1155,14 +1097,14 @@ setCalendarRides((currentRides) =>
       status: baseStatus,
       title:
         rideType === 'theme'
-          ? activeForm.themeTitle.trim() || 'Themenfahrt'
+          ? normalizePassengerText(activeForm.themeTitle).trim() || 'Themenfahrt'
           : 'Standardfahrt',
       time: firstPassenger?.time ?? '',
       driverName,
       fahrerId: activeForm.fahrerId,
       fahrzeugId: activeForm.fahrzeugId,
       passengers,
-      remarks: activeForm.remarks.trim(),
+      remarks: normalizePassengerText(activeForm.remarks).trim(),
     }
 
     const payload = mapCalendarRideToBackendWriteDto(nextRide, selectedInitiativeId)
@@ -1640,7 +1582,7 @@ setCalendarRides((currentRides) =>
                               {canToggleDriverAssignment(ride) ? (
                                 <button
                                   type="button"
-                                  onClick={() => toggleDriverSelfAssignment(ride.id)}
+                                  onClick={() => void toggleDriverSelfAssignment(ride)}
                                   className={`rounded-xl px-3 py-1 text-sm font-semibold transition ${
                                     ride.status === 'assigned'
                                       && normalizeName(ride.driverName) === normalizeName(currentDriverDisplayName)
@@ -1673,16 +1615,16 @@ setCalendarRides((currentRides) =>
                             <div className="mt-4 space-y-3 border-t border-slate-200 pt-3">
                               {ride.passengers.length > 0 ? (
                                 ride.passengers.map((passenger) => (
-                                  <div key={passenger.id} className={`rounded-2xl border border-slate-200 bg-white p-3 transition ${completedPassengerKeys.includes(buildPassengerKey(ride.id, passenger.id)) ? 'opacity-70' : ''}`}>
+                                  <div key={passenger.id} className={`rounded-2xl border border-slate-200 bg-white p-3 transition ${passenger.istAbgehakt ? 'opacity-70' : ''}`}>
                                     <div className="flex flex-wrap items-start justify-between gap-2">
                                       <label className="inline-flex items-center gap-2 text-2xl font-semibold text-slate-800">
                                         <input
                                           type="checkbox"
-                                          checked={completedPassengerKeys.includes(buildPassengerKey(ride.id, passenger.id))}
-                                          onChange={() => togglePassengerCompleted(ride.id, passenger.id)}
+                                          checked={Boolean(passenger.istAbgehakt)}
+                                          onChange={(event) => void togglePassengerCompleted(ride.id, passenger.id, event.target.checked)}
                                           className="h-6 w-6 rounded-md border-slate-300"
                                         />
-                                        <span className={completedPassengerKeys.includes(buildPassengerKey(ride.id, passenger.id)) ? 'line-through text-slate-400' : ''}>
+                                        <span className={passenger.istAbgehakt ? 'line-through text-slate-400' : ''}>
                                           {passenger.name || `Fahrgast ${passenger.id}`}
                                         </span>
                                       </label>
@@ -2089,18 +2031,19 @@ setCalendarRides((currentRides) =>
                             <div className="relative sm:col-span-2">
                               <input
                                 type="text"
-                                value={passenger.name}
+                                value={passenger.name ?? ''}
                                 onChange={(event) => updatePassengerField(passenger.id, 'name', event.target.value)}
                                 placeholder="Name des Fahrgasts (z. B. Max)"
                                 className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
                               />
 
-                              {passenger.name.trim().length > 0 ? (
+                              {(passenger.name ?? '').trim().length > 0 ? (
                                 <div className="mt-1 max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm">
                                   {knownGuests
+                                    .filter((guest) => guest.aktiv)
                                     .filter((guest) => {
-                                      const query = passenger.name.trim().toLowerCase()
-                                      const searchable = `${guest.vorname} ${guest.nachname} ${guest.adresse} ${guest.telefonnummer}`.toLowerCase()
+                                      const query = (passenger.name ?? '').trim().toLowerCase()
+                                      const searchable = `${guest.vorname ?? ''} ${guest.nachname ?? ''} ${guest.adresse ?? ''} ${guest.telefonnummer ?? ''}`.toLowerCase()
                                       return searchable.includes(query)
                                     })
                                     .slice(0, 6)
@@ -2111,8 +2054,8 @@ setCalendarRides((currentRides) =>
                                         onClick={() => autofillPassengerFromKnownGuest(passenger.id, guest.id)}
                                         className="flex w-full flex-col items-start border-b border-slate-100 px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 last:border-b-0"
                                       >
-                                        <span className="font-semibold text-slate-800">{`${guest.vorname} ${guest.nachname}`.trim()}</span>
-                                        <span className="text-xs text-slate-500">{guest.adresse}</span>
+                                        <span className="font-semibold text-slate-800">{`${guest.vorname ?? ''} ${guest.nachname ?? ''}`.trim()}</span>
+                                        <span className="text-xs text-slate-500">{guest.adresse ?? ''}</span>
                                       </button>
                                     ))}
                                 </div>
@@ -2135,7 +2078,7 @@ setCalendarRides((currentRides) =>
                             )}
                             <input
                               type="text"
-                              value={passenger.phone}
+                              value={passenger.phone ?? ''}
                               onChange={(event) => updatePassengerField(passenger.id, 'phone', event.target.value)}
                               placeholder="Telefonnummer"
                               className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
@@ -2144,7 +2087,7 @@ setCalendarRides((currentRides) =>
                               <MapPin className="h-4 w-4 text-[#0053a0]" aria-hidden="true" />
                               <input
                                 type="text"
-                                value={passenger.pickupAddress}
+                                value={passenger.pickupAddress ?? ''}
                                 onChange={(event) => updatePassengerField(passenger.id, 'pickupAddress', event.target.value)}
                                 placeholder="Abholadresse"
                                 className="w-full bg-transparent text-slate-700 outline-none placeholder:text-slate-400"
@@ -2154,7 +2097,7 @@ setCalendarRides((currentRides) =>
                               <MapPin className="h-4 w-4 text-[#2f73b3]" aria-hidden="true" />
                               <input
                                 type="text"
-                                value={passenger.destinationAddress}
+                                value={passenger.destinationAddress ?? ''}
                                 onChange={(event) => updatePassengerField(passenger.id, 'destinationAddress', event.target.value)}
                                 placeholder="Zieladresse"
                                 className="w-full bg-transparent text-slate-700 outline-none placeholder:text-slate-400"
@@ -2163,7 +2106,7 @@ setCalendarRides((currentRides) =>
                             <label className="sm:col-span-2 flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-500">
                               <input
                                 type="time"
-                                value={passenger.time}
+                                value={passenger.time ?? ''}
                                 onChange={(event) => updatePassengerField(passenger.id, 'time', event.target.value)}
                                 className="w-full bg-transparent text-slate-700 outline-none"
                               />

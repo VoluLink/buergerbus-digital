@@ -35,6 +35,8 @@ type BackendFahrtTeilnehmerDto = {
   nachname: string
   adresse?: string | null
   telefonnummer?: string | null
+  istAbgehakt: boolean
+  abgehaktAm?: string | null
   istTemporaer: boolean
   alsStammgastGespeichert: boolean
   teilstrecken?: BackendTeilstreckeDto[] | null
@@ -86,6 +88,10 @@ type BackendFahrtWriteDto = {
 
 const DASHBOARD_STORAGE_KEY = 'bb.dashboard.state.v1'
 
+function safeText(value?: string | null) {
+  return value ?? ''
+}
+
 function extractHourMinute(value?: string | null) {
   if (!value) return ''
   const match = value.match(/(\d{2}:\d{2})/)
@@ -93,7 +99,7 @@ function extractHourMinute(value?: string | null) {
 }
 
 function mapBackendTypeToRideType(fahrttyp: string): RideType {
-  const normalized = fahrttyp.trim().toLowerCase()
+  const normalized = safeText(fahrttyp).trim().toLowerCase()
 
   if (normalized.includes('theme')) return 'theme'
   if (normalized.includes('vermiet')) return 'rental'
@@ -101,7 +107,7 @@ function mapBackendTypeToRideType(fahrttyp: string): RideType {
 }
 
 function mapBackendStatusToRideStatus(status: string, type: RideType): RideStatus {
-  const normalized = status.trim().toLowerCase()
+  const normalized = safeText(status).trim().toLowerCase()
 
   if (normalized.includes('abgeschlossen') || normalized.includes('completed')) return 'completed'
   if (normalized.includes('zugewiesen') || normalized.includes('assigned')) return 'assigned'
@@ -133,11 +139,11 @@ function mapTeilstreckenToPassengers(teilstrecken?: BackendTeilstreckeDto[] | nu
     id: index + 1,
     sourceGuestId: item.fahrgastId > 0 ? item.fahrgastId : null,
     name: item.fahrgast
-      ? `${item.fahrgast.vorname} ${item.fahrgast.nachname}`.trim()
+      ? `${safeText(item.fahrgast.vorname)} ${safeText(item.fahrgast.nachname)}`.trim()
       : `Fahrgast ${index + 1}`,
-    phone: item.fahrgast?.telefonnummer ?? '',
-    pickupAddress: item.abholadresse,
-    destinationAddress: item.zieladresse,
+    phone: safeText(item.fahrgast?.telefonnummer),
+    pickupAddress: safeText(item.abholadresse),
+    destinationAddress: safeText(item.zieladresse),
     time: extractHourMinute(item.startzeit),
   }))
 }
@@ -147,17 +153,19 @@ function mapTeilnehmerToPassengers(teilnehmer?: BackendFahrtTeilnehmerDto[] | nu
 
   return teilnehmer.map((item, index) => {
     const firstSegment = item.teilstrecken?.[0]
-    const fullName = `${item.vorname} ${item.nachname}`.trim()
+    const fullName = `${safeText(item.vorname)} ${safeText(item.nachname)}`.trim()
 
     return {
-      id: index + 1,
+      id: item.id,
       sourceGuestId: item.fahrgastId ?? null,
       saveAsGuest: item.alsStammgastGespeichert,
       name: fullName,
-      phone: item.telefonnummer ?? '',
-      pickupAddress: firstSegment?.abholadresse ?? item.adresse ?? '',
-      destinationAddress: firstSegment?.zieladresse ?? '',
+      phone: safeText(item.telefonnummer),
+      pickupAddress: safeText(firstSegment?.abholadresse ?? item.adresse),
+      destinationAddress: safeText(firstSegment?.zieladresse),
       time: extractHourMinute(firstSegment?.startzeit),
+      istAbgehakt: item.istAbgehakt,
+      abgehaktAm: item.abgehaktAm ?? null,
     }
   })
 }
@@ -209,7 +217,7 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide, initiativeI
         ? `${toLocalDateString(ride.date)}T${earliestTime}:00`
         : `${toLocalDateString(ride.date)}T00:00:00`,
       endzeit: null,
-      bemerkung: ride.remarks || null,
+      bemerkung: safeText(ride.remarks).trim() || null,
       status: mapRideStatusToBackendStatus(ride.status),
       fahrerId: ride.fahrerId,
       fahrzeugId: ride.fahrzeugId,
@@ -217,13 +225,13 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide, initiativeI
     },
     teilnehmer: ride.passengers.map((p, index) => ({
       fahrgastId: p.sourceGuestId ?? null,
-      vorname: (p.name || '').trim().split(/\s+/)[0] ?? '',
-      nachname: (p.name || '').trim().split(/\s+/).slice(1).join(' ') || (p.name || '').trim(),
-      adresse: p.saveAsGuest ? (p.pickupAddress?.trim() || null) : null,
-      telefonnummer: p.phone?.trim() ? p.phone : null,
+      vorname: safeText(p.name).trim().split(/\s+/)[0] ?? '',
+      nachname: safeText(p.name).trim().split(/\s+/).slice(1).join(' ') || safeText(p.name).trim(),
+      adresse: p.saveAsGuest ? (safeText(p.pickupAddress).trim() || null) : null,
+      telefonnummer: safeText(p.phone).trim() ? safeText(p.phone).trim() : null,
       alsStammgastSpeichern: Boolean(p.saveAsGuest),
-      abholadresse: p.pickupAddress,
-      zieladresse: p.destinationAddress,
+      abholadresse: safeText(p.pickupAddress),
+      zieladresse: safeText(p.destinationAddress),
       startzeit: p.time
         ? `${toLocalDateString(ride.date)}T${p.time}:00`
         : null,
