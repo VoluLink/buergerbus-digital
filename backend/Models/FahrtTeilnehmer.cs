@@ -15,6 +15,9 @@ namespace BuergerbusAPI.Models
         public string? Adresse { get; set; }
         public string? Telefonnummer { get; set; }
 
+        public bool IstAbgehakt { get; set; }
+        public DateTime? AbgehaktAm { get; set; }
+
         public bool IstTemporaer { get; set; }
         public bool AlsStammgastGespeichert { get; set; }
         public DateTime? AnonymisiertAm { get; set; }

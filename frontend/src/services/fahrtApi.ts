@@ -93,3 +93,20 @@ export async function deleteFahrt(id: number) {
 
   return true
 }
+
+export async function updateFahrtteilnehmerAbgehakt(id: number, istAbgehakt: boolean) {
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrtteilnehmer/${id}/abgehakt`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ istAbgehakt }),
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(err || 'Fehler beim Speichern des Checkstatus')
+  }
+
+  return await res.json()
+}

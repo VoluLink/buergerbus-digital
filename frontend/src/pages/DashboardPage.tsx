@@ -4,6 +4,7 @@ import {
   getFahrt,
   updateFahrt,
   deleteFahrt,
+  updateFahrtteilnehmerAbgehakt,
 } from '../services/fahrtApi'
 
 import { mapCalendarRideToBackendWriteDto, mapBackendRideToCalendarRide } from '../services/dashboardState'
@@ -33,7 +34,7 @@ import { useNavigate } from 'react-router-dom'
 import UserMenuButton from '../components/UserMenuButton'
 import { useAuth } from '../context/AuthContext'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
-import { loadDashboardState, saveDashboardState } from '../services/dashboardState'
+import { saveDashboardState } from '../services/dashboardState'
 import { getFahrgaeste } from '../services/fahrgastApi'
 import { getFahrzeuge } from '../services/fahrzeugApi'
 import { getInitiativen } from '../services/initiativeApi'
@@ -265,6 +266,8 @@ function createEmptyPassenger(id: number): PassengerForm {
     pickupAddress: '',
     destinationAddress: '',
     time: '',
+    istAbgehakt: false,
+    abgehaktAm: null,
   }
 }
 
@@ -324,7 +327,6 @@ function DashboardPage() {
   const [ridePendingDelete, setRidePendingDelete] = useState<CalendarRide | null>(null)
   const [expandedRideIds, setExpandedRideIds] = useState<number[]>([])
   const [collapsedDriverRideIds, setCollapsedDriverRideIds] = useState<number[]>([])
-  const [completedPassengerKeys, setCompletedPassengerKeys] = useState<string[]>([])
   const [nextRideId, setNextRideId] = useState(1)
   const [nextPassengerId, setNextPassengerId] = useState(2)
   const [isDashboardHydrated, setIsDashboardHydrated] = useState(false)
@@ -526,10 +528,9 @@ function DashboardPage() {
 
     void saveDashboardState({
       rides: calendarRides,
-      completedPassengerKeys,
       nextRideId,
     })
-  }, [calendarRides, completedPassengerKeys, isDashboardHydrated, nextRideId])
+  }, [calendarRides, isDashboardHydrated, nextRideId])
 
   function openDayDialog(date: Date) {
     if (isGast) {
@@ -638,48 +639,9 @@ function DashboardPage() {
     return ride.status === 'open' || isAssignedToCurrentDriver
   }
 
-  function buildPassengerKey(rideId: number, passengerId: number) {
-    return `${rideId}:${passengerId}`
-  }
-
-  function togglePassengerCompleted(rideId: number, passengerId: number) {
-    const key = buildPassengerKey(rideId, passengerId)
-
-    setCompletedPassengerKeys((current) => {
-      const next = current.includes(key)
-        ? current.filter((entry) => entry !== key)
-        : [...current, key]
-
-      setCalendarRides((currentRides) =>
-        currentRides.map((ride) => {
-          if (ride.id !== rideId || ride.passengers.length === 0) {
-            return ride
-          }
-
-          const allPassengersCompleted = ride.passengers.every((passenger) =>
-            next.includes(buildPassengerKey(ride.id, passenger.id)),
-          )
-
-          if (allPassengersCompleted) {
-            return {
-              ...ride,
-              status: 'completed',
-            }
-          }
-
-          if (ride.status === 'completed') {
-            return {
-              ...ride,
-              status: getDefaultRideStatusForOpenRide(ride),
-            }
-          }
-
-          return ride
-        }),
-      )
-
-      return next
-    })
+  async function togglePassengerCompleted(rideId: number, passengerId: number, checked: boolean) {
+    await updateFahrtteilnehmerAbgehakt(passengerId, checked)
+    await reloadFahrten()
   }
 
   function openEditRideDialog(ride: CalendarRide) {
@@ -758,10 +720,6 @@ async function confirmDeleteRide() {
 
   setCalendarRides((current) =>
     current.filter((r) => r.id !== rideId),
-  )
-
-  setCompletedPassengerKeys((current) =>
-    current.filter((entry) => !entry.startsWith(`${rideId}:`)),
   )
 
   if (rideInEditId === rideId) {
@@ -1028,10 +986,6 @@ async function confirmDeleteRide() {
     }
     await reloadFahrten()
 
-    setCompletedPassengerKeys((current) =>
-      current.filter((entry) => !entry.startsWith(`${rideInEditId}:`))
-    )
-
     setExpandedRideIds((current) =>
       current.filter((id) => id !== rideInEditId)
     )
@@ -1135,10 +1089,6 @@ setCalendarRides((currentRides) =>
     ride.id === rideInEditId ? backendRide : ride
   ),
 )
-
-  setCompletedPassengerKeys((current) =>
-    current.filter((entry) => !entry.startsWith(`${rideInEditId}:`)),
-  )
 
   setRideInEditId(null)
   setIsRideDialogOpen(false)
@@ -1663,16 +1613,16 @@ setCalendarRides((currentRides) =>
                             <div className="mt-4 space-y-3 border-t border-slate-200 pt-3">
                               {ride.passengers.length > 0 ? (
                                 ride.passengers.map((passenger) => (
-                                  <div key={passenger.id} className={`rounded-2xl border border-slate-200 bg-white p-3 transition ${completedPassengerKeys.includes(buildPassengerKey(ride.id, passenger.id)) ? 'opacity-70' : ''}`}>
+                                  <div key={passenger.id} className={`rounded-2xl border border-slate-200 bg-white p-3 transition ${passenger.istAbgehakt ? 'opacity-70' : ''}`}>
                                     <div className="flex flex-wrap items-start justify-between gap-2">
                                       <label className="inline-flex items-center gap-2 text-2xl font-semibold text-slate-800">
                                         <input
                                           type="checkbox"
-                                          checked={completedPassengerKeys.includes(buildPassengerKey(ride.id, passenger.id))}
-                                          onChange={() => togglePassengerCompleted(ride.id, passenger.id)}
+                                          checked={Boolean(passenger.istAbgehakt)}
+                                          onChange={(event) => void togglePassengerCompleted(ride.id, passenger.id, event.target.checked)}
                                           className="h-6 w-6 rounded-md border-slate-300"
                                         />
-                                        <span className={completedPassengerKeys.includes(buildPassengerKey(ride.id, passenger.id)) ? 'line-through text-slate-400' : ''}>
+                                        <span className={passenger.istAbgehakt ? 'line-through text-slate-400' : ''}>
                                           {passenger.name || `Fahrgast ${passenger.id}`}
                                         </span>
                                       </label>

@@ -258,6 +258,9 @@ namespace BuergerbusAPI.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("AbgehaktAm")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("Adresse")
                         .HasColumnType("longtext");
 
@@ -272,6 +275,9 @@ namespace BuergerbusAPI.Migrations
 
                     b.Property<int>("FahrtId")
                         .HasColumnType("int");
+
+                    b.Property<bool>("IstAbgehakt")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("IstTemporaer")
                         .HasColumnType("tinyint(1)");

@@ -35,6 +35,8 @@ type BackendFahrtTeilnehmerDto = {
   nachname: string
   adresse?: string | null
   telefonnummer?: string | null
+  istAbgehakt: boolean
+  abgehaktAm?: string | null
   istTemporaer: boolean
   alsStammgastGespeichert: boolean
   teilstrecken?: BackendTeilstreckeDto[] | null
@@ -162,6 +164,8 @@ function mapTeilnehmerToPassengers(teilnehmer?: BackendFahrtTeilnehmerDto[] | nu
       pickupAddress: safeText(firstSegment?.abholadresse ?? item.adresse),
       destinationAddress: safeText(firstSegment?.zieladresse),
       time: extractHourMinute(firstSegment?.startzeit),
+      istAbgehakt: item.istAbgehakt,
+      abgehaktAm: item.abgehaktAm ?? null,
     }
   })
 }

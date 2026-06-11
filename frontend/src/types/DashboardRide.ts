@@ -17,6 +17,8 @@ export type PassengerForm = {
   pickupAddress: string
   destinationAddress: string
   time: string
+  istAbgehakt?: boolean
+  abgehaktAm?: string | null
 }
 
 export type CalendarRide = {

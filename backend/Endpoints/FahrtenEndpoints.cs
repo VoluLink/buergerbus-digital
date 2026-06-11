@@ -631,6 +631,62 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
+        app.MapPatch("/api/v1/fahrtteilnehmer/{id:int}/abgehakt", async (
+            int id,
+            FahrtTeilnehmerCheckDto dto,
+            AppDbContext db,
+            HttpContext httpContext) =>
+        {
+            var teilnehmer = await db.FahrtTeilnehmer
+                .Include(tp => tp.Fahrt)
+                    .ThenInclude(f => f.Teilnehmer)
+                .FirstOrDefaultAsync(tp => tp.Id == id);
+
+            if (teilnehmer is null)
+            {
+                return Results.NotFound("Fahrtteilnehmer wurde nicht gefunden.");
+            }
+
+            var access = await ValidateRideAccessAsync(httpContext.User, db, teilnehmer.Fahrt);
+            if (access is not null)
+            {
+                return access;
+            }
+
+            teilnehmer.IstAbgehakt = dto.IstAbgehakt;
+            teilnehmer.AbgehaktAm = dto.IstAbgehakt ? DateTime.UtcNow : null;
+
+            var alleAbgehakt = teilnehmer.Fahrt.Teilnehmer.All(tp =>
+                tp.Id == teilnehmer.Id ? dto.IstAbgehakt : tp.IstAbgehakt);
+
+            if (alleAbgehakt)
+            {
+                teilnehmer.Fahrt.Status = "Abgeschlossen";
+
+                if (teilnehmer.Fahrt.Endzeit is null)
+                {
+                    teilnehmer.Fahrt.Endzeit = DateTime.UtcNow;
+                }
+            }
+            else
+            {
+                teilnehmer.Fahrt.Status = "Offen";
+                teilnehmer.Fahrt.Endzeit = null;
+            }
+
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new
+            {
+                teilnehmer.Id,
+                teilnehmer.IstAbgehakt,
+                teilnehmer.AbgehaktAm,
+                FahrtStatus = teilnehmer.Fahrt.Status,
+                teilnehmer.Fahrt.Endzeit
+            });
+        })
+        .RequireAuthorization();
+
         return app;
     }
 }
