@@ -264,6 +264,9 @@ namespace BuergerbusAPI.Migrations
                     b.Property<bool>("AlsStammgastGespeichert")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<DateTime?>("AnonymisiertAm")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<int?>("FahrgastId")
                         .HasColumnType("int");
 

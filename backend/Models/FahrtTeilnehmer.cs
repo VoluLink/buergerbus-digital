@@ -17,6 +17,7 @@ namespace BuergerbusAPI.Models
 
         public bool IstTemporaer { get; set; }
         public bool AlsStammgastGespeichert { get; set; }
+        public DateTime? AnonymisiertAm { get; set; }
 
         public List<Teilstrecke> Teilstrecken { get; set; } = new();
     }
