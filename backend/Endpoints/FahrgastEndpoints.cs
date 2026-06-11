@@ -258,6 +258,19 @@ public static class FahrgastEndpoints
                 return Results.Forbid();
             }
 
+            var isReferencedByFahrtTeilnehmer = await db.FahrtTeilnehmer.AnyAsync(tp => tp.FahrgastId == id);
+            var isReferencedByTeilstrecke = await db.Teilstrecken.AnyAsync(ts => ts.FahrgastId == id);
+
+            if (isReferencedByFahrtTeilnehmer || isReferencedByTeilstrecke)
+            {
+                fahrgast.Aktiv = false;
+                fahrgast.GeaendertAm = DateTime.UtcNow;
+
+                await db.SaveChangesAsync();
+
+                return Results.Ok("Fahrgast wurde deaktiviert.");
+            }
+
             db.Fahrgaeste.Remove(fahrgast);
 
             await db.SaveChangesAsync();

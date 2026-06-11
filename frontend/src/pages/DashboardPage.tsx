@@ -194,6 +194,10 @@ function normalizeName(value: string) {
   return value.trim().toLocaleLowerCase('de-DE')
 }
 
+function normalizePassengerText(value?: string | null) {
+  return value ?? ''
+}
+
 function buildDriverDisplayName(username?: string, email?: string, firstName?: string, lastName?: string) {
   const nameParts = [firstName, lastName].filter(Boolean)
   if (nameParts.length > 0) {
@@ -216,7 +220,7 @@ function getRideStatusByType(rideType: RideType, driverName: string): RideStatus
     return 'rental'
   }
 
-  return driverName.trim() ? 'assigned' : 'open'
+  return normalizePassengerText(driverName).trim() ? 'assigned' : 'open'
 }
 
 function getDefaultRideStatusForOpenRide(ride: CalendarRide): RideStatus {
@@ -703,15 +707,17 @@ function DashboardPage() {
       return
     }
 
-    const seededForms = createInitialRideForms()
-    const passengersForEdit = ride.passengers.length > 0
+    const seededForms: Record<RideFormType, RideFormState> = createInitialRideForms()
+    const passengersForEdit: PassengerForm[] = ride.passengers.length > 0
       ? ride.passengers
       : [createEmptyPassenger(1)]
+    const rideFormKey: RideFormType = ride.type === 'theme' ? 'theme' : 'standard'
 
-    seededForms[ride.type] = {
+    seededForms[rideFormKey] = {
       driverName: ride.driverName,
+      fahrerId: ride.fahrerId,
       fahrzeugId: ride.fahrzeugId,
-      themeTitle: ride.type === 'theme' ? ride.title : '',
+      themeTitle: rideFormKey === 'theme' ? ride.title : '',
       remarks: ride.remarks,
       passengers: passengersForEdit,
     }
@@ -868,9 +874,9 @@ async function confirmDeleteRide() {
             ...passenger,
             sourceGuestId: selectedGuestId,
             saveAsGuest: false,
-            name: `${selectedGuest.vorname} ${selectedGuest.nachname}`.trim(),
-            phone: selectedGuest.telefonnummer || '',
-            pickupAddress: selectedGuest.adresse || '',
+            name: `${normalizePassengerText(selectedGuest.vorname)} ${normalizePassengerText(selectedGuest.nachname)}`.trim(),
+            phone: normalizePassengerText(selectedGuest.telefonnummer),
+            pickupAddress: normalizePassengerText(selectedGuest.adresse),
           }
         }),
       },
@@ -1084,7 +1090,7 @@ async function confirmDeleteRide() {
 
     const activeForm = rideFormsByType[rideType]
     const firstPassenger = activeForm.passengers[0]
-    const driverName = activeForm.driverName.trim()
+    const driverName = normalizePassengerText(activeForm.driverName).trim()
     const passengers = activeForm.passengers.map((passenger, index) => ({
       ...passenger,
       id: index + 1,
@@ -1106,7 +1112,7 @@ const tempRide: CalendarRide = {
   status: baseStatus,
   title:
     rideType === 'theme'
-      ? activeForm.themeTitle.trim() || 'Themenfahrt'
+      ? normalizePassengerText(activeForm.themeTitle).trim() || 'Themenfahrt'
       : 'Standardfahrt',
   time: firstPassenger?.time ?? '',
   driverName,
@@ -1115,7 +1121,7 @@ const tempRide: CalendarRide = {
   passengers: activeForm.passengers.length > 0
     ? activeForm.passengers.map((p, i) => ({ ...p, id: i + 1 }))
     : existingRide?.passengers ?? [],
-  remarks: activeForm.remarks.trim(),
+  remarks: normalizePassengerText(activeForm.remarks).trim(),
 }
 
   const payload = mapCalendarRideToBackendWriteDto(tempRide, selectedInitiativeId)
@@ -1148,14 +1154,14 @@ setCalendarRides((currentRides) =>
       status: baseStatus,
       title:
         rideType === 'theme'
-          ? activeForm.themeTitle.trim() || 'Themenfahrt'
+          ? normalizePassengerText(activeForm.themeTitle).trim() || 'Themenfahrt'
           : 'Standardfahrt',
       time: firstPassenger?.time ?? '',
       driverName,
       fahrerId: activeForm.fahrerId,
       fahrzeugId: activeForm.fahrzeugId,
       passengers,
-      remarks: activeForm.remarks.trim(),
+      remarks: normalizePassengerText(activeForm.remarks).trim(),
     }
 
     const payload = mapCalendarRideToBackendWriteDto(nextRide, selectedInitiativeId)
@@ -2073,18 +2079,18 @@ setCalendarRides((currentRides) =>
                             <div className="relative sm:col-span-2">
                               <input
                                 type="text"
-                                value={passenger.name}
+                                value={passenger.name ?? ''}
                                 onChange={(event) => updatePassengerField(passenger.id, 'name', event.target.value)}
                                 placeholder="Name des Fahrgasts (z. B. Max)"
                                 className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
                               />
 
-                              {passenger.name.trim().length > 0 ? (
+                              {(passenger.name ?? '').trim().length > 0 ? (
                                 <div className="mt-1 max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm">
                                   {knownGuests
                                     .filter((guest) => {
-                                      const query = passenger.name.trim().toLowerCase()
-                                      const searchable = `${guest.vorname} ${guest.nachname} ${guest.adresse} ${guest.telefonnummer}`.toLowerCase()
+                                      const query = (passenger.name ?? '').trim().toLowerCase()
+                                      const searchable = `${guest.vorname ?? ''} ${guest.nachname ?? ''} ${guest.adresse ?? ''} ${guest.telefonnummer ?? ''}`.toLowerCase()
                                       return searchable.includes(query)
                                     })
                                     .slice(0, 6)
@@ -2095,8 +2101,8 @@ setCalendarRides((currentRides) =>
                                         onClick={() => autofillPassengerFromKnownGuest(passenger.id, guest.id)}
                                         className="flex w-full flex-col items-start border-b border-slate-100 px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 last:border-b-0"
                                       >
-                                        <span className="font-semibold text-slate-800">{`${guest.vorname} ${guest.nachname}`.trim()}</span>
-                                        <span className="text-xs text-slate-500">{guest.adresse}</span>
+                                        <span className="font-semibold text-slate-800">{`${guest.vorname ?? ''} ${guest.nachname ?? ''}`.trim()}</span>
+                                        <span className="text-xs text-slate-500">{guest.adresse ?? ''}</span>
                                       </button>
                                     ))}
                                 </div>
@@ -2119,7 +2125,7 @@ setCalendarRides((currentRides) =>
                             )}
                             <input
                               type="text"
-                              value={passenger.phone}
+                              value={passenger.phone ?? ''}
                               onChange={(event) => updatePassengerField(passenger.id, 'phone', event.target.value)}
                               placeholder="Telefonnummer"
                               className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
@@ -2128,7 +2134,7 @@ setCalendarRides((currentRides) =>
                               <MapPin className="h-4 w-4 text-[#0053a0]" aria-hidden="true" />
                               <input
                                 type="text"
-                                value={passenger.pickupAddress}
+                                value={passenger.pickupAddress ?? ''}
                                 onChange={(event) => updatePassengerField(passenger.id, 'pickupAddress', event.target.value)}
                                 placeholder="Abholadresse"
                                 className="w-full bg-transparent text-slate-700 outline-none placeholder:text-slate-400"
@@ -2138,7 +2144,7 @@ setCalendarRides((currentRides) =>
                               <MapPin className="h-4 w-4 text-[#2f73b3]" aria-hidden="true" />
                               <input
                                 type="text"
-                                value={passenger.destinationAddress}
+                                value={passenger.destinationAddress ?? ''}
                                 onChange={(event) => updatePassengerField(passenger.id, 'destinationAddress', event.target.value)}
                                 placeholder="Zieladresse"
                                 className="w-full bg-transparent text-slate-700 outline-none placeholder:text-slate-400"
@@ -2147,7 +2153,7 @@ setCalendarRides((currentRides) =>
                             <label className="sm:col-span-2 flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-500">
                               <input
                                 type="time"
-                                value={passenger.time}
+                                value={passenger.time ?? ''}
                                 onChange={(event) => updatePassengerField(passenger.id, 'time', event.target.value)}
                                 className="w-full bg-transparent text-slate-700 outline-none"
                               />
