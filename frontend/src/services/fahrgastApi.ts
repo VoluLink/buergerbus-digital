@@ -73,7 +73,7 @@ export async function updateFahrgast(fahrgastId: number, payload: FahrgastUpsert
   return mapDtoToFahrgast(data)
 }
 
-export async function deleteFahrgast(fahrgastId: number): Promise<void> {
+export async function deletePassenger(fahrgastId: number): Promise<void> {
   const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrgaeste/${fahrgastId}`, {
     method: 'DELETE',
   })
@@ -86,3 +86,5 @@ export async function deleteFahrgast(fahrgastId: number): Promise<void> {
     throw new Error(errorText || 'Fehler beim Löschen')
   }
 }
+
+export const deleteFahrgast = deletePassenger

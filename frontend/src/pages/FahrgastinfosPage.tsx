@@ -3,7 +3,7 @@ import { Bus, CircleUserRound, Menu, Search, Settings, UserRound, UserRoundPlus,
 import { useNavigate } from 'react-router-dom'
 import {
   createFahrgast,
-  deleteFahrgast,
+  deletePassenger,
   getFahrgaeste,
   type FahrgastUpsertRequest,
   updateFahrgast,
@@ -90,6 +90,7 @@ function FahrgastinfosPage() {
   const [loadError, setLoadError] = useState('')
   const [editError, setEditError] = useState('')
   const [createError, setCreateError] = useState('')
+  const [deleteError, setDeleteError] = useState('')
   const [selectedGuestId, setSelectedGuestId] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [editForm, setEditForm] = useState<FahrgastFormData>(createEmptyForm())
@@ -155,7 +156,7 @@ function FahrgastinfosPage() {
     }
   }, [isAdmin])
 
-  const filteredGuests = guests.filter((entry) => {
+  const filteredGuests = guests.filter((entry) => entry.aktiv).filter((entry) => {
     const haystack = `${entry.vorname ?? ''} ${entry.nachname ?? ''} ${entry.adresse ?? ''} ${entry.telefonnummer ?? ''}`.toLowerCase()
     return haystack.includes((searchQuery ?? '').trim().toLowerCase())
   })
@@ -211,6 +212,7 @@ function FahrgastinfosPage() {
     }
 
     setEditError('')
+    setDeleteError('')
 
     try {
       const payload = toFahrgastUpsertRequest(editForm, { isAdmin })
@@ -223,7 +225,16 @@ function FahrgastinfosPage() {
       }
 
       const savedGuest = await updateFahrgast(selectedGuest.id, payload)
-      setGuests((prev) => prev.map((entry) => (entry.id === selectedGuest.id ? savedGuest : entry)))
+      setGuests((prev) =>
+        prev
+          .map((entry) => (entry.id === selectedGuest.id ? savedGuest : entry))
+          .filter((entry) => entry.aktiv),
+      )
+
+      if (!savedGuest.aktiv) {
+        setSelectedGuestId(null)
+      }
+
       setIsEditModalOpen(false)
     } catch (err) {
       setEditError(err instanceof Error ? err.message : 'Fahrgast konnte nicht gespeichert werden.')
@@ -245,11 +256,18 @@ function FahrgastinfosPage() {
       return
     }
 
-    await deleteFahrgast(selectedGuest.id)
+    setDeleteError('')
 
-    const refreshedGuests = await getFahrgaeste()
-    setGuests(refreshedGuests)
-    setSelectedGuestId(null)
+    try {
+      console.info('Deleting passenger', { passengerId: selectedGuest.id, route: '/api/v1/fahrgaeste/:id' })
+      await deletePassenger(selectedGuest.id)
+
+      setGuests((prev) => prev.filter((entry) => entry.id !== selectedGuest.id))
+      setSelectedGuestId(null)
+    } catch (err) {
+      console.error('Failed to delete passenger', { passengerId: selectedGuest.id, route: '/api/v1/fahrgaeste/:id', error: err })
+      setDeleteError(err instanceof Error ? err.message : 'Fahrgast konnte nicht gelöscht werden.')
+    }
   }
 
   function handleOpenCreateModal() {
@@ -289,8 +307,8 @@ function FahrgastinfosPage() {
 
       const savedGuest = await createFahrgast(payload)
 
-      setGuests((prev) => [...prev, savedGuest])
-      setSelectedGuestId(savedGuest.id)
+      setGuests((prev) => (savedGuest.aktiv ? [...prev, savedGuest] : prev))
+      setSelectedGuestId(savedGuest.aktiv ? savedGuest.id : null)
       setIsCreateModalOpen(false)
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Fahrgast konnte nicht angelegt werden.')
@@ -337,6 +355,12 @@ function FahrgastinfosPage() {
               </div>
             </div>
           </div>
+
+          {deleteError ? (
+            <div className="border-b border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-800 sm:px-6">
+              {deleteError}
+            </div>
+          ) : null}
 
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">

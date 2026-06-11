@@ -455,7 +455,7 @@ function DashboardPage() {
         const guests = await getFahrgaeste()
 
         if (!isCancelled) {
-          setKnownGuests(guests)
+          setKnownGuests(guests.filter((guest) => guest.aktiv))
         }
       } catch {
         if (!isCancelled) {
@@ -2088,6 +2088,7 @@ setCalendarRides((currentRides) =>
                               {(passenger.name ?? '').trim().length > 0 ? (
                                 <div className="mt-1 max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm">
                                   {knownGuests
+                                    .filter((guest) => guest.aktiv)
                                     .filter((guest) => {
                                       const query = (passenger.name ?? '').trim().toLowerCase()
                                       const searchable = `${guest.vorname ?? ''} ${guest.nachname ?? ''} ${guest.adresse ?? ''} ${guest.telefonnummer ?? ''}`.toLowerCase()
