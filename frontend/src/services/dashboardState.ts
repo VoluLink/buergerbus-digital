@@ -156,7 +156,7 @@ function mapTeilnehmerToPassengers(teilnehmer?: BackendFahrtTeilnehmerDto[] | nu
     const fullName = `${safeText(item.vorname)} ${safeText(item.nachname)}`.trim()
 
     return {
-      id: index + 1,
+      id: item.id,
       sourceGuestId: item.fahrgastId ?? null,
       saveAsGuest: item.alsStammgastGespeichert,
       name: fullName,

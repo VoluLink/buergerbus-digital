@@ -5,6 +5,8 @@ import {
   updateFahrt,
   deleteFahrt,
   updateFahrtteilnehmerAbgehakt,
+  meldeFahrerAn,
+  meldeFahrerAb,
 } from '../services/fahrtApi'
 
 import { mapCalendarRideToBackendWriteDto, mapBackendRideToCalendarRide } from '../services/dashboardState'
@@ -595,39 +597,23 @@ function DashboardPage() {
     )
   }
 
-  function toggleDriverSelfAssignment(rideId: number) {
+  async function toggleDriverSelfAssignment(ride: CalendarRide) {
     const driverIdentity = currentDriverDisplayName || currentUser?.username || currentUser?.email || ''
 
     if (!driverIdentity) {
       return
     }
 
-    setCalendarRides((currentRides) =>
-      currentRides.map((ride) => {
-        if (ride.id !== rideId) {
-          return ride
-        }
+    const isAssignedToCurrentDriver = ride.status === 'assigned'
+      && normalizeName(ride.driverName) === normalizeName(driverIdentity)
 
-        const isAssignedToCurrentDriver = ride.status === 'assigned'
-          && normalizeName(ride.driverName) === normalizeName(driverIdentity)
+    if (isAssignedToCurrentDriver) {
+      await meldeFahrerAb(ride.id)
+    } else {
+      await meldeFahrerAn(ride.id)
+    }
 
-        if (isAssignedToCurrentDriver) {
-          return {
-            ...ride,
-            driverName: '',
-            fahrzeugId: ride.fahrzeugId,
-            status: getDefaultRideStatusForOpenRide(ride),
-          }
-        }
-
-        return {
-          ...ride,
-          driverName: driverIdentity,
-          fahrzeugId: ride.fahrzeugId,
-          status: ride.type === 'rental' ? 'rental' : ride.type === 'theme' ? 'theme' : 'assigned',
-        }
-      }),
-    )
+    await reloadFahrten()
   }
 
   function canToggleDriverAssignment(ride: CalendarRide) {
@@ -1580,7 +1566,7 @@ setCalendarRides((currentRides) =>
                               {canToggleDriverAssignment(ride) ? (
                                 <button
                                   type="button"
-                                  onClick={() => toggleDriverSelfAssignment(ride.id)}
+                                  onClick={() => void toggleDriverSelfAssignment(ride)}
                                   className={`rounded-xl px-3 py-1 text-sm font-semibold transition ${
                                     ride.status === 'assigned'
                                       && normalizeName(ride.driverName) === normalizeName(currentDriverDisplayName)

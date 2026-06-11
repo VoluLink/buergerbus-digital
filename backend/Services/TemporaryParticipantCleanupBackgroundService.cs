@@ -19,13 +19,23 @@ public class TemporaryParticipantCleanupBackgroundService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await RunCleanupAsync(stoppingToken);
+        _logger.LogInformation("TemporaryParticipantCleanupBackgroundService gestartet.");
 
-        using var timer = new PeriodicTimer(Intervall);
-
-        while (await timer.WaitForNextTickAsync(stoppingToken))
+        while (!stoppingToken.IsCancellationRequested)
         {
+            _logger.LogInformation("Starte Cleanup temporärer Fahrtteilnehmer.");
+
             await RunCleanupAsync(stoppingToken);
+
+            _logger.LogInformation("Cleanup temporärer Fahrtteilnehmer beendet.");
+
+            try
+            {
+                await Task.Delay(Intervall, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+            }
         }
     }
 
@@ -36,14 +46,14 @@ public class TemporaryParticipantCleanupBackgroundService : BackgroundService
             using var scope = _serviceScopeFactory.CreateScope();
             var cleanupService = scope.ServiceProvider.GetRequiredService<ITemporaryParticipantCleanupService>();
 
-            await cleanupService.AnonymisiereTemporaereFahrtTeilnehmerAsync(stoppingToken);
+            await cleanupService.CleanupAsync(stoppingToken);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Fehler beim Anonymisieren temporärer Fahrtteilnehmer.");
+            _logger.LogError(ex, "Fehler beim Cleanup temporärer Fahrtteilnehmer.");
         }
     }
 }

@@ -613,6 +613,139 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
+        app.MapPatch("/api/v1/fahrten/{fahrtId:int}/fahrer/anmelden", async (
+            int fahrtId,
+            AppDbContext db,
+            HttpContext httpContext) =>
+        {
+            var user = httpContext.User;
+            var userId = AuthUtils.GetUserId(user);
+
+            if (!userId.HasValue)
+            {
+                return Results.Unauthorized();
+            }
+
+            if (!user.IsInRole("Fahrer") && !AuthUtils.IsAdmin(user))
+            {
+                return Results.Forbid();
+            }
+
+            var fahrt = await db.Fahrten.FirstOrDefaultAsync(f => f.Id == fahrtId);
+            if (fahrt is null)
+            {
+                return Results.NotFound("Fahrt wurde nicht gefunden.");
+            }
+
+            if (!AuthUtils.IsAdmin(user))
+            {
+                var initiativeId = AuthUtils.GetInitiativeId(user);
+                if (!initiativeId.HasValue || initiativeId.Value != fahrt.InitiativeId)
+                {
+                    return Results.Forbid();
+                }
+            }
+
+            var fahrer = await db.Fahrer
+                .Include(f => f.Benutzer)
+                .FirstOrDefaultAsync(f => f.BenutzerId == userId.Value);
+
+            if (fahrer is null || !fahrer.Aktiv)
+            {
+                return Results.BadRequest("Angemeldeter Benutzer ist kein aktiver Fahrer.");
+            }
+
+            if (!AuthUtils.IsAdmin(user) && fahrer.Benutzer.InitiativeId != fahrt.InitiativeId)
+            {
+                return Results.Forbid();
+            }
+
+            fahrt.FahrerId = fahrer.Id;
+
+            if (!string.Equals(fahrt.Status, "Abgeschlossen", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(fahrt.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+            {
+                fahrt.Status = "Zugewiesen";
+            }
+
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new
+            {
+                fahrt.Id,
+                fahrt.FahrerId,
+                fahrt.Status
+            });
+        })
+        .RequireAuthorization();
+
+        app.MapPatch("/api/v1/fahrten/{fahrtId:int}/fahrer/abmelden", async (
+            int fahrtId,
+            AppDbContext db,
+            HttpContext httpContext) =>
+        {
+            var user = httpContext.User;
+            var userId = AuthUtils.GetUserId(user);
+
+            if (!userId.HasValue)
+            {
+                return Results.Unauthorized();
+            }
+
+            if (!user.IsInRole("Fahrer") && !AuthUtils.IsAdmin(user))
+            {
+                return Results.Forbid();
+            }
+
+            var fahrt = await db.Fahrten.FirstOrDefaultAsync(f => f.Id == fahrtId);
+            if (fahrt is null)
+            {
+                return Results.NotFound("Fahrt wurde nicht gefunden.");
+            }
+
+            if (!AuthUtils.IsAdmin(user))
+            {
+                var initiativeId = AuthUtils.GetInitiativeId(user);
+                if (!initiativeId.HasValue || initiativeId.Value != fahrt.InitiativeId)
+                {
+                    return Results.Forbid();
+                }
+
+                var fahrerId = await db.Fahrer
+                    .AsNoTracking()
+                    .Where(f => f.BenutzerId == userId.Value)
+                    .Select(f => (int?)f.Id)
+                    .FirstOrDefaultAsync();
+
+                if (!fahrerId.HasValue || fahrt.FahrerId != fahrerId.Value)
+                {
+                    return Results.Forbid();
+                }
+            }
+
+            fahrt.FahrerId = null;
+
+            if (!string.Equals(fahrt.Status, "Abgeschlossen", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(fahrt.Status, "Completed", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(fahrt.Fahrttyp, "Themenfahrt", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(fahrt.Fahrttyp, "theme", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(fahrt.Fahrttyp, "Vermietung", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(fahrt.Fahrttyp, "rental", StringComparison.OrdinalIgnoreCase))
+            {
+                fahrt.Status = "Offen";
+            }
+
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new
+            {
+                fahrt.Id,
+                fahrt.FahrerId,
+                fahrt.Status
+            });
+        })
+        .RequireAuthorization();
+
         app.MapPatch("/api/v1/fahrten/{id:int}/fahrzeug/{fahrzeugId:int}", async (int id, int fahrzeugId, AppDbContext db) =>
         {
             var fahrt = await db.Fahrten.FirstOrDefaultAsync(f => f.Id == id);
@@ -679,6 +812,7 @@ public static class FahrtenEndpoints
             return Results.Ok(new
             {
                 teilnehmer.Id,
+                teilnehmer.FahrtId,
                 teilnehmer.IstAbgehakt,
                 teilnehmer.AbgehaktAm,
                 FahrtStatus = teilnehmer.Fahrt.Status,
