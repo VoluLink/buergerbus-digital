@@ -65,6 +65,13 @@ type CalendarDay = {
   isCurrentMonth: boolean
 }
 
+type FiveMinuteTimeFieldProps = {
+  value: string
+  onChange: (value: string) => void
+  wrapperClassName?: string
+  fieldClassName?: string
+}
+
 const weekDays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 const calendarViews: CalendarView[] = ['Monat', 'Woche', 'Tag']
 
@@ -112,7 +119,19 @@ const weekdayFormatter = new Intl.DateTimeFormat('de-DE', {
   weekday: 'long',
 })
 
+const dayHeaderDateFormatter = new Intl.DateTimeFormat('de-DE', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+})
+
 const dateInputFormatter = new Intl.DateTimeFormat('en-CA')
+const hourTimeOptions = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'))
+const minuteTimeOptions = Array.from({ length: 12 }, (_, index) => String(index * 5).padStart(2, '0'))
+const DAY_TIMELINE_HOUR_HEIGHT = 48
+const DAY_TIMELINE_VERTICAL_PADDING = 18
+const DAY_TIMELINE_TOTAL_HEIGHT = (DAY_TIMELINE_HOUR_HEIGHT * 24) + (DAY_TIMELINE_VERTICAL_PADDING * 2)
+const dayTimelineHourMarkers = Array.from({ length: 25 }, (_, index) => index)
 
 function normalizeDate(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
@@ -200,6 +219,297 @@ function normalizeName(value: string) {
 
 function normalizePassengerText(value?: string | null) {
   return value ?? ''
+}
+
+function getEarliestPassengerTime(passengers: PassengerForm[]) {
+  return passengers
+    .map((passenger) => normalizePassengerText(passenger.time).trim())
+    .filter((time): time is string => time.length > 0)
+    .sort()[0] ?? ''
+}
+
+function getRentalStartTime(time?: string | null) {
+  const normalizedTime = normalizePassengerText(time).trim()
+
+  if (!normalizedTime) {
+    return ''
+  }
+
+  return normalizedTime.split('-')[0]?.trim() ?? ''
+}
+
+function parseTimeToMinutes(value?: string | null) {
+  const normalizedTime = normalizePassengerText(value).trim()
+  const match = normalizedTime.match(/^(\d{1,2}):(\d{2})$/)
+
+  if (!match) {
+    return null
+  }
+
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || hours > 24 || minutes < 0 || minutes > 59) {
+    return null
+  }
+
+  if (hours === 24 && minutes > 0) {
+    return null
+  }
+
+  return Math.min(hours * 60 + minutes, 24 * 60)
+}
+
+function snapTimeToFiveMinuteStep(value?: string | null) {
+  const normalizedValue = normalizePassengerText(value).trim()
+
+  if (!normalizedValue) {
+    return ''
+  }
+
+  const minutes = parseTimeToMinutes(normalizedValue)
+
+  if (minutes === null) {
+    return normalizedValue
+  }
+
+  const snappedMinutes = Math.min(Math.round(minutes / 5) * 5, 23 * 60 + 55)
+  const hours = Math.floor(snappedMinutes / 60)
+  const remainderMinutes = snappedMinutes % 60
+
+  return `${String(hours).padStart(2, '0')}:${String(remainderMinutes).padStart(2, '0')}`
+}
+
+function buildTimeFromParts(hours: string, minutes: string) {
+  if (!hours) {
+    return ''
+  }
+
+  return snapTimeToFiveMinuteStep(`${hours}:${minutes || '00'}`)
+}
+
+function FiveMinuteTimeField({
+  value,
+  onChange,
+  wrapperClassName = 'mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2',
+  fieldClassName = 'w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none',
+}: FiveMinuteTimeFieldProps) {
+  const normalizedValue = snapTimeToFiveMinuteStep(value)
+  const [hours = '', minutes = ''] = normalizedValue.split(':')
+  const selectedMinutes = hours ? (minutes || '00') : ''
+
+  return (
+    <div className={wrapperClassName}>
+      <select
+        value={hours}
+        onChange={(event) => {
+          const nextHours = event.target.value
+
+          if (!nextHours) {
+            onChange('')
+            return
+          }
+
+          onChange(buildTimeFromParts(nextHours, selectedMinutes || '00'))
+        }}
+        className={fieldClassName}
+      >
+        <option value="">Stunde</option>
+        {hourTimeOptions.map((hourValue) => (
+          <option key={`hour-${hourValue}`} value={hourValue}>
+            {hourValue}
+          </option>
+        ))}
+      </select>
+
+      <span className="text-sm font-semibold text-slate-400">:</span>
+
+      <select
+        value={selectedMinutes}
+        onChange={(event) => {
+          if (!hours) {
+            return
+          }
+
+          onChange(buildTimeFromParts(hours, event.target.value || '00'))
+        }}
+        disabled={!hours}
+        className={fieldClassName}
+      >
+        <option value="">Minute</option>
+        {minuteTimeOptions.map((minuteValue) => (
+          <option key={`minute-${minuteValue}`} value={minuteValue}>
+            {minuteValue}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
+function formatHourLabel(hour: number) {
+  return `${String(hour).padStart(2, '0')}:00`
+}
+
+function getRideDisplayTime(ride: Pick<CalendarRide, 'type' | 'time' | 'passengers'>) {
+  if (ride.type === 'rental') {
+    return normalizePassengerText(ride.time).trim()
+  }
+
+  return getEarliestPassengerTime(ride.passengers) || normalizePassengerText(ride.time).trim()
+}
+
+function getRideCalendarDisplayTime(ride: Pick<CalendarRide, 'type' | 'time' | 'passengers'>) {
+  if (ride.type === 'rental') {
+    return getRentalStartTime(ride.time)
+  }
+
+  return getRideDisplayTime(ride)
+}
+
+function isSameRentalSeriesRide(
+  left: Pick<CalendarRide, 'id' | 'type' | 'title' | 'time' | 'remarks' | 'fahrzeugId'>,
+  right: Pick<CalendarRide, 'id' | 'type' | 'title' | 'time' | 'remarks' | 'fahrzeugId'>,
+) {
+  return left.id !== right.id
+    && left.type === 'rental'
+    && right.type === 'rental'
+    && normalizePassengerText(left.title).trim() === normalizePassengerText(right.title).trim()
+    && normalizePassengerText(left.time).trim() === normalizePassengerText(right.time).trim()
+    && normalizePassengerText(left.remarks).trim() === normalizePassengerText(right.remarks).trim()
+    && left.fahrzeugId === right.fahrzeugId
+}
+
+function getRentalSeriesBounds(
+  ride: Pick<CalendarRide, 'id' | 'date' | 'type' | 'title' | 'time' | 'remarks' | 'fahrzeugId'>,
+  rides: Array<Pick<CalendarRide, 'id' | 'date' | 'type' | 'title' | 'time' | 'remarks' | 'fahrzeugId'>>,
+) {
+  if (ride.type !== 'rental') {
+    return null
+  }
+
+  const matchingRides = rides
+    .filter((candidate) => candidate.id === ride.id || isSameRentalSeriesRide(ride, candidate))
+    .sort((left, right) => left.date.getTime() - right.date.getTime())
+
+  const rideIndex = matchingRides.findIndex((candidate) => candidate.id === ride.id)
+
+  if (rideIndex === -1) {
+    return null
+  }
+
+  let startIndex = rideIndex
+  let endIndex = rideIndex
+
+  while (startIndex > 0) {
+    const currentRide = matchingRides[startIndex]
+    const previousRide = matchingRides[startIndex - 1]
+
+    if (!isSameDay(previousRide.date, addDays(currentRide.date, -1))) {
+      break
+    }
+
+    startIndex -= 1
+  }
+
+  while (endIndex < matchingRides.length - 1) {
+    const currentRide = matchingRides[endIndex]
+    const nextRide = matchingRides[endIndex + 1]
+
+    if (!isSameDay(nextRide.date, addDays(currentRide.date, 1))) {
+      break
+    }
+
+    endIndex += 1
+  }
+
+  return {
+    startDate: matchingRides[startIndex].date,
+    endDate: matchingRides[endIndex].date,
+  }
+}
+
+function getRideTimelineRange(
+  ride: Pick<CalendarRide, 'id' | 'date' | 'type' | 'time' | 'passengers' | 'title' | 'remarks' | 'fahrzeugId'>,
+  rides: Array<Pick<CalendarRide, 'id' | 'date' | 'type' | 'time' | 'passengers' | 'title' | 'remarks' | 'fahrzeugId'>> = [],
+) {
+  if (ride.type === 'rental') {
+    const [startTime, endTime] = normalizePassengerText(ride.time).split('-')
+    const startMinutes = parseTimeToMinutes(startTime)
+
+    if (startMinutes === null) {
+      return null
+    }
+
+    const parsedEndMinutes = parseTimeToMinutes(endTime)
+    const rentalSeriesBounds = getRentalSeriesBounds(ride, rides)
+
+    if (rentalSeriesBounds && !isSameDay(rentalSeriesBounds.startDate, rentalSeriesBounds.endDate)) {
+      if (isSameDay(ride.date, rentalSeriesBounds.startDate)) {
+        return {
+          startMinutes,
+          endMinutes: 24 * 60,
+        }
+      }
+
+      if (isSameDay(ride.date, rentalSeriesBounds.endDate)) {
+        return {
+          startMinutes: 0,
+          endMinutes: parsedEndMinutes !== null ? parsedEndMinutes : 24 * 60,
+        }
+      }
+
+      return {
+        startMinutes: 0,
+        endMinutes: 24 * 60,
+      }
+    }
+
+    const endMinutes = parsedEndMinutes !== null && parsedEndMinutes > startMinutes
+      ? parsedEndMinutes
+      : Math.min(startMinutes + 60, 24 * 60)
+
+    return { startMinutes, endMinutes }
+  }
+
+  const startMinutes = parseTimeToMinutes(getRideCalendarDisplayTime(ride))
+
+  if (startMinutes === null) {
+    return null
+  }
+
+  return {
+    startMinutes,
+    endMinutes: Math.min(startMinutes + 60, 24 * 60),
+  }
+}
+
+function getRideTimeSummary(ride: Pick<CalendarRide, 'type' | 'time' | 'passengers'>) {
+  const rideTime = getRideDisplayTime(ride)
+
+  if (!rideTime) {
+    return 'Keine Uhrzeit'
+  }
+
+  if (ride.type === 'rental') {
+    return `${rideTime} Uhr`
+  }
+
+  return `Erste Abholung ${rideTime} Uhr`
+}
+
+function getRideCalendarTitle(ride: CalendarRide) {
+  const calendarTime = getRideCalendarDisplayTime(ride)
+
+  if (!calendarTime) {
+    return `${ride.title} • Keine Uhrzeit (${statusMetadata[ride.status].label})`
+  }
+
+  if (ride.type === 'rental') {
+    return `${ride.title} • Von ${calendarTime} Uhr (${statusMetadata[ride.status].label})`
+  }
+
+  return `${ride.title} • Erste Abholung ${calendarTime} Uhr (${statusMetadata[ride.status].label})`
 }
 
 function buildDriverDisplayName(username?: string, email?: string, firstName?: string, lastName?: string) {
@@ -785,7 +1095,9 @@ async function confirmDeleteRide() {
             ? {
                 ...passenger,
                 ...(field === 'name' ? { sourceGuestId: null } : {}),
-                [field]: value,
+                [field]: field === 'time' && typeof value === 'string'
+                  ? snapTimeToFiveMinuteStep(value)
+                  : value,
               }
             : passenger,
         ),
@@ -1038,7 +1350,6 @@ async function confirmDeleteRide() {
     }
 
     const activeForm = rideFormsByType[rideType]
-    const firstPassenger = activeForm.passengers[0]
     const driverName = normalizePassengerText(activeForm.driverName).trim()
     const passengers = activeForm.passengers.map((passenger, index) => ({
       ...passenger,
@@ -1054,6 +1365,8 @@ const existingRide = calendarRides.find(
   (r) => r.id === rideInEditId
 )
 
+const rideTime = getEarliestPassengerTime(passengers)
+
 const tempRide: CalendarRide = {
   id: rideInEditId,
   date: normalizeDate(selectedDate),
@@ -1063,7 +1376,7 @@ const tempRide: CalendarRide = {
     rideType === 'theme'
       ? normalizePassengerText(activeForm.themeTitle).trim() || 'Themenfahrt'
       : 'Standardfahrt',
-  time: firstPassenger?.time ?? '',
+  time: rideTime,
   driverName,
   fahrerId: activeForm.fahrerId,
   fahrzeugId: activeForm.fahrzeugId,
@@ -1091,6 +1404,7 @@ setCalendarRides((currentRides) =>
 }
 
     const baseStatus = statusOverride ?? getRideStatusByType(rideType, driverName)
+    const rideTime = getEarliestPassengerTime(passengers)
 
     const nextRide: CalendarRide = {
       id: nextRideId,
@@ -1101,7 +1415,7 @@ setCalendarRides((currentRides) =>
         rideType === 'theme'
           ? normalizePassengerText(activeForm.themeTitle).trim() || 'Themenfahrt'
           : 'Standardfahrt',
-      time: firstPassenger?.time ?? '',
+      time: rideTime,
       driverName,
       fahrerId: activeForm.fahrerId,
       fahrzeugId: activeForm.fahrzeugId,
@@ -1183,8 +1497,30 @@ setCalendarRides((currentRides) =>
   const monthHeading = formatMonthHeading(currentMonth)
   const dialogHeading = formatDialogHeading(selectedDate)
   const dayHeaderLabel = weekdayFormatter.format(selectedDate)
+  const dayHeaderDateLabel = dayHeaderDateFormatter.format(selectedDate)
   const activeRideForm = rideType === 'rental' ? null : rideFormsByType[rideType]
   const selectedDayRides = ridesByDay.get(toDateKey(selectedDate)) ?? []
+  const dayTimelineRides = useMemo(() => {
+    return selectedDayRides
+      .map((ride) => {
+        const timelineRange = getRideTimelineRange(ride, filteredCalendarRides)
+
+        if (!timelineRange) {
+          return null
+        }
+
+        return {
+          ride,
+          startMinutes: timelineRange.startMinutes,
+          endMinutes: timelineRange.endMinutes,
+        }
+      })
+      .filter((entry): entry is { ride: CalendarRide; startMinutes: number; endMinutes: number } => entry !== null)
+      .sort((left, right) => left.startMinutes - right.startMinutes || left.ride.title.localeCompare(right.ride.title, 'de-DE'))
+  }, [filteredCalendarRides, selectedDayRides])
+  const dayTimelineUnscheduledRides = useMemo(() => {
+    return selectedDayRides.filter((ride) => getRideTimelineRange(ride, filteredCalendarRides) === null)
+  }, [filteredCalendarRides, selectedDayRides])
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
@@ -1314,69 +1650,179 @@ setCalendarRides((currentRides) =>
           </div>
 
           {selectedView === 'Tag' ? (
-            <div className="mt-5 grid grid-cols-1 gap-2 text-center text-sm font-semibold text-slate-500">
-              <div className="py-2 capitalize">{dayHeaderLabel}</div>
+            <div className="mt-5">
+              <div className="mb-4 text-center text-sm font-semibold capitalize text-slate-500">
+                {dayHeaderLabel}, {dayHeaderDateLabel}
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <div className="max-h-[70vh] overflow-y-auto">
+                  <div className="grid grid-cols-[4.5rem_1fr]">
+                    <div className="relative bg-white" style={{ height: `${DAY_TIMELINE_TOTAL_HEIGHT}px` }}>
+                      {dayTimelineHourMarkers.map((hour) => (
+                        <div
+                          key={hour}
+                          className="absolute right-3 -translate-y-1/2 text-xs font-semibold text-slate-400"
+                          style={{ top: `${(hour * DAY_TIMELINE_HOUR_HEIGHT) + DAY_TIMELINE_VERTICAL_PADDING}px` }}
+                        >
+                          {formatHourLabel(hour)}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="relative border-l border-slate-200 bg-slate-50/50" style={{ height: `${DAY_TIMELINE_TOTAL_HEIGHT}px` }}>
+                      {dayTimelineHourMarkers.map((hour) => (
+                        <div
+                          key={hour}
+                          className="absolute inset-x-0 border-t border-dashed border-slate-200"
+                          style={{ top: `${(hour * DAY_TIMELINE_HOUR_HEIGHT) + DAY_TIMELINE_VERTICAL_PADDING}px` }}
+                        />
+                      ))}
+
+                      {dayTimelineRides.map(({ ride, startMinutes, endMinutes }) => {
+                        const top = ((startMinutes / 60) * DAY_TIMELINE_HOUR_HEIGHT) + DAY_TIMELINE_VERTICAL_PADDING
+                        const durationMinutes = Math.max(endMinutes - startMinutes, 45)
+                        const height = Math.max((durationMinutes / 60) * DAY_TIMELINE_HOUR_HEIGHT, 44)
+
+                        return (
+                          <button
+                            key={ride.id}
+                            type="button"
+                            onClick={() => openDayDialog(ride.date)}
+                            className="absolute left-2 right-2 overflow-hidden rounded-2xl border border-slate-200 bg-white/95 p-3 text-left shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:border-[#0053a0]/40 hover:bg-white"
+                            style={{ top: `${top}px`, height: `${height}px` }}
+                            title={getRideCalendarTitle(ride)}
+                          >
+                            <div className="space-y-2">
+                              <span className={`block truncate rounded-full px-1.5 py-0.5 text-center text-[9px] font-semibold leading-none text-white ${statusMetadata[ride.status].color}`}>
+                                {getRideCalendarDisplayTime(ride) || '---'}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-semibold text-slate-800">{ride.title}</div>
+                                <div className="mt-1 text-xs text-slate-500">{ride.passengers.length} Fahrgäste</div>
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {dayTimelineUnscheduledRides.length > 0 ? (
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="text-sm font-semibold text-slate-700">Ohne Uhrzeit</div>
+                  <div className="mt-3 space-y-2">
+                    {dayTimelineUnscheduledRides.map((ride) => (
+                      <button
+                        key={ride.id}
+                        type="button"
+                        onClick={() => openDayDialog(ride.date)}
+                        className="w-full rounded-xl bg-white px-3 py-2 text-left text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-100"
+                        title={getRideCalendarTitle(ride)}
+                      >
+                        <span className={`block truncate rounded-full px-1.5 py-0.5 text-center text-[9px] font-semibold leading-none text-white ${statusMetadata[ride.status].color}`}>
+                          Ohne Uhrzeit
+                        </span>
+                        <span className="mt-2 block min-w-0 truncate">{ride.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : (
-            <div className="mt-5 grid grid-cols-7 gap-2 text-center text-sm font-semibold text-slate-500">
-              {weekDays.map((day) => (
-                <div key={day} className="py-2">
-                  {day}
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className={`grid gap-2 ${selectedView === 'Tag' ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-7'}`}>
-            {activeCalendarDays.map((day) => {
-              const isSelected = isSameDay(day.date, selectedDate)
-              const dayLabel = day.date.getDate().toString()
-              const ridesForDay = ridesByDay.get(toDateKey(day.date)) ?? []
-              const visibleMarkers = ridesForDay.slice(0, 3)
-
-              return (
-                <button
-                  key={day.date.toISOString()}
-                  type="button"
-                  onClick={() => openDayDialog(day.date)}
-                  className={`flex h-20 flex-col justify-between rounded-xl border px-3 py-2 text-left transition sm:h-22 lg:h-24 ${
-                    day.isCurrentMonth
-                      ? isSelected
-                        ? 'border-[#0053a0] bg-[#0053a0]/10 shadow-[inset_0_0_0_1px_rgba(0,83,160,0.35)]'
-                        : 'border-slate-200 bg-white hover:border-[#0053a0]/40 hover:bg-[#0053a0]/5'
-                      : 'border-slate-200 bg-slate-50 text-slate-300'
-                  }`}
-                >
-                  <span
-                    className={`text-sm font-semibold ${
-                      day.isCurrentMonth
-                        ? isSelected
-                          ? 'text-[#0053a0]'
-                          : 'text-slate-700'
-                        : 'text-slate-400'
-                    }`}
-                  >
-                    {dayLabel}
-                  </span>
-
-                  <div className="space-y-1">
-                    {visibleMarkers.map((ride) => (
-                      <span
-                        key={ride.id}
-                        className={`block h-1.5 rounded-full ${statusMetadata[ride.status].color}`}
-                        title={`${ride.title} (${statusMetadata[ride.status].label})`}
-                      />
-                    ))}
-                    {ridesForDay.length > visibleMarkers.length ? (
-                      <span className="block text-[10px] font-semibold text-slate-400">
-                        +{ridesForDay.length - visibleMarkers.length}
-                      </span>
-                    ) : null}
+            <>
+              <div className="mt-5 grid grid-cols-7 gap-2 text-center text-sm font-semibold text-slate-500">
+                {weekDays.map((day) => (
+                  <div key={day} className="py-2">
+                    {day}
                   </div>
-                </button>
-              )
-            })}
-          </div>
+                ))}
+              </div>
+
+              <div className="grid gap-2 grid-cols-1 sm:grid-cols-7">
+                {activeCalendarDays.map((day) => {
+                  const isSelected = isSameDay(day.date, selectedDate)
+                  const dayLabel = day.date.getDate().toString()
+                  const ridesForDay = ridesByDay.get(toDateKey(day.date)) ?? []
+                  const visibleMarkers = ridesForDay.slice(0, 3)
+
+                  return (
+                    <button
+                      key={day.date.toISOString()}
+                      type="button"
+                      onClick={() => openDayDialog(day.date)}
+                      className={`flex flex-col justify-between rounded-xl border px-3 py-2 text-left transition ${
+                        selectedView === 'Monat'
+                          ? 'h-20 sm:h-22 lg:h-24'
+                          : 'min-h-28 sm:min-h-32'
+                      } ${
+                        day.isCurrentMonth
+                          ? isSelected
+                            ? 'border-[#0053a0] bg-[#0053a0]/10 shadow-[inset_0_0_0_1px_rgba(0,83,160,0.35)]'
+                            : 'border-slate-200 bg-white hover:border-[#0053a0]/40 hover:bg-[#0053a0]/5'
+                          : 'border-slate-200 bg-slate-50 text-slate-300'
+                      }`}
+                    >
+                      <span
+                        className={`text-sm font-semibold ${
+                          day.isCurrentMonth
+                            ? isSelected
+                              ? 'text-[#0053a0]'
+                              : 'text-slate-700'
+                            : 'text-slate-400'
+                        }`}
+                      >
+                        {dayLabel}
+                      </span>
+
+                      <div className="space-y-1">
+                        {visibleMarkers.map((ride) => {
+                          const rideDisplayTime = getRideCalendarDisplayTime(ride)
+
+                          if (selectedView === 'Monat') {
+                            return (
+                              <span
+                                key={ride.id}
+                                className={`block truncate rounded-full px-1.5 py-0.5 text-center text-[9px] font-semibold leading-none text-white ${statusMetadata[ride.status].color}`}
+                                title={getRideCalendarTitle(ride)}
+                              >
+                                {rideDisplayTime || '---'}
+                              </span>
+                            )
+                          }
+
+                          return (
+                            <span
+                              key={ride.id}
+                              className="block rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-700"
+                              title={getRideCalendarTitle(ride)}
+                            >
+                              {rideDisplayTime ? (
+                                <span className={`block truncate rounded-full px-1.5 py-0.5 text-center text-[9px] font-semibold leading-none text-white ${statusMetadata[ride.status].color}`}>
+                                  {rideDisplayTime}
+                                </span>
+                              ) : (
+                                <span className={`block h-2 rounded-full ${statusMetadata[ride.status].color}`} />
+                              )}
+                              <span className="mt-1 block min-w-0 truncate">{ride.title}</span>
+                            </span>
+                          )
+                        })}
+                        {ridesForDay.length > visibleMarkers.length ? (
+                          <span className="block text-[10px] font-semibold text-slate-400">
+                            +{ridesForDay.length - visibleMarkers.length}
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
 
           <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-slate-200 pt-5">
             {statusLegend.map((status) => (
@@ -1572,7 +2018,7 @@ setCalendarRides((currentRides) =>
                             <div>
                               <h3 className="text-3xl font-semibold tracking-tight text-slate-800">{ride.title}</h3>
                               <p className="mt-1 text-lg text-slate-500">
-                                {ride.time ? `${ride.time} Uhr` : 'Keine Uhrzeit'}
+                                {getRideTimeSummary(ride)}
                                 <span className="mx-2 text-slate-300">•</span>
                                 {ride.passengers.length} Fahrgäste
                                 {ride.driverName ? (
@@ -1674,7 +2120,7 @@ setCalendarRides((currentRides) =>
                             <div>
                               <h3 className="text-2xl font-semibold text-slate-800">{ride.title}</h3>
                               <p className="mt-1 text-base text-slate-500">
-                                {ride.time ? `${ride.time} Uhr` : 'Keine Uhrzeit'}
+                                {getRideTimeSummary(ride)}
                               </p>
                             </div>
                             <span className={`inline-flex items-center rounded-xl px-3 py-1 text-sm font-semibold text-white ${statusMetadata[ride.status].color}`}>
@@ -1914,20 +2360,16 @@ setCalendarRides((currentRides) =>
                     </label>
                     <label className="text-sm font-semibold text-slate-700">
                       Uhrzeit von
-                      <input
-                        type="time"
+                      <FiveMinuteTimeField
                         value={rentalTimeFrom}
-                        onChange={(event) => setRentalTimeFrom(event.target.value)}
-                        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none"
+                        onChange={setRentalTimeFrom}
                       />
                     </label>
                     <label className="text-sm font-semibold text-slate-700">
                       Uhrzeit bis
-                      <input
-                        type="time"
+                      <FiveMinuteTimeField
                         value={rentalTimeTo}
-                        onChange={(event) => setRentalTimeTo(event.target.value)}
-                        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none"
+                        onChange={setRentalTimeTo}
                       />
                     </label>
                   </div>
@@ -2113,11 +2555,11 @@ setCalendarRides((currentRides) =>
                               />
                             </label>
                             <label className="sm:col-span-2 flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-500">
-                              <input
-                                type="time"
+                              <FiveMinuteTimeField
                                 value={passenger.time ?? ''}
-                                onChange={(event) => updatePassengerField(passenger.id, 'time', event.target.value)}
-                                className="w-full bg-transparent text-slate-700 outline-none"
+                                onChange={(nextValue) => updatePassengerField(passenger.id, 'time', nextValue)}
+                                wrapperClassName="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2"
+                                fieldClassName="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-700 outline-none"
                               />
                             </label>
                           </div>
