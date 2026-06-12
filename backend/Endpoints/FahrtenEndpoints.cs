@@ -1,4 +1,4 @@
-using BuergerbusAPI.Data;
+﻿using BuergerbusAPI.Data;
 using BuergerbusAPI.DTOs;
 using BuergerbusAPI.Mappers;
 using BuergerbusAPI.Models;
@@ -10,6 +10,10 @@ namespace BuergerbusAPI.Endpoints;
 
 public static class FahrtenEndpoints
 {
+    private static bool IsRental(string? fahrttyp)
+    => string.Equals(fahrttyp, "Vermietung", StringComparison.OrdinalIgnoreCase)
+       || string.Equals(fahrttyp, "rental", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsPublished(string? status)
         => !string.IsNullOrWhiteSpace(status)
            && status.Contains("veröffentlicht", StringComparison.OrdinalIgnoreCase)
@@ -190,6 +194,7 @@ public static class FahrtenEndpoints
     {
         ride.Titel = meta.Titel;
         ride.Datum = meta.Datum;
+        ride.DatumBis = meta.DatumBis;
         ride.Zielort = meta.Zielort;
         ride.Fahrttyp = meta.Fahrttyp;
         ride.Startzeit = meta.Startzeit;
@@ -211,34 +216,73 @@ public static class FahrtenEndpoints
         int? ignoreRideId = null)
     {
         if (!AuthUtils.GetUserId(principal).HasValue)
-        {
             return Results.Unauthorized();
-        }
 
         var isAdmin = AuthUtils.IsAdmin(principal);
         var userInitiativeId = AuthUtils.GetInitiativeId(principal);
+
         var targetInitiativeId = isAdmin && meta.InitiativeId.HasValue
             ? meta.InitiativeId.Value
             : userInitiativeId;
 
         if (!targetInitiativeId.HasValue)
-        {
             return Results.Forbid();
+
+        var isRental =
+            string.Equals(meta.Fahrttyp, "rental", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(meta.Fahrttyp, "Vermietung", StringComparison.OrdinalIgnoreCase);
+
+        // =========================
+        // RENTAL EARLY EXIT LOGIC
+        // =========================
+        if (isRental)
+        {
+            if (string.IsNullOrWhiteSpace(meta.Titel))
+                return Results.BadRequest("Titel ist erforderlich.");
+
+            if (meta.Startzeit == default)
+                return Results.BadRequest("Startzeit ist erforderlich.");
+
+            return null; // kein weiterer Check!
         }
 
-        if (string.IsNullOrWhiteSpace(meta.Titel)) return Results.BadRequest("Titel ist erforderlich.");
-        if (string.IsNullOrWhiteSpace(meta.Zielort)) return Results.BadRequest("Zielort ist erforderlich.");
-        if (string.IsNullOrWhiteSpace(meta.Fahrttyp)) return Results.BadRequest("Fahrttyp ist erforderlich.");
-        if (teilnehmer.Count == 0) return Results.BadRequest("Mindestens ein Teilnehmer ist erforderlich.");
-        if (teilnehmer.Count > 8) return Results.BadRequest("Eine Fahrt darf maximal 8 Teilnehmer haben.");
-        if (!meta.FahrzeugId.HasValue) return Results.BadRequest("Ein Fahrzeug muss ausgewählt werden.");
+        // =========================
+        // NORMAL RIDES ONLY BELOW
+        // =========================
 
-        var vehicle = await db.Fahrzeuge.AsNoTracking().FirstOrDefaultAsync(f => f.Id == meta.FahrzeugId.Value);
-        if (vehicle is null) return Results.NotFound("Fahrzeug wurde nicht gefunden.");
-        if (vehicle.InitiativeId != targetInitiativeId.Value) return Results.Forbid();
-        if (!vehicle.Aktiv) return Results.BadRequest("Fahrzeug ist inaktiv.");
+        if (string.IsNullOrWhiteSpace(meta.Titel))
+            return Results.BadRequest("Titel ist erforderlich.");
+
+        if (string.IsNullOrWhiteSpace(meta.Zielort))
+            return Results.BadRequest("Zielort ist erforderlich.");
+
+        if (string.IsNullOrWhiteSpace(meta.Fahrttyp))
+            return Results.BadRequest("Fahrttyp ist erforderlich.");
+
+        if (teilnehmer.Count == 0)
+            return Results.BadRequest("Mindestens ein Teilnehmer ist erforderlich.");
+
+        if (teilnehmer.Count > 8)
+            return Results.BadRequest("Eine Fahrt darf maximal 8 Teilnehmer haben.");
+
+        if (!meta.FahrzeugId.HasValue)
+            return Results.BadRequest("Ein Fahrzeug muss ausgewählt werden.");
+
+        var vehicle = await db.Fahrzeuge
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.Id == meta.FahrzeugId.Value);
+
+        if (vehicle is null)
+            return Results.NotFound("Fahrzeug wurde nicht gefunden.");
+
+        if (vehicle.InitiativeId != targetInitiativeId.Value)
+            return Results.Forbid();
+
+        if (!vehicle.Aktiv)
+            return Results.BadRequest("Fahrzeug ist inaktiv.");
 
         var requestedFahrerId = meta.FahrerId;
+
         if (requestedFahrerId.HasValue)
         {
             var driver = await db.Fahrer
@@ -247,34 +291,30 @@ public static class FahrtenEndpoints
                 .FirstOrDefaultAsync(f => f.Id == requestedFahrerId.Value);
 
             if (driver is null)
-            {
                 return Results.NotFound("Fahrer wurde nicht gefunden.");
-            }
 
             if (driver.Benutzer.InitiativeId != targetInitiativeId.Value)
-            {
                 return Results.Forbid();
-            }
 
             if (!driver.Aktiv)
-            {
                 return Results.BadRequest("Fahrer ist inaktiv.");
-            }
         }
 
         var rideStart = meta.Startzeit;
+        var endDate = meta.DatumBis ?? meta.Datum;
         var rideExclusiveEnd = meta.Endzeit ?? meta.Startzeit.Date.AddDays(1);
 
-        var vehicleBusy = await db.Fahrten.AsNoTracking().AnyAsync(f =>
-            f.FahrzeugId == meta.FahrzeugId.Value
-            && f.InitiativeId == targetInitiativeId.Value
-            && (!ignoreRideId.HasValue || f.Id != ignoreRideId.Value)
-            && f.Startzeit < rideExclusiveEnd
-            && (f.Endzeit ?? f.Startzeit.Date.AddDays(1)) > rideStart);
-
-        if (vehicleBusy)
+        if (meta.FahrzeugId.HasValue)
         {
-            return Results.Conflict("Fahrzeug ist in diesem Zeitraum bereits belegt.");
+            var vehicleBusy = await db.Fahrten.AsNoTracking().AnyAsync(f =>
+                f.FahrzeugId == meta.FahrzeugId.Value
+                && f.InitiativeId == targetInitiativeId.Value
+                && (!ignoreRideId.HasValue || f.Id != ignoreRideId.Value)
+                && f.Startzeit < rideExclusiveEnd
+                && (f.Endzeit ?? f.Startzeit.Date.AddDays(1)) > rideStart);
+
+            if (vehicleBusy)
+                return Results.Conflict("Fahrzeug ist in diesem Zeitraum bereits belegt.");
         }
 
         if (requestedFahrerId.HasValue)
@@ -287,47 +327,37 @@ public static class FahrtenEndpoints
                 && (f.Endzeit ?? f.Startzeit.Date.AddDays(1)) > rideStart);
 
             if (driverBusy)
-            {
                 return Results.Conflict("Fahrer ist in diesem Zeitraum bereits eingeplant.");
-            }
         }
 
         foreach (var participant in teilnehmer)
         {
-            if (string.IsNullOrWhiteSpace(participant.Vorname) || string.IsNullOrWhiteSpace(participant.Nachname))
-            {
+            if (string.IsNullOrWhiteSpace(participant.Vorname) ||
+                string.IsNullOrWhiteSpace(participant.Nachname))
                 return Results.BadRequest("Teilnehmer benötigen Vorname und Nachname.");
-            }
-
-            if (participant.AlsStammgastSpeichern
-                && string.IsNullOrWhiteSpace(participant.Adresse)
-                && string.IsNullOrWhiteSpace(participant.Abholadresse))
-            {
-                return Results.BadRequest("Adresse ist erforderlich, wenn der Teilnehmer als Stammgast gespeichert werden soll.");
-            }
 
             if (string.IsNullOrWhiteSpace(participant.Abholadresse))
-            {
                 return Results.BadRequest("Teilnehmer benötigen eine Abholadresse.");
-            }
 
             if (string.IsNullOrWhiteSpace(participant.Zieladresse))
-            {
                 return Results.BadRequest("Teilnehmer benötigen eine Zieladresse.");
-            }
+
+            if (participant.AlsStammgastSpeichern &&
+                string.IsNullOrWhiteSpace(participant.Adresse) &&
+                string.IsNullOrWhiteSpace(participant.Abholadresse))
+                return Results.BadRequest("Adresse ist erforderlich, wenn der Teilnehmer als Stammgast gespeichert werden soll.");
 
             if (participant.FahrgastId.HasValue)
             {
-                var guest = await db.Fahrgaeste.AsNoTracking().FirstOrDefaultAsync(f => f.Id == participant.FahrgastId.Value);
+                var guest = await db.Fahrgaeste
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(f => f.Id == participant.FahrgastId.Value);
+
                 if (guest is null)
-                {
                     return Results.NotFound("Fahrgast wurde nicht gefunden.");
-                }
 
                 if (guest.InitiativeId != targetInitiativeId.Value)
-                {
                     return Results.Forbid();
-                }
             }
         }
 

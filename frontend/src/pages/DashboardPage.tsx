@@ -1344,60 +1344,45 @@ async function confirmDeleteRide() {
       const endDate = startsAfterEnds ? fromDate : toDate
 
       const rentalRide: CalendarRide = {
-      id: nextRideId,
-      date: startDate,
-      dateBis: endDate,
-      type: 'rental',
-      status: statusOverride ?? 'rental',
-      title: rentalName.trim() || 'Vermietung',
-      time: rideTime,
-      driverName: '',
-      fahrerId: null,
-      passengers: [],
-      remarks: rentalRemarks.trim(),
-    }
-
-      while (currentDate.getTime() <= endDate.getTime()) {
-        nextRides.push({
-          id: currentRideId,
-          date: normalizeDate(currentDate),
-          type: 'rental',
-          status: statusOverride ?? 'rental',
-          title: rentalName.trim() || 'Vermietung',
-          time: rideTime,
-          driverName: '',
-          createdByName: currentCreatorDisplayName,
-          fahrerId: null,
-          fahrzeugId: null,
-          passengers: [],
-          remarks: rentalRemarks.trim(),
-        })
-        currentDate = addDays(currentDate, 1)
-        currentRideId += 1
+        id: nextRideId,
+        date: startDate,
+        dateBis: endDate,
+        type: 'rental',
+        status: statusOverride ?? 'rental',
+        title: rentalName.trim() || 'Vermietung',
+        time: rideTime,
+        driverName: '',
+        fahrerId: null,
+        fahrzeugId: null,
+        createdByName: currentCreatorDisplayName,
+        passengers: [],
+        remarks: rentalRemarks.trim(),
       }
 
-    console.log('RENTAL CREATE', payload)
+      const payload = mapCalendarRideToBackendWriteDto(rentalRide)
 
-    const createdRide = await createFahrt(payload)
+      console.log('RENTAL CREATE', payload)
 
-    const backendRide = mapBackendRideToCalendarRide(
-      createdRide,
-      fahrerListe
-    )
+      const createdRide = await createFahrt(payload)
 
-    setCalendarRides((current) => [...current, backendRide])
+      const backendRide = mapBackendRideToCalendarRide(
+        createdRide,
+        fahrerListe
+      )
 
-    setNextRideId((current) => current + 1)
+      setCalendarRides((current) => [...current, backendRide])
 
-    setSelectedDate(startDate)
-    setCurrentMonth(
-      new Date(startDate.getFullYear(), startDate.getMonth(), 1)
-    )
+      setNextRideId((current) => current + 1)
 
-    setRideInEditId(null)
-    setIsRideDialogOpen(false)
+      setSelectedDate(startDate)
+      setCurrentMonth(
+        new Date(startDate.getFullYear(), startDate.getMonth(), 1)
+      )
 
-    return
+      setRideInEditId(null)
+      setIsRideDialogOpen(false)
+
+      return
     }
 
     const activeForm = rideFormsByType[rideType]

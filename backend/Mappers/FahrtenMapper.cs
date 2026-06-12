@@ -16,6 +16,7 @@ public static class FahrtenMapper
             f.Id,
             f.Titel,
             f.Datum,
+            f.DatumBis,
             f.Zielort,
             f.Fahrttyp,
             f.Startzeit,
@@ -49,8 +50,7 @@ public static class FahrtenMapper
             (teilnehmer.Teilstrecken ?? new List<Teilstrecke>())
                 .OrderBy(t => t.Startzeit)
                 .Select(ToDto)
-                .ToList(),
-            f.DatumBis
+                .ToList()
         );
     }
 
@@ -92,6 +92,7 @@ public static class FahrtenMapper
         {
             Titel = request.Fahrt.Titel,
             Datum = request.Fahrt.Datum,
+            DatumBis = request.Fahrt.DatumBis,
             Zielort = request.Fahrt.Zielort,
             Fahrttyp = request.Fahrt.Fahrttyp,
             Startzeit = request.Fahrt.Startzeit,

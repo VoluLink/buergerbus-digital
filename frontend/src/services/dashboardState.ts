@@ -62,6 +62,7 @@ type BackendFahrtWriteDto = {
   fahrt: {
     titel: string
     datum: string
+    datumBis: string | null
     zielort: string
     fahrttyp: string
     startzeit: string
@@ -219,10 +220,50 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide, initiativeI
     .filter((t): t is string => !!t)
     .sort()[0]
 
+  if (ride.type === 'rental') {
+    const [timeFrom, timeTo] = (ride.time ?? '').split('-')
+
+    return {
+      fahrt: {
+        titel: ride.title,
+
+        datum: toLocalDateString(ride.date),
+
+        datumBis: ride.dateBis
+          ? toLocalDateString(ride.dateBis)
+          : null,
+
+        zielort: '',
+
+        fahrttyp: ride.type,
+
+        startzeit: `${toLocalDateString(ride.date)}T${timeFrom || '00:00'}:00`,
+
+        endzeit: timeTo
+          ? `${toLocalDateString(
+              ride.dateBis ?? ride.date
+            )}T${timeTo}:00`
+          : null,
+
+        bemerkung: safeText(ride.remarks).trim() || null,
+
+        status: mapRideStatusToBackendStatus(ride.status),
+
+        fahrerId: ride.fahrerId,
+        fahrzeugId: ride.fahrzeugId,
+
+        initiativeId: initiativeId ?? null,
+      },
+
+      teilnehmer: [],
+    }
+  }
+
   return {
     fahrt: {
       titel: ride.title,
       datum: toLocalDateString(ride.date),
+      datumBis: null,
       zielort: firstPassenger?.destinationAddress || '',
       fahrttyp: ride.type,
       startzeit: earliestTime
