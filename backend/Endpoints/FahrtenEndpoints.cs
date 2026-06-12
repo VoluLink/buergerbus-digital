@@ -15,6 +15,24 @@ public static class FahrtenEndpoints
            && status.Contains("veröffentlicht", StringComparison.OrdinalIgnoreCase)
            || status?.Contains("published", StringComparison.OrdinalIgnoreCase) == true;
 
+    private static bool IsOpenRideStatus(string? status)
+        => string.Equals(status, "Offen", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(status, "Open", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsThemeRide(string? rideType)
+        => string.Equals(rideType, "Themenfahrt", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(rideType, "theme", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsRentalRide(string? rideType)
+        => string.Equals(rideType, "Vermietung", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(rideType, "rental", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsDriverVisibleRide(Fahrten ride, int? fahrerId)
+          => IsPublished(ride.Status)
+              || IsOpenRideStatus(ride.Status)
+           || IsThemeRide(ride.Fahrttyp)
+           || IsRentalRide(ride.Fahrttyp)
+           || (fahrerId.HasValue && ride.FahrerId == fahrerId.Value);
     private static async Task<int?> ResolveFahrerIdAsync(AppDbContext db, int? userId)
     {
         if (!userId.HasValue)
@@ -33,7 +51,8 @@ public static class FahrtenEndpoints
         ClaimsPrincipal principal,
         AppDbContext db,
         Fahrten ride,
-        int? selectedInitiativeId = null)
+        int? selectedInitiativeId = null,
+        bool allowDriverInitiativeRead = false)
     {
         var isAdmin = AuthUtils.IsAdmin(principal);
         var initiativeId = AuthUtils.GetInitiativeId(principal);
@@ -62,6 +81,16 @@ public static class FahrtenEndpoints
             return Results.Forbid();
         }
 
+        if (isDriver && allowDriverInitiativeRead)
+        {
+            if (!IsPublished(ride.Status))
+            {
+                return Results.Forbid();
+            }
+
+            return null;
+        }
+
         if (isDriver && !IsPublished(ride.Status) && ride.FahrerId.HasValue && fahrerId.HasValue && ride.FahrerId.Value != fahrerId.Value)
         {
             return Results.Forbid();
@@ -74,7 +103,7 @@ public static class FahrtenEndpoints
         AppDbContext db,
         ClaimsPrincipal principal,
         int? selectedInitiativeId,
-        int? driverFahrerId)
+        int? fahrerId)
     {
         var isAdmin = AuthUtils.IsAdmin(principal);
         var initiativeId = AuthUtils.GetInitiativeId(principal);
@@ -121,15 +150,37 @@ public static class FahrtenEndpoints
 
         if (isDriver)
         {
-            return query.Where(f =>
-                (
-                    !string.IsNullOrWhiteSpace(f.Status)
+            if (fahrerId.HasValue)
+            {
+                var currentFahrerId = fahrerId.Value;
+
+                return query.Where(f =>
+                    (!string.IsNullOrWhiteSpace(f.Status)
                     && (
                         f.Status.Contains("veröffentlicht")
                         || f.Status.Contains("published")
-                    )
-                )
-                || (driverFahrerId.HasValue && f.FahrerId == driverFahrerId));
+                        || f.Status == "Offen"
+                        || f.Status == "Open"
+                    ))
+                    || f.Fahrttyp == "Themenfahrt"
+                    || f.Fahrttyp == "theme"
+                    || f.Fahrttyp == "Vermietung"
+                    || f.Fahrttyp == "rental"
+                    || f.FahrerId == currentFahrerId);
+            }
+
+            return query.Where(f =>
+                (!string.IsNullOrWhiteSpace(f.Status)
+                && (
+                    f.Status.Contains("veröffentlicht")
+                    || f.Status.Contains("published")
+                    || f.Status == "Offen"
+                    || f.Status == "Open"
+                ))
+                || f.Fahrttyp == "Themenfahrt"
+                || f.Fahrttyp == "theme"
+                || f.Fahrttyp == "Vermietung"
+                || f.Fahrttyp == "rental");
         }
 
         return query;
@@ -423,8 +474,8 @@ public static class FahrtenEndpoints
                 return Results.Forbid();
             }
 
-            var driverFahrerId = await ResolveFahrerIdAsync(db, AuthUtils.GetUserId(user));
-            var query = BuildAccessFilteredQuery(db, user, initiativeId, driverFahrerId);
+            var fahrerId = await ResolveFahrerIdAsync(db, AuthUtils.GetUserId(user));
+            var query = BuildAccessFilteredQuery(db, user, initiativeId, fahrerId);
             var fahrten = await query
                 .OrderByDescending(f => f.Datum)
                 .ThenByDescending(f => f.Startzeit)
@@ -456,7 +507,7 @@ public static class FahrtenEndpoints
                 return Results.NotFound("Fahrt wurde nicht gefunden.");
             }
 
-            var access = await ValidateRideAccessAsync(httpContext.User, db, ride);
+            var access = await ValidateRideAccessAsync(httpContext.User, db, ride, allowDriverInitiativeRead: true);
             if (access is not null)
             {
                 return access;

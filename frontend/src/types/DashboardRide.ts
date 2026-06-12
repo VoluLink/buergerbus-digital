@@ -31,6 +31,7 @@ export type CalendarRide = {
   fahrerId: number | null
   fahrzeugId: number | null
   driverName: string
+  createdByName: string
   passengers: PassengerForm[]
   remarks: string
 }
