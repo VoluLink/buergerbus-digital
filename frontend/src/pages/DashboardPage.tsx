@@ -637,6 +637,7 @@ function DashboardPage() {
   const [rentalDateTo, setRentalDateTo] = useState(toDateInputValue(today))
   const [rentalTimeFrom, setRentalTimeFrom] = useState('')
   const [rentalTimeTo, setRentalTimeTo] = useState('')
+  const [rentalVehicleId, setRentalVehicleId] = useState<number | null>(null)
   const [calendarRides, setCalendarRides] = useState<CalendarRide[]>([])
   const [rideInEditId, setRideInEditId] = useState<number | null>(null)
   const [ridePendingDelete, setRidePendingDelete] = useState<CalendarRide | null>(null)
@@ -898,7 +899,6 @@ function DashboardPage() {
     setRideFormsByType((currentState) => ({
       standard: { ...currentState.standard, fahrzeugId: initialVehicleId },
       theme: { ...currentState.theme, fahrzeugId: initialVehicleId },
-      rental: { ...currentState.rental, fahrzeugId: initialVehicleId },
     }))
     setIsRideDialogOpen(true)
   }
@@ -988,7 +988,7 @@ function DashboardPage() {
           ? ride.endTime.substring(11, 16)
           : ''
       )
-
+      setRentalVehicleId(ride.fahrzeugId ?? null)
       setRideFormsByType(createInitialRideForms())
       setNextPassengerId(2)
       setIsRideDialogOpen(true)
@@ -1216,6 +1216,11 @@ async function confirmDeleteRide() {
       return
     }
 
+    if (rideType === 'rental') {
+      setRentalVehicleId(selectedFahrzeugId)
+      return
+    }
+
     setRideFormsByType((currentState) => ({
       ...currentState,
       [rideType]: {
@@ -1309,7 +1314,7 @@ async function confirmDeleteRide() {
     title: rentalName.trim() || 'Vermietung',
     time: rideTime,
     driverName: '',
-    fahrzeugId: null,
+    fahrzeugId: rentalVehicleId,
     passengers: [],
     remarks: rentalRemarks.trim(),
   } as any)
@@ -1354,7 +1359,7 @@ async function confirmDeleteRide() {
         time: rideTime,
         driverName: '',
         fahrerId: null,
-        fahrzeugId: null,
+        fahrzeugId: rentalVehicleId,
         createdByName: currentCreatorDisplayName,
         passengers: [],
         remarks: rentalRemarks.trim(),
@@ -2414,9 +2419,13 @@ setCalendarRides((currentRides) =>
                       <Bus className="h-4 w-4 text-[#0053a0]" aria-hidden="true" />
                       Fahrzeug
                     </label>
+
                     <select
                       id="rental-vehicle"
-                      value={activeRideForm?.fahrzeugId ?? ''}
+                      value={rideType === 'rental'
+                          ? (rentalVehicleId ?? '')
+                          : (activeRideForm?.fahrzeugId ?? '')
+                            }
                       onChange={(event) => autofillFahrzeug(Number(event.target.value))}
                       className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/15"
                     >
@@ -2427,6 +2436,7 @@ setCalendarRides((currentRides) =>
                         </option>
                       ))}
                     </select>
+
                     {visibleFahrzeuge.length === 0 ? (
                       <p className="mt-2 text-sm text-amber-700">Kein Fahrzeug verfügbar.</p>
                     ) : visibleFahrzeuge.length === 1 ? (
