@@ -300,7 +300,9 @@ function DashboardPage() {
   const { currentUser, logout } = useAuth()
   const { canManageDataCrud, canManageInitiatives, isAdmin, isDisponent, isFahrer, isGast } = useRoleVisibility()
   const isRideCrudRestricted = !canManageDataCrud
-  const visibleTopFilters = isDisponent
+  const visibleTopFilters = isGast
+    ? []
+    : isDisponent
     ? topFilters.filter((filter) => filter !== 'Meine Fahrten')
     : topFilters
   const today = useMemo(() => normalizeDate(new Date()), [])
@@ -1144,10 +1146,15 @@ setCalendarRides((currentRides) =>
   }, [calendarRides, currentDriverNames, selectedFilter])
 
   useEffect(() => {
+    if (isGast && selectedFilter !== 'Alle Fahrten') {
+      setSelectedFilter('Alle Fahrten')
+      return
+    }
+
     if (isDisponent && selectedFilter === 'Meine Fahrten') {
       setSelectedFilter('Alle Fahrten')
     }
-  }, [isDisponent, selectedFilter])
+  }, [isDisponent, isGast, selectedFilter])
 
   useEffect(() => {
     if (isFahrer) {
@@ -1193,22 +1200,24 @@ setCalendarRides((currentRides) =>
               <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
 
-            <div className="flex flex-wrap gap-2">
-              {visibleTopFilters.map((filter) => (
-                <button
-                  key={filter}
-                  type="button"
-                  onClick={() => setSelectedFilter(filter)}
-                  className={`rounded-2xl px-5 py-2 text-sm font-semibold transition ${
-                    selectedFilter === filter
-                      ? 'bg-slate-800 text-white shadow-[0_10px_25px_rgba(15,23,42,0.2)]'
-                      : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-                  }`}
-                >
-                  {filter}
-                </button>
-              ))}
-            </div>
+            {visibleTopFilters.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {visibleTopFilters.map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => setSelectedFilter(filter)}
+                    className={`rounded-2xl px-5 py-2 text-sm font-semibold transition ${
+                      selectedFilter === filter
+                        ? 'bg-slate-800 text-white shadow-[0_10px_25px_rgba(15,23,42,0.2)]'
+                        : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
+                    {filter}
+                  </button>
+                ))}
+              </div>
+            ) : null}
 
             {canManageInitiatives ? (
               <label className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600">

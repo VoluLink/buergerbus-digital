@@ -657,6 +657,11 @@ public static class UserEndpoints
                 return Results.BadRequest("Ein Benutzer kann maximal zwei Rollen haben.");
             }
 
+            if (normalizedRoles.Count < 1)
+            {
+                return Results.BadRequest("Ein Benutzer muss mindestens eine Rolle haben.");
+            }
+
             // Bereits vorhandene Rollen aus der Datenbank laden
             var rolesByName = await db.Rollen
                 .Where(r => normalizedRoles.Contains(r.Rollenname.ToLower()))
