@@ -31,5 +31,8 @@
 
         // Legacy-Navigation bleibt vorerst bestehen, bis die alte Spalte entfernt ist.
         public List<Teilstrecke> Teilstrecken { get; set; } = new();
+
+        // für Vermietung
+        public DateTime? DatumBis {get; set;}
     }
 }

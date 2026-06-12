@@ -24,10 +24,12 @@ export type PassengerForm = {
 export type CalendarRide = {
   id: number
   date: Date
+  dateBis?: Date | null
   type: RideType
   status: RideStatus
   title: string
   time: string
+  endTime?: string | null
   fahrerId: number | null
   fahrzeugId: number | null
   driverName: string

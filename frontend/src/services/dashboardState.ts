@@ -46,6 +46,7 @@ type BackendFahrtDto = {
   id: number
   titel: string
   datum: string
+  datumBis: string | null
   fahrttyp: string
   startzeit: string
   endzeit?: string | null
@@ -103,7 +104,14 @@ function mapBackendTypeToRideType(fahrttyp: string): RideType {
   const normalized = safeText(fahrttyp).trim().toLowerCase()
 
   if (normalized.includes('theme')) return 'theme'
-  if (normalized.includes('vermiet')) return 'rental'
+
+  if (
+    normalized.includes('vermiet') ||
+    normalized === 'rental'
+  ) {
+    return 'rental'
+  }
+
   return 'standard'
 }
 
@@ -186,13 +194,15 @@ export function mapBackendRideToCalendarRide(dto: BackendFahrtDto, fahrerListe: 
     (f) => f.fahrerId === dto.fahrerId,
   )
 
-  return {
+  return {  
     id: dto.id,
     date: new Date(dto.datum),
+    dateBis: dto.datumBis ? new Date(dto.datumBis) : null,
     type,
     status: mapBackendStatusToRideStatus(dto.status, type),
     title: dto.titel,
     time: extractHourMinute(dto.startzeit),
+    endTime: dto.endzeit,
     driverName: fahrer?.name ?? '',
     createdByName: safeText(dto.angelegtVonUserName),
     fahrerId: dto.fahrerId ?? null,

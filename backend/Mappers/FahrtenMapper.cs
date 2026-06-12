@@ -49,7 +49,8 @@ public static class FahrtenMapper
             (teilnehmer.Teilstrecken ?? new List<Teilstrecke>())
                 .OrderBy(t => t.Startzeit)
                 .Select(ToDto)
-                .ToList()
+                .ToList(),
+            f.DatumBis
         );
     }
 
