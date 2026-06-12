@@ -243,26 +243,26 @@ public static class FahrtenEndpoints
             if (meta.Startzeit == default)
                 return Results.BadRequest("Startzeit ist erforderlich.");
 
-            return null; // kein weiterer Check!
+            //return null; // kein weiterer Check!
         }
 
         // =========================
         // NORMAL RIDES ONLY BELOW
         // =========================
 
-        if (string.IsNullOrWhiteSpace(meta.Titel))
+        if (string.IsNullOrWhiteSpace(meta.Titel) && !isRental)
             return Results.BadRequest("Titel ist erforderlich.");
 
-        if (string.IsNullOrWhiteSpace(meta.Zielort))
+        if (string.IsNullOrWhiteSpace(meta.Zielort) && !isRental)
             return Results.BadRequest("Zielort ist erforderlich.");
 
-        if (string.IsNullOrWhiteSpace(meta.Fahrttyp))
+        if (string.IsNullOrWhiteSpace(meta.Fahrttyp) && !isRental)
             return Results.BadRequest("Fahrttyp ist erforderlich.");
 
-        if (teilnehmer.Count == 0)
+        if (teilnehmer.Count == 0 && !isRental)
             return Results.BadRequest("Mindestens ein Teilnehmer ist erforderlich.");
 
-        if (teilnehmer.Count > 8)
+        if (teilnehmer.Count > 8 && !isRental)
             return Results.BadRequest("Eine Fahrt darf maximal 8 Teilnehmer haben.");
 
         if (!meta.FahrzeugId.HasValue)
@@ -283,7 +283,7 @@ public static class FahrtenEndpoints
 
         var requestedFahrerId = meta.FahrerId;
 
-        if (requestedFahrerId.HasValue)
+        if (requestedFahrerId.HasValue && !isRental)
         {
             var driver = await db.Fahrer
                 .Include(f => f.Benutzer)
@@ -313,11 +313,18 @@ public static class FahrtenEndpoints
                 && f.Startzeit < rideExclusiveEnd
                 && (f.Endzeit ?? f.Startzeit.Date.AddDays(1)) > rideStart);
 
-            if (vehicleBusy)
-                return Results.Conflict("Fahrzeug ist in diesem Zeitraum bereits belegt.");
+            if (!vehicleBusy)
+                return null;
+
+            if (isRental)
+            {
+                return Results.Conflict("Fahrzeug ist in diesem Zeitraum bereits vermietet.");
+            }
+
+            return Results.Conflict("Fahrzeug ist in diesem Zeitraum bereits belegt.");
         }
 
-        if (requestedFahrerId.HasValue)
+        if (requestedFahrerId.HasValue && !isRental)
         {
             var driverBusy = await db.Fahrten.AsNoTracking().AnyAsync(f =>
                 f.FahrerId == requestedFahrerId.Value

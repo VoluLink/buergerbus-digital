@@ -1366,11 +1366,15 @@ async function confirmDeleteRide() {
         remarks: rentalRemarks.trim(),
       }
 
-      const payload = mapCalendarRideToBackendWriteDto(rentalRide)
+      const payload = mapCalendarRideToBackendWriteDto(rentalRide, selectedInitiativeId)
 
-      console.log('RENTAL CREATE', payload)
-
-      const createdRide = await createFahrt(payload)
+      let createdRide
+      try {
+        createdRide = await createFahrt(payload)
+      } catch (error) {
+        setRideSaveError(normalizeErrorMessage(error))
+        return
+      }
 
       const backendRide = mapBackendRideToCalendarRide(
         createdRide,
@@ -1431,7 +1435,7 @@ const tempRide: CalendarRide = {
   remarks: normalizePassengerText(activeForm.remarks).trim(),
 }
 
-  const payload = mapCalendarRideToBackendWriteDto(tempRide, selectedInitiativeId)
+const payload = mapCalendarRideToBackendWriteDto(tempRide, selectedInitiativeId)
 
 const response = await updateFahrt(rideInEditId, payload)
 
