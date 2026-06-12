@@ -46,6 +46,8 @@ builder.Services.AddSingleton(new EmailSettings
 });
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<ITemporaryParticipantCleanupService, TemporaryParticipantCleanupService>();
+builder.Services.AddHostedService<TemporaryParticipantCleanupBackgroundService>();
 builder.Services.AddControllers();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

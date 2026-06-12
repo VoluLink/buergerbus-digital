@@ -50,7 +50,7 @@ export function useRoleVisibility() {
       isGast: isGuestOnly,
       canManageDataCrud: effectiveRole === 'admin' || effectiveRole === 'disponent',
       canManageInitiatives: effectiveRole === 'admin',
-      canManageRoleAssignments: effectiveRole === 'admin',
+      canManageRoleAssignments: effectiveRole === 'admin' || effectiveRole === 'disponent',
     }
   }, [currentUser?.roles])
 }

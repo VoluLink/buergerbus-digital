@@ -1,6 +1,7 @@
 using BuergerbusAPI.Data;
 using BuergerbusAPI.DTOs;
 using BuergerbusAPI.Models;
+using BuergerbusAPI.Services;
 using Microsoft.EntityFrameworkCore;
 /// <summary>
 /// Enthält API-Endpunkte zum Abrufen und Aktualisieren
@@ -12,6 +13,9 @@ public static class InitiativeEndpoints
 {
     public static IEndpointRouteBuilder MapInitiativeEndpoints(this IEndpointRouteBuilder app)
     {
+        static bool IsDisponentWithoutAdmin(HttpContext httpContext)
+            => !AuthUtils.IsAdmin(httpContext.User) && httpContext.User.IsInRole("Disponent");
+
         static async Task<InitiativeDeletePreviewDto?> BuildDeletePreview(int id, AppDbContext db)
         {
             var initiative = await db.Initiativen
@@ -251,8 +255,18 @@ public static class InitiativeEndpoints
         app.MapPut("/api/initiatives/{id:int}", UpdateInitiative).RequireAuthorization("AdminOnly");
         app.MapDelete("/api/initiatives/{id:int}", DeleteInitiative).RequireAuthorization("AdminOnly");
 
-        app.MapGet("/api/v1/users/{id:int}/initiative", async (int id, AppDbContext db) =>
+        app.MapGet("/api/v1/users/{id:int}/initiative", async (int id, HttpContext httpContext, AppDbContext db) =>
         {
+            var principal = httpContext.User;
+            var isAdmin = AuthUtils.IsAdmin(principal);
+            var isDisponent = IsDisponentWithoutAdmin(httpContext);
+            var requesterInitiativeId = AuthUtils.GetInitiativeId(principal);
+
+            if (!isAdmin && !isDisponent)
+            {
+                return Results.Forbid();
+            }
+
             var user = await db.Benutzer
                 .Include(u => u.Initiative)
                 .FirstOrDefaultAsync(u => u.Id == id);
@@ -262,6 +276,11 @@ public static class InitiativeEndpoints
                 return Results.NotFound("Benutzer wurde nicht gefunden.");
             }
 
+            if (isDisponent && (!requesterInitiativeId.HasValue || user.InitiativeId != requesterInitiativeId.Value))
+            {
+                return Results.Forbid();
+            }
+
             if (user.Initiative == null)
             {
                 return Results.Ok(null);
@@ -269,18 +288,42 @@ public static class InitiativeEndpoints
 
             return Results.Ok(new InitiativeDto(user.Initiative.Id, user.Initiative.Name));
         })
-        .RequireAuthorization("AdminOnly");
+        .RequireAuthorization();
 
         app.MapPut("/api/v1/users/{id:int}/initiative", async (
             int id,
             UpdateInitiativeRequest request,
+            HttpContext httpContext,
             AppDbContext db
         ) =>
         {
+            var principal = httpContext.User;
+            var isAdmin = AuthUtils.IsAdmin(principal);
+            var isDisponent = IsDisponentWithoutAdmin(httpContext);
+            var requesterInitiativeId = AuthUtils.GetInitiativeId(principal);
+
+            if (!isAdmin && !isDisponent)
+            {
+                return Results.Forbid();
+            }
+
             var user = await db.Benutzer.FirstOrDefaultAsync(u => u.Id == id);
             if (user is null)
             {
                 return Results.NotFound("Benutzer wurde nicht gefunden.");
+            }
+
+            if (isDisponent)
+            {
+                if (!requesterInitiativeId.HasValue || user.InitiativeId != requesterInitiativeId.Value)
+                {
+                    return Results.Forbid();
+                }
+
+                if (request.InitiativeId != requesterInitiativeId.Value)
+                {
+                    return Results.Forbid();
+                }
             }
 
             var initiative = await db.Initiativen.FirstOrDefaultAsync(i => i.Id == request.InitiativeId);
@@ -294,11 +337,33 @@ public static class InitiativeEndpoints
 
             return Results.Ok(new InitiativeDto(initiative.Id, initiative.Name));
         })
-        .RequireAuthorization("AdminOnly");
+        .RequireAuthorization();
 
-        app.MapGet("/api/v1/initiatives", async (AppDbContext db) =>
+        app.MapGet("/api/v1/initiatives", async (HttpContext httpContext, AppDbContext db) =>
         {
-            var initiatives = await db.Initiativen
+            var principal = httpContext.User;
+            var isAdmin = AuthUtils.IsAdmin(principal);
+            var isDisponent = IsDisponentWithoutAdmin(httpContext);
+            var requesterInitiativeId = AuthUtils.GetInitiativeId(principal);
+
+            if (!isAdmin && !isDisponent)
+            {
+                return Results.Forbid();
+            }
+
+            if (isDisponent && !requesterInitiativeId.HasValue)
+            {
+                return Results.Forbid();
+            }
+
+            var initiativesQuery = db.Initiativen.AsNoTracking();
+
+            if (isDisponent)
+            {
+                initiativesQuery = initiativesQuery.Where(i => i.Id == requesterInitiativeId!.Value);
+            }
+
+            var initiatives = await initiativesQuery
                 .AsNoTracking()
                 .OrderBy(i => i.Name)
                 .Select(i => new InitiativeDto(i.Id, i.Name))
@@ -306,7 +371,7 @@ public static class InitiativeEndpoints
 
             return Results.Ok(initiatives);
         })
-        .RequireAuthorization("AdminOnly");
+        .RequireAuthorization();
 
         return app;
     }

@@ -28,12 +28,18 @@ public static class UserEndpoints
     /// </summary>
     public static IEndpointRouteBuilder MapUserEndpoints(this IEndpointRouteBuilder app)
     {
+        static bool CanManageUsers(ClaimsPrincipal principal)
+            => AuthUtils.IsAdmin(principal) || principal.IsInRole("Disponent");
+
+        static bool IsDisponentWithoutAdmin(ClaimsPrincipal principal)
+            => !AuthUtils.IsAdmin(principal) && principal.IsInRole("Disponent");
 
 // -----------------------------------------------------------------------------
 // Benutzer anlegen (ohne Rechteprüfung; wird später ergänzt)
 // -----------------------------------------------------------------------------
         app.MapPost("/api/v1/benutzer", async (
             CreateBenutzerRequest request,
+            HttpContext httpContext,
             AppDbContext db,
             IPasswordHasher<Benutzer> passwordHasher,
             INotificationService notificationService,
@@ -41,6 +47,15 @@ public static class UserEndpoints
         ) =>
         {
             var logger = loggerFactory.CreateLogger("UserEndpoints");
+            var principal = httpContext.User;
+            var isAdmin = AuthUtils.IsAdmin(principal);
+            var isDisponent = IsDisponentWithoutAdmin(principal);
+            var requesterInitiativeId = AuthUtils.GetInitiativeId(principal);
+
+            if (!CanManageUsers(principal))
+            {
+                return Results.Forbid();
+            }
 
             if (string.IsNullOrWhiteSpace(request.Name))
             {
@@ -113,6 +128,24 @@ public static class UserEndpoints
             if (role is null)
             {
                 return Results.NotFound("Rolle wurde nicht gefunden.");
+            }
+
+            if (isDisponent)
+            {
+                if (!requesterInitiativeId.HasValue)
+                {
+                    return Results.Forbid();
+                }
+
+                if (request.InitiativeId != requesterInitiativeId.Value)
+                {
+                    return Results.Forbid();
+                }
+
+                if (string.Equals(role.Rollenname, "Admin", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Results.Forbid();
+                }
             }
 
             await using var transaction = await db.Database.BeginTransactionAsync();
@@ -188,7 +221,7 @@ public static class UserEndpoints
         .Produces<UserProfileDto>(StatusCodes.Status201Created)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
-        .RequireAuthorization("AdminOnly");
+        .RequireAuthorization();
 
 // -----------------------------------------------------------------------------
 // Eigenes Benutzerprofil anhand von userId oder E-Mail laden
@@ -261,13 +294,34 @@ public static class UserEndpoints
             int page,
             int pageSize,
             string? search,
+            HttpContext httpContext,
             AppDbContext db
         ) =>
         {
+            var principal = httpContext.User;
+            var isAdmin = AuthUtils.IsAdmin(principal);
+            var isDisponent = IsDisponentWithoutAdmin(principal);
+            var requesterInitiativeId = AuthUtils.GetInitiativeId(principal);
+
+            if (!CanManageUsers(principal))
+            {
+                return Results.Forbid();
+            }
+
+            if (isDisponent && !requesterInitiativeId.HasValue)
+            {
+                return Results.Forbid();
+            }
+
             page = Math.Max(1, page == 0 ? 1 : page);
             pageSize = Math.Clamp(pageSize == 0 ? 25 : pageSize, 1, 100);
 
             var query = db.Benutzer.AsNoTracking();
+
+            if (isDisponent)
+            {
+                query = query.Where(b => b.InitiativeId == requesterInitiativeId!.Value);
+            }
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -322,7 +376,7 @@ public static class UserEndpoints
                 totalPages,
             });
         })
-        .RequireAuthorization("AdminOnly");
+        .RequireAuthorization();
 
 // -----------------------------------------------------------------------------
 // Einzelnen Benutzer anhand der ID laden
@@ -542,6 +596,16 @@ public static class UserEndpoints
             JwtService jwtService
         ) =>
         {
+            var principal = httpContext.User;
+            var isAdmin = AuthUtils.IsAdmin(principal);
+            var isDisponent = IsDisponentWithoutAdmin(principal);
+            var requesterInitiativeId = AuthUtils.GetInitiativeId(principal);
+
+            if (!CanManageUsers(principal))
+            {
+                return Results.Forbid();
+            }
+
             // Benutzer inklusive aktueller Rollen und optionalem Fahrer-Datensatz laden
             var user = await db.Benutzer
                 .Include(u => u.BenutzerRollen)
@@ -572,9 +636,30 @@ public static class UserEndpoints
                 .Distinct()
                 .ToList();
 
+            if (isDisponent)
+            {
+                if (!requesterInitiativeId.HasValue || user.InitiativeId != requesterInitiativeId.Value)
+                {
+                    return Results.Forbid();
+                }
+
+                var userHasAdminRole = user.BenutzerRollen.Any(br =>
+                    string.Equals(br.Rolle.Rollenname, "Admin", StringComparison.OrdinalIgnoreCase));
+
+                if (userHasAdminRole || normalizedRoles.Contains("admin"))
+                {
+                    return Results.Forbid();
+                }
+            }
+
             if (normalizedRoles.Count > 2)
             {
                 return Results.BadRequest("Ein Benutzer kann maximal zwei Rollen haben.");
+            }
+
+            if (normalizedRoles.Count < 1)
+            {
+                return Results.BadRequest("Ein Benutzer muss mindestens eine Rolle haben.");
             }
 
             // Bereits vorhandene Rollen aus der Datenbank laden
@@ -662,7 +747,7 @@ public static class UserEndpoints
                 user.AktiveRolle,
                 refreshedToken));
         })
-        .RequireAuthorization("AdminOnly");
+            .RequireAuthorization();
         // Alle Benutzer-Endpunkte wurden registriert
         return app;
     }

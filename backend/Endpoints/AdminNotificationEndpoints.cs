@@ -82,6 +82,19 @@ public static class AdminNotificationEndpoints
         })
         .RequireAuthorization("AdminOnly");
 
+        app.MapPost("/api/v1/admin/cleanup/temporaere-fahrtteilnehmer", async (
+            ITemporaryParticipantCleanupService cleanupService,
+            CancellationToken cancellationToken) =>
+        {
+            var count = await cleanupService.CleanupAsync(cancellationToken);
+
+            return Results.Ok(new
+            {
+                anonymisiert = count
+            });
+        })
+        .RequireAuthorization("AdminOnly");
+
         return app;
     }
 }

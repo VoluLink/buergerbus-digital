@@ -31,7 +31,7 @@ public static class FahrgastEndpoints
             var fahrgaeste = await db.Fahrgaeste
                 .Include(f => f.Initiative)
                 .AsNoTracking()
-                .Where(f => isAdmin || f.InitiativeId == initiativeId)
+                .Where(f => f.Aktiv && (isAdmin || f.InitiativeId == initiativeId))
                 .OrderBy(f => f.Nachname)
                 .ThenBy(f => f.Vorname)
                 .ToListAsync();
@@ -258,14 +258,60 @@ public static class FahrgastEndpoints
                 return Results.Forbid();
             }
 
-            db.Fahrgaeste.Remove(fahrgast);
+            await SoftDeleteFahrgastAsync(id, fahrgast, db);
 
-            await db.SaveChangesAsync();
-
-            return Results.Ok("Fahrgast wurde gelöscht.");
+            return Results.Ok("Fahrgast wurde deaktiviert und anonymisiert.");
         })
         .RequireAuthorization();
 
         return app;
+    }
+
+    private static async Task SoftDeleteFahrgastAsync(int fahrgastId, Fahrgast fahrgast, AppDbContext db)
+    {
+        fahrgast.Vorname = "Gelöschter";
+        fahrgast.Nachname = "Fahrgast";
+        fahrgast.Adresse = string.Empty;
+        fahrgast.Email = null;
+        fahrgast.Telefonnummer = string.Empty;
+        fahrgast.Bemerkung = null;
+        fahrgast.Aktiv = false;
+        fahrgast.GeaendertAm = DateTime.UtcNow;
+
+        var fahrtenTeilnehmer = await db.FahrtTeilnehmer
+            .Where(tp => tp.FahrgastId == fahrgastId)
+            .ToListAsync();
+
+        foreach (var teilnehmer in fahrtenTeilnehmer)
+        {
+            teilnehmer.Vorname = "Gelöschter";
+            teilnehmer.Nachname = "Fahrgast";
+            teilnehmer.Adresse = string.Empty;
+            teilnehmer.Telefonnummer = string.Empty;
+        }
+
+        var teilstrecken = await db.Teilstrecken
+            .Where(ts => ts.FahrgastId == fahrgastId)
+            .ToListAsync();
+
+        foreach (var teilstrecke in teilstrecken)
+        {
+            teilstrecke.Abholadresse = string.Empty;
+            teilstrecke.Zieladresse = string.Empty;
+            teilstrecke.FahrgastId = fahrgastId;
+            if (teilstrecke.Fahrgast is not null)
+            {
+                teilstrecke.Fahrgast.Vorname = "Gelöschter";
+                teilstrecke.Fahrgast.Nachname = "Fahrgast";
+                teilstrecke.Fahrgast.Adresse = string.Empty;
+                teilstrecke.Fahrgast.Email = null;
+                teilstrecke.Fahrgast.Telefonnummer = string.Empty;
+                teilstrecke.Fahrgast.Bemerkung = null;
+                teilstrecke.Fahrgast.Aktiv = false;
+                teilstrecke.Fahrgast.GeaendertAm = DateTime.UtcNow;
+            }
+        }
+
+        await db.SaveChangesAsync();
     }
 }

@@ -27,8 +27,10 @@ function App() {
         <Route path="/fahrerinfos" element={<FahrerinfosPage />} />
         <Route path="/fahrzeuginfos" element={<FahrzeuginfosPage />} />
         <Route path="/fahrgastinfos" element={<FahrgastinfosPage />} />
-        <Route path="/initiativen" element={<InitiativenPage />} />
         <Route path="/rollenverteilung" element={<RollenverteilungPage />} />
+        <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+          <Route path="/initiativen" element={<InitiativenPage />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
