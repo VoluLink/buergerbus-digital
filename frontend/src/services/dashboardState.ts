@@ -51,6 +51,7 @@ type BackendFahrtDto = {
   endzeit?: string | null
   bemerkung?: string | null
   status: string
+  angelegtVonUserName?: string | null
   fahrerId?: number | null
   fahrzeugId?: number | null
   teilnehmer?: BackendFahrtTeilnehmerDto[] | null
@@ -193,6 +194,7 @@ export function mapBackendRideToCalendarRide(dto: BackendFahrtDto, fahrerListe: 
     title: dto.titel,
     time: extractHourMinute(dto.startzeit),
     driverName: fahrer?.name ?? '',
+    createdByName: safeText(dto.angelegtVonUserName),
     fahrerId: dto.fahrerId ?? null,
     fahrzeugId: dto.fahrzeugId ?? null,
     passengers: mapTeilnehmerToPassengers(dto.teilnehmer),
@@ -252,6 +254,7 @@ function parseStoredState(raw: string | null): DashboardStateSnapshot {
     return {
       rides: (parsed.rides ?? []).map((r: any) => ({
         ...r,
+        createdByName: r.createdByName ?? '',
         date: new Date(r.date),
       })),
       completedPassengerKeys: parsed.completedPassengerKeys ?? [],

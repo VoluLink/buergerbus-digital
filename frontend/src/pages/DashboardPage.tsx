@@ -698,6 +698,19 @@ function DashboardPage() {
     )
   }, [currentUser])
 
+  const currentCreatorDisplayName = useMemo(() => {
+    if (!currentUser) {
+      return ''
+    }
+
+    return buildDriverDisplayName(
+      currentUser.username,
+      currentUser.email,
+      currentUser.vorname ?? undefined,
+      currentUser.nachname ?? undefined,
+    )
+  }, [currentUser])
+
   const visibleFahrzeuge = useMemo(() => {
     if (canManageInitiatives && selectedInitiativeId != null) {
       return fahrzeugListe.filter((vehicle) => vehicle.initiativeId === selectedInitiativeId)
@@ -1328,6 +1341,7 @@ async function confirmDeleteRide() {
           title: rentalName.trim() || 'Vermietung',
           time: rideTime,
           driverName: '',
+          createdByName: currentCreatorDisplayName,
           fahrerId: null,
           fahrzeugId: null,
           passengers: [],
@@ -1378,6 +1392,7 @@ const tempRide: CalendarRide = {
       : 'Standardfahrt',
   time: rideTime,
   driverName,
+  createdByName: existingRide?.createdByName ?? currentCreatorDisplayName,
   fahrerId: activeForm.fahrerId,
   fahrzeugId: activeForm.fahrzeugId,
   passengers: activeForm.passengers.length > 0
@@ -1417,6 +1432,7 @@ setCalendarRides((currentRides) =>
           : 'Standardfahrt',
       time: rideTime,
       driverName,
+          createdByName: currentCreatorDisplayName,
       fahrerId: activeForm.fahrerId,
       fahrzeugId: activeForm.fahrzeugId,
       passengers,
@@ -2027,6 +2043,12 @@ setCalendarRides((currentRides) =>
                                     {ride.driverName}
                                   </>
                                 ) : null}
+                                {ride.createdByName ? (
+                                  <>
+                                    <span className="mx-2 text-slate-300">•</span>
+                                    Erstellt von {ride.createdByName}
+                                  </>
+                                ) : null}
                               </p>
                             </div>
 
@@ -2137,6 +2159,9 @@ setCalendarRides((currentRides) =>
                             </div>
                             <div>
                               <span className="font-semibold text-slate-700">Fahrer:</span> {ride.driverName || '-'}
+                            </div>
+                            <div>
+                              <span className="font-semibold text-slate-700">Erstellt von:</span> {ride.createdByName || '-'}
                             </div>
                             <div>
                               <span className="font-semibold text-slate-700">Bemerkungen:</span> {ride.remarks || '-'}
