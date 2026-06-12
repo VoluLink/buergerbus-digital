@@ -896,6 +896,7 @@ function DashboardPage() {
     setNextPassengerId(2)
 
     const initialVehicleId = visibleFahrzeuge.length === 1 ? visibleFahrzeuge[0].id : null
+    setRentalVehicleId(initialVehicleId)
     setRideFormsByType((currentState) => ({
       standard: { ...currentState.standard, fahrzeugId: initialVehicleId },
       theme: { ...currentState.theme, fahrzeugId: initialVehicleId },
