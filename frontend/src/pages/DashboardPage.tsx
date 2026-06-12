@@ -898,6 +898,7 @@ function DashboardPage() {
     setRideFormsByType((currentState) => ({
       standard: { ...currentState.standard, fahrzeugId: initialVehicleId },
       theme: { ...currentState.theme, fahrzeugId: initialVehicleId },
+      rental: { ...currentState.rental, fahrzeugId: initialVehicleId },
     }))
     setIsRideDialogOpen(true)
   }
@@ -2407,6 +2408,31 @@ setCalendarRides((currentRides) =>
                     placeholder="Name der Vermietung"
                     className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/15"
                   />
+
+                  <div className="mt-4">
+                    <label htmlFor="rental-vehicle" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+                      <Bus className="h-4 w-4 text-[#0053a0]" aria-hidden="true" />
+                      Fahrzeug
+                    </label>
+                    <select
+                      id="rental-vehicle"
+                      value={activeRideForm?.fahrzeugId ?? ''}
+                      onChange={(event) => autofillFahrzeug(Number(event.target.value))}
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/15"
+                    >
+                      <option value="">Fahrzeug auswählen</option>
+                      {visibleFahrzeuge.map((vehicle) => (
+                        <option key={vehicle.id} value={vehicle.id}>
+                          {vehicle.kennzeichen} – {vehicle.bezeichnung} – {vehicle.kapazitaet} Plätze
+                        </option>
+                      ))}
+                    </select>
+                    {visibleFahrzeuge.length === 0 ? (
+                      <p className="mt-2 text-sm text-amber-700">Kein Fahrzeug verfügbar.</p>
+                    ) : visibleFahrzeuge.length === 1 ? (
+                      <p className="mt-2 text-sm text-emerald-700">Ein Fahrzeug wurde automatisch vorausgewählt.</p>
+                    ) : null}
+                  </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <label className="text-sm font-semibold text-slate-700">
