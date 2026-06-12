@@ -348,6 +348,11 @@ function RollenverteilungPage() {
       return
     }
 
+    if (hasRole && user.roles.length <= 1) {
+      setSaveError('Benutzer müssen mindestens eine Rolle haben.')
+      return
+    }
+
     if (!hasRole && normalizedClickedRole === 'admin') {
       setPendingAdminConfirmation({
         kind: 'existing-user',
