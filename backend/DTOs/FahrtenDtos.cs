@@ -4,6 +4,7 @@ public record FahrtenDto(
     int Id,
     string Titel,
     DateTime Datum,
+    DateTime? DatumBis,
     string Zielort,
     string Fahrttyp,
     DateTime Startzeit,
@@ -22,6 +23,7 @@ public record FahrtenDto(
 public record FahrtMetaDto(
     string Titel,
     DateTime Datum,
+    DateTime? DatumBis,
     string Zielort,
     string Fahrttyp,
     DateTime Startzeit,
