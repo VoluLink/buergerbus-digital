@@ -194,6 +194,7 @@ public static class FahrtenEndpoints
     {
         ride.Titel = meta.Titel;
         ride.Datum = meta.Datum;
+        ride.DatumBis = meta.DatumBis;
         ride.Zielort = meta.Zielort;
         ride.Fahrttyp = meta.Fahrttyp;
         ride.Startzeit = meta.Startzeit;
@@ -300,6 +301,7 @@ public static class FahrtenEndpoints
         }
 
         var rideStart = meta.Startzeit;
+        var endDate = meta.DatumBis ?? meta.Datum;
         var rideExclusiveEnd = meta.Endzeit ?? meta.Startzeit.Date.AddDays(1);
 
         if (meta.FahrzeugId.HasValue)
