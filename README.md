@@ -8,7 +8,7 @@
 
 ---
 
-# Übersicht
+## Übersicht
 
 **Bürgerbus Digital** ist eine webbasierte Verwaltungsplattform zur Organisation von Fahrten, Fahrgästen, Fahrern und Fahrzeugen für Bürgerbus-Systeme.
 
@@ -16,38 +16,41 @@ Aktuell werden viele Prozesse über verschiedene Systeme wie Kalender oder Excel
 
 Die Anwendung ermöglicht:
 
-- Verwaltung von Fahrten
-- Verwaltung von Fahrgästen
-- Verwaltung von Fahrern
-- Fahrzeugverwaltung
-- Rollen- und Benutzerverwaltung
-- Kalenderübersicht aller Fahrten
-- Registrierung von Fahrern auf Fahrten
-- Benachrichtigungssystem
-- Sichere Authentifizierung und Rechteverwaltung
+* Verwaltung von Fahrten
+* Verwaltung von Fahrgästen
+* Verwaltung von Fahrern
+* Fahrzeugverwaltung
+* Rollen- und Benutzerverwaltung
+* Kalenderübersicht aller Fahrten
+* Registrierung von Fahrern auf Fahrten
+* Benachrichtigungssystem
+* Sichere Authentifizierung und Rechteverwaltung
 
 ---
 
-# Inhaltsverzeichnis
+## Inhaltsverzeichnis
 
-- [Übersicht](#übersicht)
-- [Systemarchitektur](#systemarchitektur)
-- [Technologien](#technologien)
-- [Hauptfunktionen](#hauptfunktionen)
-- [Qualitätsanforderungen](#qualitätsanforderungen)
-- [Installation](#installation)
-- [API](#api)
-- [Rollenmodell](#rollenmodell)
-- [Deployment](#deployment)
-- [Lizenz](#lizenz)
-- [Team](#team)
-- [Entwicklungsstatus](#entwicklungsstatus)
-- [Beitragen](#beitragen)
-- [Kontakt](#kontakt)
+* [Übersicht](#übersicht)
+* [Systemarchitektur](#systemarchitektur)
+* [Technologien](#technologien)
+* [Hauptfunktionen](#hauptfunktionen)
+* [Qualitätsanforderungen](#qualitätsanforderungen)
+* [Installation und Deployment](#installation-und-deployment)
+* [Lokale URLs und Ports](#lokale-urls-und-ports)
+* [Nginx Proxy Manager einrichten](#nginx-proxy-manager-einrichten)
+* [E-Mail- und SMTP-Konfiguration](#e-mail--und-smtp-konfiguration)
+* [Passwort-Zurücksetzen](#passwort-zurücksetzen)
+* [Häufige Fehler](#häufige-fehler)
+* [API](#api)
+* [Rollenmodell](#rollenmodell)
+* [Lizenz](#lizenz)
+* [Team](#team)
+* [Entwicklungsstatus](#entwicklungsstatus)
+* [Kontakt](#kontakt)
 
 ---
 
-# Systemarchitektur
+## Systemarchitektur
 
 ```text
 Frontend (React + Vite + TypeScript)
@@ -73,131 +76,137 @@ Dadurch wird eine hohe Wartbarkeit und klare Trennung der Verantwortlichkeiten e
 
 ---
 
-# Technologien
+## Technologien
 
-## Frontend
+### Frontend
 
-- React
-- Vite
-- TypeScript
-- Tailwind CSS
+* React
+* Vite
+* TypeScript
+* Tailwind CSS
 
-## Backend
+### Backend
 
-- ASP.NET Core
-- REST API
-- Entity Framework Core
+* ASP.NET Core
+* REST API
+* Entity Framework Core
 
-## Datenbank
+### Datenbank
 
-- MariaDB
+* MariaDB
 
-## Infrastruktur
+### Infrastruktur
 
-- Docker
-- Docker Compose
-- NGINX Reverse Proxy
-- WireGuard VPN
-- Fail2Ban
-
----
-
-# Hauptfunktionen
-
-## Benutzerverwaltung
-
-- Account anlegen
-- Rollen zuweisen
-- Benutzer löschen
-- Passwort zurücksetzen
-- Passwort ändern
-
-## Fahrgastverwaltung
-
-- Fahrgast anlegen
-- Fahrgast bearbeiten
-- Fahrgast löschen
-- Fahrgast Fahrten zuordnen
-
-## Fahrerverwaltung
-
-- Fahrer anlegen
-- Fahrer verwalten
-- Fahrer Fahrten zuordnen
-
-## Fahrzeugverwaltung
-
-- Fahrzeuge erstellen
-- Fahrzeuge bearbeiten
-- Fahrzeuge löschen
-- Fahrzeugstatus verwalten
-
-## Fahrtenverwaltung
-
-- Fahrten erstellen
-- Fahrten veröffentlichen
-- Fahrtenkalender
-- Fahrerregistrierung
-- Fahrtteilnahme stornieren
-
-## Benachrichtigungssystem
-
-- Automatische Benachrichtigungen
-- Ereignisbasierter Versand
+* Docker
+* Docker Compose
+* Nginx Proxy Manager
+* NGINX Reverse Proxy
+* WireGuard VPN
+* Fail2Ban
 
 ---
 
-# Qualitätsanforderungen
+## Hauptfunktionen
 
-## Zuverlässigkeit
+### Benutzerverwaltung
 
-- Strukturierte Fehlerbehandlung
-- Datenbanktransaktionen
-- Konsistente Datenhaltung
+* Account anlegen
+* Rollen zuweisen
+* Benutzer löschen
+* Passwort zurücksetzen
+* Passwort ändern
 
-## Korrektheit
+### Fahrgastverwaltung
 
-- Serverseitige Validierung
-- Klare Systemtrennung
-- Vermeidung inkonsistenter Zustände
+* Fahrgast anlegen
+* Fahrgast bearbeiten
+* Fahrgast löschen
+* Fahrgast Fahrten zuordnen
 
-## Benutzbarkeit
+### Fahrerverwaltung
 
-- Moderne intuitive Benutzeroberfläche
-- Browserbasierte Nutzung
-- Responsive Design
+* Fahrer anlegen
+* Fahrer verwalten
+* Fahrer Fahrten zuordnen
 
-## Wartbarkeit
+### Fahrzeugverwaltung
 
-- Containerisierung mit Docker
-- REST-basierte Kommunikation
-- Modulare Architektur
+* Fahrzeuge erstellen
+* Fahrzeuge bearbeiten
+* Fahrzeuge löschen
+* Fahrzeugstatus verwalten
 
-## Datenschutz
+### Fahrtenverwaltung
 
-- DSGVO-konforme Verarbeitung
-- Zugriffsschutz über VPN
-- Absicherung durch NGINX Reverse Proxy
+* Fahrten erstellen
+* Fahrten veröffentlichen
+* Fahrtenkalender
+* Fahrerregistrierung
+* Fahrtteilnahme stornieren
+
+### Benachrichtigungssystem
+
+* Automatische Benachrichtigungen
+* Ereignisbasierter Versand
 
 ---
 
-# Installation
+## Qualitätsanforderungen
+
+### Zuverlässigkeit
+
+* Strukturierte Fehlerbehandlung
+* Datenbanktransaktionen
+* Konsistente Datenhaltung
+
+### Korrektheit
+
+* Serverseitige Validierung
+* Klare Systemtrennung
+* Vermeidung inkonsistenter Zustände
+
+### Benutzbarkeit
+
+* Moderne intuitive Benutzeroberfläche
+* Browserbasierte Nutzung
+* Responsive Design
+
+### Wartbarkeit
+
+* Containerisierung mit Docker
+* REST-basierte Kommunikation
+* Modulare Architektur
+
+### Datenschutz
+
+* DSGVO-konforme Verarbeitung
+* Zugriffsschutz über VPN
+* Absicherung durch NGINX Reverse Proxy
+
+---
+
+# Installation und Deployment
 
 ## Voraussetzungen
 
-- Git
-- Docker
-- Docker Compose
+Für den Betrieb mit Docker werden benötigt:
 
-Für den optionalen lokalen Start ohne Docker werden zusätzlich benötigt:
+* Git
+* Docker
+* Docker Compose
+* Für den Produktivbetrieb: gültige Domain oder Subdomain
+* Zugriff auf die DNS-Verwaltung der Domain
+* Für HTTPS: öffentlich erreichbare Ports `80` und `443`
 
-- Node.js
-- .NET SDK
-- MariaDB oder eine andere kompatible Datenbank
+Optional für lokale Entwicklung ohne Docker:
+
+* Node.js
+* .NET SDK
+* MariaDB oder eine kompatible Datenbank
 
 ---
 
-# Repository klonen
+## Repository klonen
 
 ```bash
 git clone https://gitlab.rz.htw-berlin.de/softwareentwicklungsprojekt/sose2026/team-6-buergerbus-digital-landesstiftung-hessen.git
@@ -205,73 +214,732 @@ cd team-6-buergerbus-digital-landesstiftung-hessen
 ```
 
 ---
-## Start unter Linux mit `start.sh`
 
-Unter Linux kann das Projekt über das mitgelieferte Startskript gestartet werden:
+## Start mit `start.sh`
+
+Unter Linux kann das Projekt über das mitgelieferte Startskript eingerichtet und gestartet werden:
 
 ```bash
 chmod +x start.sh
 ./start.sh
 ```
 
-Das Skript führt dich durch die Installation und Konfiguration der `.env`-Datei.
+Das Skript führt durch die Erstellung bzw. Aktualisierung der `.env`-Datei.
+
+Dabei werden unter anderem abgefragt:
+
+* Umgebung: `Development`, `Staging` oder `Production`
+* Nutzungsmodus: lokaler Zugriff, Server-IP oder Domain
+* Datenbank-Zugangsdaten
+* JWT-Konfiguration
+* E-Mail-/SMTP-Konfiguration
+* Frontend- und Backend-URLs
+* Admin-Seed-Daten
+
+Die erzeugte `.env` steuert anschließend, welche Container über Docker Compose gestartet werden.
 
 ---
 
-## Start ohne `start.sh`
+## Docker Compose Profile
 
-Falls das Projekt nicht über `start.sh` gestartet werden soll, muss die Umgebungsdatei manuell vorbereitet werden.
+Das Projekt nutzt Docker Compose Profiles, um Development- und Production-Container sauber zu trennen.
 
-Dazu wird die Beispiel-Datei kopiert:
+| Profil    | Zweck                                                          |
+| --------- | -------------------------------------------------------------- |
+| `dev`     | Lokale Entwicklung mit Vite Dev Server, Mailpit und phpMyAdmin |
+| `staging` | Produktionsnaher Testbetrieb                                   |
+| `prod`    | Produktivbetrieb mit gebautem Frontend und Nginx Proxy Manager |
+| `ci`      | Optionaler GitLab Runner                                       |
 
-```bash
-cp .env.example .env
-```
-
-Danach müssen die Werte in der `.env` angepasst werden.
-
-Beispiel:
+Die Auswahl erfolgt über die `.env`:
 
 ```env
-DB_HOST=db
-DB_PORT=3306
-DB_NAME=HIER_DB_NAME
-DB_USER=HIER_USER
-DB_PASSWORD=CHANGE_ME_DATABASE_PASSWORD
-DB_ROOT_PASSWORD=CHANGE_ME_ROOT_PASSWORD
-
-FRONTEND_ORIGIN=http://localhost:5173
-VITE_API_BASE_URL=http://localhost:5000
-
-SEED_ADMIN_EMAIL=admin@example.com
-SEED_ADMIN_PASSWORD=CHANGE_ME_ADMIN_PASSWORD
-SEED_INITIATIVE_NAME=Default
-
-JWT_SECRET=CHANGE_ME_USE_LONG_RANDOM_SECRET
-JWT_ISSUER=BuergerbusAPI
-JWT_AUDIENCE=BuergerbusFrontend
-JWT_EXPIRES_MINUTES=60
+COMPOSE_PROFILES=dev
 ```
 
-Ein sicherer JWT-Secret kann zum Beispiel so erzeugt werden:
+oder:
 
-```bash
-openssl rand -base64 64
+```env
+COMPOSE_PROFILES=prod
 ```
 
-Danach kann das Projekt mit Docker Compose gestartet werden:
+---
 
-```bash
-docker compose up --build
+## Development starten
+
+Für Development wird das Frontend über den Vite Dev Server gestartet.
+
+Beispiel `.env` für Development über Server-IP:
+
+```env
+ASPNETCORE_ENVIRONMENT=Development
+APP_RUN_MODE=development
+COMPOSE_PROFILES=dev
+
+USAGE_MODE=SERVER_IP
+FRONTEND_ORIGIN=http://<SERVER-IP>:5173
+FRONTEND_URL=http://<SERVER-IP>:5173
+VITE_API_BASE_URL=http://<SERVER-IP>:5000
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://<SERVER-IP>:5173
+
+EMAIL_SMTP_HOST=mailpit
+EMAIL_SMTP_PORT=1025
+EMAIL_SMTP_USERNAME=
+EMAIL_SMTP_PASSWORD=
+EMAIL_FROM_ADDRESS=noreply@buergerbus.local
+EMAIL_FROM_NAME=Bürgerbus
+EMAIL_USE_SSL=false
 ```
 
-Optional kann das Projekt im Hintergrund gestartet werden:
+Start:
 
 ```bash
 docker compose up -d --build
 ```
 
+Erwartete Container im Development:
+
+```text
+frontend-dev
+backend-dev
+db
+mailpit
+phpmyadmin
+```
+
 ---
+
+## Production konfigurieren und starten
+
+Im Produktivbetrieb wird das Frontend nicht über den Vite Dev Server gestartet. Stattdessen wird das Frontend gebaut und anschließend durch einen nginx-Container ausgeliefert.
+
+Der Zugriff von außen erfolgt über den Nginx Proxy Manager.
+
+Beispiel `.env` für Production mit Domain oder Subdomain:
+
+```env
+ASPNETCORE_ENVIRONMENT=Production
+APP_RUN_MODE=production
+COMPOSE_PROFILES=prod
+
+USAGE_MODE=DOMAIN
+FRONTEND_ORIGIN=https://<DOMAIN>
+FRONTEND_URL=https://<DOMAIN>
+VITE_API_BASE_URL=https://<DOMAIN>
+CORS_ALLOWED_ORIGINS=https://<DOMAIN>
+```
+
+Wichtig:
+
+```env
+VITE_API_BASE_URL=https://<DOMAIN>
+```
+
+In diesem Projekt hängt das Frontend die API-Pfade selbst an, z. B.:
+
+```text
+/api/v1/auth/login
+```
+
+Deshalb darf `VITE_API_BASE_URL` nicht zusätzlich `/api` enthalten.
+
+Richtig:
+
+```env
+VITE_API_BASE_URL=https://<DOMAIN>
+```
+
+Falsch:
+
+```env
+VITE_API_BASE_URL=https://<DOMAIN>/api
+```
+
+Sonst entstehen fehlerhafte URLs wie:
+
+```text
+/api/api/v1/auth/login
+```
+
+Production starten:
+
+```bash
+COMPOSE_PROFILES=prod docker compose up -d --build
+```
+
+Falls `COMPOSE_PROFILES=prod` bereits in der `.env` steht, genügt:
+
+```bash
+docker compose up -d --build
+```
+
+Erwartete Container im Produktivbetrieb:
+
+```text
+buergerbus_frontend_prod
+buergerbus_backend_prod
+buergerbus_db
+nginx_proxy_manager
+```
+
+Falls vorher Development-Container liefen, kann das Setup vorher bereinigt werden:
+
+```bash
+docker compose down --remove-orphans
+COMPOSE_PROFILES=prod docker compose up -d --build
+```
+
+---
+
+# Lokale URLs und Ports
+
+Die konkreten URLs hängen vom gewählten Startmodus ab.
+
+Im Development kann lokal über `localhost` gearbeitet werden. Wird die Anwendung auf einem Server im Netzwerk gestartet, muss `<SERVER-IP>` durch die IP-Adresse dieses Servers ersetzt werden.
+
+Im Produktivbetrieb erfolgt der Zugriff normalerweise über eine Domain und den Nginx Proxy Manager.
+
+---
+
+## Development über localhost
+
+| Dienst      | URL                     | Port | Beschreibung                                             |
+| ----------- | ----------------------- | ---: | -------------------------------------------------------- |
+| Frontend    | `http://localhost:5173` | 5173 | React-Entwicklungsserver                                 |
+| Backend/API | `http://localhost:5000` | 5000 | ASP.NET Core REST-API                                    |
+| Mailpit     | `http://localhost:8025` | 8025 | Weboberfläche für Test-E-Mails                           |
+| MariaDB     | `localhost:3306`        | 3306 | Datenbankserver                                          |
+| phpMyAdmin  | `http://localhost:8081` | 8081 | Weboberfläche für MariaDB, falls im Dev-Profil aktiviert |
+
+---
+
+## Development über Server-IP
+
+| Dienst      | URL                       | Port | Beschreibung                                                             |
+| ----------- | ------------------------- | ---: | ------------------------------------------------------------------------ |
+| Frontend    | `http://<SERVER-IP>:5173` | 5173 | React-Entwicklungsserver                                                 |
+| Backend/API | `http://<SERVER-IP>:5000` | 5000 | ASP.NET Core REST-API                                                    |
+| Mailpit     | `http://<SERVER-IP>:8025` | 8025 | Weboberfläche für Test-E-Mails                                           |
+| MariaDB     | `localhost:3306`          | 3306 | Datenbankserver, standardmäßig nur lokal auf dem Server erreichbar       |
+| phpMyAdmin  | `http://localhost:8081`   | 8081 | Aus Sicherheitsgründen standardmäßig nur lokal auf dem Server erreichbar |
+
+Hinweis:
+
+`<SERVER-IP>` muss durch die IP-Adresse des Servers ersetzt werden, auf dem Docker Compose ausgeführt wird.
+
+Beispiel:
+
+```text
+http://192.168.x.x:5173
+```
+
+---
+
+## Production über Nginx Proxy Manager
+
+| Dienst                    | URL                                   | Port | Beschreibung                                       |
+| ------------------------- | ------------------------------------- | ---: | -------------------------------------------------- |
+| Frontend                  | `https://<DOMAIN>`                    |  443 | Produktives Frontend über Nginx Proxy Manager      |
+| Backend/API               | `https://<DOMAIN>/api`                |  443 | API über benutzerdefinierten Pfad `/api`           |
+| Nginx Proxy Manager Admin | `http://<SERVER-IP>:81`               |   81 | Administrationsoberfläche des Nginx Proxy Managers |
+| MariaDB                   | `localhost:3306`                      | 3306 | Datenbankserver, nicht öffentlich erreichbar       |
+| Frontend-Container intern | `http://buergerbus_frontend_prod:80`  |   80 | Nur intern im Docker-Netzwerk erreichbar           |
+| Backend-Container intern  | `http://buergerbus_backend_prod:8080` | 8080 | Nur intern im Docker-Netzwerk erreichbar           |
+
+Im Produktivbetrieb sollten Frontend und Backend nicht direkt über offene Host-Ports angesprochen werden.
+
+Der öffentliche Zugriff erfolgt über:
+
+```text
+https://<DOMAIN>      → Frontend
+https://<DOMAIN>/api  → Backend/API
+```
+
+Der Nginx Proxy Manager leitet intern weiter:
+
+```text
+buergerbus_frontend_prod:80
+buergerbus_backend_prod:8080
+```
+
+---
+
+# Nginx Proxy Manager einrichten
+
+Im Produktivbetrieb übernimmt der Nginx Proxy Manager den öffentlichen Zugriff auf die Anwendung.
+
+Die Administrationsoberfläche ist erreichbar unter:
+
+```text
+http://<SERVER-IP>:81
+```
+
+Nach dem ersten Login sollten die Zugangsdaten geändert und sicher gespeichert werden.
+
+---
+
+## DNS vorbereiten
+
+Für die Domain oder Subdomain muss ein DNS-Eintrag existieren.
+
+Beispiel:
+
+| Typ | Name       | Ziel                  |
+| --- | ---------- | --------------------- |
+| `A` | `fahrplan` | Öffentliche Server-IP |
+
+Die Domain muss auf den Server zeigen:
+
+```text
+<DOMAIN> → <SERVER-IP>
+```
+
+Beispiel:
+
+```text
+fahrplan.example.org → 203.0.113.10
+```
+
+---
+
+## Proxy Host für das Frontend anlegen
+
+Im Nginx Proxy Manager:
+
+```text
+Proxy Hosts → Add Proxy Host
+```
+
+Tab `Details`:
+
+| Feld                  | Wert                       |
+| --------------------- | -------------------------- |
+| Domain Names          | `<DOMAIN>`                 |
+| Scheme                | `http`                     |
+| Forward Hostname / IP | `buergerbus_frontend_prod` |
+| Forward Port          | `80`                       |
+| Access List           | `Public`                   |
+| Cache Assets          | Aus                        |
+| Block Common Exploits | An                         |
+| Websockets Support    | An                         |
+
+Wichtig:
+
+Das Feld `Scheme` beschreibt die interne Verbindung vom Nginx Proxy Manager zum Container.
+
+Deshalb bleibt es auf:
+
+```text
+http
+```
+
+Auch wenn die Webseite extern später über HTTPS erreichbar ist.
+
+Die Verbindung sieht so aus:
+
+```text
+Browser
+  ↓ HTTPS
+Nginx Proxy Manager
+  ↓ HTTP
+buergerbus_frontend_prod:80
+```
+
+Wenn hier versehentlich `https` gewählt wird, entsteht häufig:
+
+```text
+502 Bad Gateway
+```
+
+Der Grund ist, dass der Frontend-Container intern nur HTTP auf Port `80` bereitstellt.
+
+---
+
+## Benutzerdefinierten Pfad für die API anlegen
+
+Da nur eine Domain oder Subdomain verwendet wird, läuft die API unter demselben Host über `/api`.
+
+Im Proxy Host den Tab öffnen:
+
+```text
+Custom Locations / Benutzerdefinierte Pfade
+```
+
+Dort hinzufügen:
+
+| Feld                  | Wert                      |
+| --------------------- | ------------------------- |
+| Location              | `/api`                    |
+| Scheme                | `http`                    |
+| Forward Hostname / IP | `buergerbus_backend_prod` |
+| Forward Port          | `8080`                    |
+
+Damit wird weitergeleitet:
+
+```text
+https://<DOMAIN>/api/... → buergerbus_backend_prod:8080/api/...
+```
+
+Falls in Docker Compose ein Netzwerk-Alias für `backend-prod` eingerichtet ist, kann alternativ auch `backend-prod` verwendet werden. Wenn es zu Problemen kommt, sollte der Containername verwendet werden:
+
+```text
+buergerbus_backend_prod
+```
+
+---
+
+## SSL-Zertifikat einrichten
+
+Im Proxy Host den Tab öffnen:
+
+```text
+SSL
+```
+
+Einstellungen:
+
+| Option          | Einstellung                     |
+| --------------- | ------------------------------- |
+| SSL Certificate | `Request a new SSL Certificate` |
+| Force SSL       | An                              |
+| HTTP/2 Support  | An                              |
+| HSTS Enabled    | Zunächst aus                    |
+| HSTS Subdomains | Aus                             |
+| DNS Challenge   | Aus                             |
+
+Für Let's Encrypt muss eine echte gültige E-Mail-Adresse verwendet werden.
+
+Nicht verwenden:
+
+```text
+admin@example.com
+```
+
+Diese Beispieladresse wird von Let's Encrypt abgelehnt und kann zu folgendem Fehler führen:
+
+```text
+Unable to register an account with ACME server.
+The ACME server believes admin@example.com is an invalid email address.
+```
+
+Stattdessen eine echte gültige Adresse verwenden, z. B.:
+
+```text
+admin@eigene-domain.de
+```
+
+oder eine persönliche gültige E-Mail-Adresse.
+
+HSTS sollte erst aktiviert werden, wenn die Anwendung vollständig getestet ist. Eine falsche HSTS-Konfiguration kann beim Testen Probleme verursachen, weil Browser HTTPS dann streng erzwingen.
+
+---
+
+# E-Mail- und SMTP-Konfiguration
+
+Für Development kann Mailpit verwendet werden:
+
+```env
+EMAIL_SMTP_HOST=mailpit
+EMAIL_SMTP_PORT=1025
+EMAIL_SMTP_USERNAME=
+EMAIL_SMTP_PASSWORD=
+EMAIL_FROM_ADDRESS=noreply@buergerbus.local
+EMAIL_FROM_NAME=Bürgerbus
+EMAIL_USE_SSL=false
+```
+
+Für Production muss ein echter SMTP-Server eingetragen werden.
+
+Beispiel:
+
+```env
+EMAIL_SMTP_HOST=mail.example.com
+EMAIL_SMTP_PORT=587
+EMAIL_SMTP_USERNAME=noreply@example.com
+EMAIL_SMTP_PASSWORD=CHANGE_ME
+EMAIL_FROM_ADDRESS=noreply@example.com
+EMAIL_FROM_NAME=Bürgerbus
+EMAIL_USE_SSL=false
+```
+
+Wichtig:
+
+`EMAIL_FROM_ADDRESS` muss eine gültige E-Mail-Adresse sein.
+
+Richtig:
+
+```env
+EMAIL_FROM_ADDRESS=noreply@example.com
+EMAIL_FROM_NAME=Bürgerbus
+```
+
+Falsch:
+
+```env
+EMAIL_FROM_ADDRESS=Bürgerbus
+EMAIL_FROM_NAME=Bürgerbus
+```
+
+Bei Port `587` wird in der Regel STARTTLS verwendet. Deshalb ist `EMAIL_USE_SSL=false` meistens korrekt.
+
+Bei Port `465` wird meistens direktes SSL/TLS verwendet. Dann wäre typischerweise nötig:
+
+```env
+EMAIL_USE_SSL=true
+```
+
+---
+
+# Passwort-Zurücksetzen
+
+Für Passwort-Zurücksetzen-Mails wird `FRONTEND_URL` verwendet.
+
+Beispiel:
+
+```env
+FRONTEND_URL=https://<DOMAIN>
+```
+
+Der Link in der E-Mail zeigt damit auf das Frontend:
+
+```text
+https://<DOMAIN>/reset-password?token=...
+```
+
+Wichtig:
+
+`FRONTEND_URL` darf nicht auf die API zeigen.
+
+Richtig:
+
+```env
+FRONTEND_URL=https://<DOMAIN>
+```
+
+Falsch:
+
+```env
+FRONTEND_URL=https://<DOMAIN>/api
+```
+
+Wenn die URL geändert wurde, muss das Backend neu gestartet werden:
+
+```bash
+COMPOSE_PROFILES=prod docker compose up -d --force-recreate backend-prod
+```
+
+Danach muss ein neuer Passwort-Zurücksetzen-Link erzeugt werden.
+
+---
+
+# Funktionstest nach dem Deployment
+
+## Frontend testen
+
+```bash
+curl -I https://<DOMAIN>
+```
+
+Erwartung:
+
+```text
+HTTP/2 200
+```
+
+## Frontend-Routing testen
+
+```bash
+curl -I https://<DOMAIN>/reset-password
+```
+
+Erwartung:
+
+```text
+HTTP/2 200
+```
+
+Wenn hier `404` erscheint, fehlt wahrscheinlich die SPA-Fallback-Konfiguration im nginx des Frontend-Containers.
+
+Die Datei `frontend/nginx.conf` sollte enthalten:
+
+```nginx
+server {
+    listen 80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location ~* \.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+}
+```
+
+Das Production-Dockerfile des Frontends muss diese Datei kopieren:
+
+```dockerfile
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+```
+
+Danach das Frontend neu bauen:
+
+```bash
+COMPOSE_PROFILES=prod docker compose build --no-cache frontend-prod
+COMPOSE_PROFILES=prod docker compose up -d frontend-prod
+```
+
+## API testen
+
+```bash
+curl -I https://<DOMAIN>/api/v1/auth/login
+```
+
+Bei einem Login-Endpunkt ist diese Antwort in Ordnung:
+
+```text
+HTTP/2 405
+allow: POST
+```
+
+Das bedeutet, dass der API-Endpunkt erreicht wurde, aber die verwendete Methode nicht erlaubt ist. Der Login-Endpunkt erwartet normalerweise `POST`.
+
+---
+
+# Häufige Fehler
+
+## Nginx Proxy Manager zeigt die Default Site
+
+Symptom:
+
+```text
+Congratulations!
+You've successfully started the Nginx Proxy Manager.
+```
+
+Ursache:
+
+Der Proxy Host wird nicht gematcht oder die NPM-Konfiguration wurde nicht korrekt geladen.
+
+Prüfen:
+
+```bash
+curl -H "Host: <DOMAIN>" http://127.0.0.1 | head -40
+```
+
+Logs prüfen:
+
+```bash
+docker logs nginx_proxy_manager --tail=100
+```
+
+---
+
+## Fehler: host not found in upstream
+
+Beispiel:
+
+```text
+nginx: [emerg] host not found in upstream "backend-prod"
+```
+
+Ursache:
+
+Der Nginx Proxy Manager kann den Namen `backend-prod` im Docker-Netzwerk nicht auflösen.
+
+Lösung:
+
+Im Nginx Proxy Manager bei der Custom Location `/api` den Container-Namen verwenden:
+
+```text
+buergerbus_backend_prod
+```
+
+statt:
+
+```text
+backend-prod
+```
+
+Danach speichern und den Nginx Proxy Manager neu starten:
+
+```bash
+docker restart nginx_proxy_manager
+```
+
+---
+
+## Fehler: 502 Bad Gateway
+
+Wenn im Nginx Proxy Manager bei `Scheme` versehentlich `https` verwendet wird, kann es zu `502 Bad Gateway` kommen.
+
+Korrekt ist intern:
+
+```text
+Scheme: http
+```
+
+für:
+
+```text
+buergerbus_frontend_prod:80
+buergerbus_backend_prod:8080
+```
+
+---
+
+## Fehler: ERR_SSL_UNRECOGNIZED_NAME_ALERT
+
+Dieser Fehler bedeutet meist, dass für die Domain noch kein gültiger HTTPS-Serverblock oder kein gültiges Zertifikat aktiv ist.
+
+Prüfen:
+
+```bash
+docker logs nginx_proxy_manager --tail=100
+```
+
+Danach SSL im Nginx Proxy Manager erneut mit einer echten gültigen E-Mail-Adresse erstellen.
+
+---
+
+## Fehler: /api/api/v1/...
+
+Wenn im Browser Requests wie dieser entstehen:
+
+```text
+/api/api/v1/auth/login
+```
+
+ist `VITE_API_BASE_URL` falsch gesetzt.
+
+Für dieses Projekt korrekt:
+
+```env
+VITE_API_BASE_URL=https://<DOMAIN>
+```
+
+Nicht korrekt:
+
+```env
+VITE_API_BASE_URL=https://<DOMAIN>/api
+```
+
+Danach das Frontend neu bauen:
+
+```bash
+COMPOSE_PROFILES=prod docker compose build frontend-prod
+COMPOSE_PROFILES=prod docker compose up -d frontend-prod
+```
+
+---
+
+# Projekt stoppen und zurücksetzen
 
 ## Projekt stoppen
 
@@ -279,40 +947,37 @@ docker compose up -d --build
 docker compose down
 ```
 
-Falls zusätzlich auch Docker-Volumes gelöscht werden sollen, zum Beispiel Datenbankdaten:
+## Container und verwaiste Ressourcen entfernen
+
+```bash
+docker compose down --remove-orphans
+```
+
+## Container, Netzwerke und Volumes löschen
+
+```bash
+docker compose down -v --remove-orphans
+```
+
+Achtung:
 
 ```bash
 docker compose down -v
 ```
 
-Achtung: `docker compose down -v` löscht persistente Daten wie Datenbankinhalte.
+löscht persistente Daten wie:
+
+* MariaDB-Daten
+* Nginx Proxy Manager Konfiguration
+* Let's-Encrypt-Zertifikate
 
 ---
 
+# Lokaler Start ohne Docker
 
-# Lokale URLs und Ports
+Die folgenden Schritte sind nur erforderlich, wenn Frontend und Backend getrennt ohne Docker gestartet werden sollen.
 
-> Hinweis: Solange noch kein SSL-Zertifikat eingerichtet ist, erfolgt der Zugriff über `http://`.
-> Nach der Einrichtung eines SSL-Zertifikats wird der Zugriff über `https://` ermöglicht.
-
-| Dienst | URL | Port | Beschreibung |
-|------|------|------:|---|
-| Frontend (Vite Dev Server) | http://localhost:5173 | 5173 | React-Entwicklungsserver |
-| Backend (ASP.NET Core API) | http://localhost:5000 | 5000 | REST-API (HTTP) |
-| Backend (HTTPS) | http://localhost:5001 | 5001 | REST-API (HTTPS) |
-| MariaDB | localhost:3306 | 3306 | Datenbankserver |
-| phpMyAdmin (optional) | http://localhost:8080 | 8080 | Weboberfläche für MariaDB |
-| NGINX Reverse Proxy | http://localhost:80 | 80 | Reverse Proxy |
-| NGINX Reverse Proxy (HTTPS) | http://localhost:443 | 443 | Reverse Proxy mit TLS |
-| NGINX Proxy Manager Admin | http://localhost:81 | 81 | Administrationsoberfläche |
-
----
-
-## Lokaler Start ohne Docker optional
-
-Die folgenden Schritte sind nur erforderlich, wenn Frontend und Backend getrennt ohne Docker Compose gestartet werden sollen.
-
-# Frontend lokal starten
+## Frontend lokal starten
 
 ```bash
 cd frontend
@@ -320,9 +985,7 @@ npm install
 npm run dev
 ```
 
----
-
-# Backend lokal starten
+## Backend lokal starten
 
 ```bash
 cd backend
@@ -346,25 +1009,13 @@ GET /api/v1/fahrten
 
 # Rollenmodell
 
-| Rolle | Berechtigungen |
-|---|---|
-| Admin | Vollzugriff |
+| Rolle     | Berechtigungen                                    |
+| --------- | ------------------------------------------------- |
+| Admin     | Vollzugriff                                       |
 | Disponent | Verwaltung von Fahrten, Fahrgästen und Fahrzeugen |
-| Fahrer | Registrierung auf Fahrten |
-| Benutzer | Eigene Daten verwalten |
-
----
-
-# Deployment
-
-Die Anwendung wird containerisiert mit Docker Compose betrieben.
-
-Zusätzliche Sicherheitsmaßnahmen:
-
-- NGINX Reverse Proxy
-- WireGuard VPN
-- Fail2Ban
-- HTTPS
+| Fahrer    | Registrierung auf Fahrten                         |
+| Benutzer  | Eigene Daten verwalten                            |
+| Gast      | Sieht Dashboard                                   |
 
 ---
 
@@ -380,24 +1031,24 @@ https://www.gnu.org/licenses/gpl-3.0.de.html
 
 # Verwendete Open-Source-Lizenzen
 
-| Technologie | Lizenz |
-|---|---|
-| React | MIT License |
-| Vite | MIT License |
-| TypeScript | Apache License 2.0 |
-| ASP.NET Core | MIT License |
-| Tailwind CSS | MIT License |
+| Technologie  | Lizenz             |
+| ------------ | ------------------ |
+| React        | MIT License        |
+| Vite         | MIT License        |
+| TypeScript   | Apache License 2.0 |
+| ASP.NET Core | MIT License        |
+| Tailwind CSS | MIT License        |
 
 ---
 
 # Team
 
-| Name | Aufgabe |
-|---|---|
-| David Wolf | Use Case Diagramm |
-| Rolf Philip Maximilian Faber | ER Diagramm |
-| Julian Faber | UI-Entwurf |
-| Gesamte Gruppe | Technische Spezifikation & Entwicklung |
+| Name                         | Aufgabe                                |
+| ---------------------------- | -------------------------------------- |
+| David Wolf                   | Use Case Diagramm                      |
+| Rolf Philip Maximilian Faber | ER Diagramm                            |
+| Julian Faber                 | UI-Entwurf                             |
+| Gesamte Gruppe               | Technische Spezifikation & Entwicklung |
 
 ---
 
@@ -405,12 +1056,9 @@ https://www.gnu.org/licenses/gpl-3.0.de.html
 
 ## Kalenderübersicht
 
-
 ## Fahrzeugverwaltung
 
-
 ## Accountverwaltung
-
 
 ---
 
@@ -420,16 +1068,14 @@ https://www.gnu.org/licenses/gpl-3.0.de.html
 
 Geplante Erweiterungen:
 
-- E-Mail-Benachrichtigungen
-- Mobile Optimierung
-- Erweiterte Statistiken
-- Wartungsverwaltung
+* Mobile Optimierung
+* Erweiterte Statistiken
+* Wartungsverwaltung
 
 ---
 
-
 # Kontakt
 
-HTW Berlin  
-Softwareentwicklungsprojekt SoSe 2026  
+HTW Berlin
+Softwareentwicklungsprojekt SoSe 2026
 Team 6 – Bürgerbus Digital
