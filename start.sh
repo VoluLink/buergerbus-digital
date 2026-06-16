@@ -292,6 +292,94 @@ ask_yes_no() {
   esac
 }
 
+ask_bool_value() {
+  local key="$1"
+  local label="$2"
+  local default_value="$3" # true/false
+  local default_prompt="n"
+
+  if [[ "$default_value" == "true" ]]; then
+    default_prompt="Y"
+  fi
+
+  if ask_yes_no "$label" "$default_prompt"; then
+    echo "true"
+  else
+    echo "false"
+  fi
+}
+
+compose_profile_for_environment() {
+  local env_name="$1"
+  case "$env_name" in
+    Development) echo "dev" ;;
+    Staging) echo "staging" ;;
+    Production) echo "prod" ;;
+    *) echo "dev" ;;
+  esac
+}
+
+app_run_mode_for_environment() {
+  local env_name="$1"
+  case "$env_name" in
+    Development) echo "development" ;;
+    Staging) echo "staging" ;;
+    Production) echo "production" ;;
+    *) echo "development" ;;
+  esac
+}
+
+compose_profile_args_from_env() {
+  # Gibt --profile Argumente passend zu COMPOSE_PROFILES aus.
+  # Beispiel: "dev,debug" -> --profile dev --profile debug
+  local profiles_csv="$1"
+  local profile trimmed
+
+  [[ -n "${profiles_csv// }" ]] || return 0
+
+  IFS=',' read -r -a profiles <<<"$profiles_csv"
+  for profile in "${profiles[@]}"; do
+    trimmed="${profile//[$'\t\r\n']/}"
+    trimmed="${trimmed## }"
+    trimmed="${trimmed%% }"
+    [[ -z "$trimmed" ]] && continue
+    printf '%s\n' "--profile"
+    printf '%s\n' "$trimmed"
+  done
+}
+
+frontend_service_for_profiles() {
+  local profiles_csv=",$1,"
+  profiles_csv="${profiles_csv// /}"
+
+  if [[ "$profiles_csv" == *",dev,"* ]]; then
+    echo "frontend-dev"
+    return 0
+  fi
+  if [[ "$profiles_csv" == *",staging,"* || "$profiles_csv" == *",prod,"* ]]; then
+    echo "frontend-prod"
+    return 0
+  fi
+
+  echo ""
+}
+
+backend_service_for_profiles() {
+  local profiles_csv=",$1,"
+  profiles_csv="${profiles_csv// /}"
+
+  if [[ "$profiles_csv" == *",dev,"* ]]; then
+    echo "backend-dev"
+    return 0
+  fi
+  if [[ "$profiles_csv" == *",staging,"* || "$profiles_csv" == *",prod,"* ]]; then
+    echo "backend-prod"
+    return 0
+  fi
+
+  echo ""
+}
+
 backup_env_file() {
   local ts
   ts="$(date +%Y%m%d_%H%M%S)"
@@ -663,11 +751,13 @@ check_required_env_keys() {
   local key value
 
   for key in \
-    VITE_API_BASE_URL \
-    ASPNETCORE_ENVIRONMENT \
+    VITE_API_BASE_URL FRONTEND_URL \
+    ASPNETCORE_ENVIRONMENT APP_RUN_MODE COMPOSE_PROFILES \
     USAGE_MODE FRONTEND_ORIGIN \
     DB_NAME DB_USER DB_PASSWORD DB_ROOT_PASSWORD \
     CORS_ALLOWED_ORIGINS \
+    JWT_SECRET JWT_ISSUER JWT_AUDIENCE JWT_EXPIRES_MINUTES \
+    EMAIL_SMTP_HOST EMAIL_SMTP_PORT EMAIL_FROM_ADDRESS EMAIL_FROM_NAME EMAIL_USE_SSL \
     SEED_ADMIN_EMAIL SEED_ADMIN_PASSWORD SEED_INITIATIVE_NAME \
     DB_SEED_MAX_ATTEMPTS
   do
@@ -701,9 +791,11 @@ assert_env_sane() {
 
   local required=(
     DB_NAME DB_USER DB_PASSWORD DB_ROOT_PASSWORD
-    ASPNETCORE_ENVIRONMENT
+    ASPNETCORE_ENVIRONMENT APP_RUN_MODE COMPOSE_PROFILES
     USAGE_MODE FRONTEND_ORIGIN
-    VITE_API_BASE_URL
+    VITE_API_BASE_URL FRONTEND_URL
+    JWT_SECRET JWT_ISSUER JWT_AUDIENCE JWT_EXPIRES_MINUTES
+    EMAIL_SMTP_HOST EMAIL_SMTP_PORT EMAIL_FROM_ADDRESS EMAIL_FROM_NAME EMAIL_USE_SSL
     SEED_ADMIN_EMAIL SEED_ADMIN_PASSWORD SEED_INITIATIVE_NAME
     DB_SEED_MAX_ATTEMPTS
   )
@@ -719,6 +811,32 @@ assert_env_sane() {
 
   if (( ${#missing[@]} > 0 )); then
     print_error "Die erzeugte .env hat leere Pflichtwerte: ${missing[*]}"
+    exit 1
+  fi
+
+  local jwt_minutes smtp_port email_ssl compose_profiles
+  jwt_minutes="$(read_env_value "$ENV_FILE" JWT_EXPIRES_MINUTES || true)"
+  smtp_port="$(read_env_value "$ENV_FILE" EMAIL_SMTP_PORT || true)"
+  email_ssl="$(read_env_value "$ENV_FILE" EMAIL_USE_SSL || true)"
+  compose_profiles="$(read_env_value "$ENV_FILE" COMPOSE_PROFILES || true)"
+
+  if [[ ! "$jwt_minutes" =~ ^[0-9]+$ ]] || (( jwt_minutes <= 0 )); then
+    print_error "JWT_EXPIRES_MINUTES muss eine positive Zahl sein."
+    exit 1
+  fi
+
+  if [[ ! "$smtp_port" =~ ^[0-9]+$ ]] || (( smtp_port <= 0 )); then
+    print_error "EMAIL_SMTP_PORT muss eine positive Zahl sein."
+    exit 1
+  fi
+
+  if [[ "$email_ssl" != "true" && "$email_ssl" != "false" ]]; then
+    print_error "EMAIL_USE_SSL muss true oder false sein."
+    exit 1
+  fi
+
+  if [[ "$env_name" == "Production" && ",${compose_profiles}," == *",dev,"* ]]; then
+    print_error "Production darf nicht mit COMPOSE_PROFILES=dev gestartet werden."
     exit 1
   fi
 
@@ -743,16 +861,10 @@ assert_env_sane() {
 }
 
 backend_build_uses_network_host() {
-  # Prüft nur die Konvention: services.backend.build.network: host
-  # Rückgabe: 0 = gefunden, 1 = nicht gefunden
-  awk '
-    /^  backend:[[:space:]]*$/ {in_backend=1; next}
-    in_backend && /^  [A-Za-z0-9_-]+:[[:space:]]*$/ {exit}
-    in_backend && /^    build:[[:space:]]*$/ {in_build=1; next}
-    in_backend && in_build && /^    [A-Za-z0-9_-]+:[[:space:]]*$/ {in_build=0}
-    in_backend && in_build && /^[[:space:]]*network:[[:space:]]*host[[:space:]]*$/ {found=1}
-    END { exit(found?0:1) }
-  ' docker-compose.yml
+  # Prüft, ob in docker-compose.yml irgendwo build.network: host gesetzt ist.
+  # Bei deinem Profil-Setup kann der Backend-Service backend-dev/backend-prod heißen
+  # oder über x-backend-common definiert sein.
+  grep -Eq '^[[:space:]]*network:[[:space:]]*host[[:space:]]*$' docker-compose.yml
 }
 
 docker_build_mode_summary() {
@@ -831,22 +943,37 @@ preflight_checks_before_docker_start() {
     return 1
   fi
 
-  # Ports 5000/5173 (Server-Sicht)
-  local used_ports=()
-  if port_is_listening 5000; then
-    used_ports+=("5000")
+  # Profilabhängige Port-Checks (Server-Sicht)
+  local compose_profiles ports_to_check used_ports port
+  compose_profiles="$(read_env_value "$ENV_FILE" COMPOSE_PROFILES || true)"
+  compose_profiles=",${compose_profiles// /},"
+  ports_to_check=()
+
+  if [[ "$compose_profiles" == *",dev,"* ]]; then
+    ports_to_check+=("5000" "5173" "8025")
   fi
-  if port_is_listening 5173; then
-    used_ports+=("5173")
+  if [[ "$compose_profiles" == *",staging,"* || "$compose_profiles" == *",prod,"* ]]; then
+    ports_to_check+=("80" "81" "443")
   fi
+  if [[ "$compose_profiles" == *",staging,"* ]]; then
+    ports_to_check+=("8081")
+  fi
+
+  used_ports=()
+  for port in "${ports_to_check[@]}"; do
+    if port_is_listening "$port"; then
+      used_ports+=("$port")
+    fi
+  done
+
   if (( ${#used_ports[@]} > 0 )); then
     print_warning "Ports bereits belegt (Server-Sicht): ${used_ports[*]}"
-    print_info "Wenn das bewusst ist (anderer Dienst/alte Container), kannst du trotzdem fortfahren." 
+    print_info "Wenn das bewusst ist (anderer Dienst/alte Container), kannst du trotzdem fortfahren."
     if ! ask_yes_no "Trotzdem fortfahren?" "N"; then
       return 1
     fi
-  else
-    print_success "Ports 5000 und 5173 scheinen frei zu sein."
+  elif (( ${#ports_to_check[@]} > 0 )); then
+    print_success "Benötigte Ports scheinen frei zu sein: ${ports_to_check[*]}"
   fi
 
   # Container-Namenskonflikte: nur Hinweis (Compose-Fehlerfall)
@@ -895,6 +1022,9 @@ if [[ "$should_write_env" == "true" ]]; then
   if [[ "$ASPNETCORE_ENVIRONMENT" == "Development" ]]; then
     IS_DEVELOPMENT="true"
   fi
+
+  APP_RUN_MODE="$(app_run_mode_for_environment "$ASPNETCORE_ENVIRONMENT")"
+  COMPOSE_PROFILES="$(compose_profile_for_environment "$ASPNETCORE_ENVIRONMENT")"
 
   USAGE_MODE="$(ask_usage_mode)"
 
@@ -967,6 +1097,77 @@ if [[ "$should_write_env" == "true" ]]; then
     fi
   fi
 
+  print_section "Startmodus (Docker Compose)"
+
+  print_info "Compose-Profil wird aus dem Environment abgeleitet."
+  print_info "Development => dev (inkl. Mailpit), Staging => staging, Production => prod."
+  echo "APP_RUN_MODE:      ${APP_RUN_MODE}"
+  echo "COMPOSE_PROFILES:  ${COMPOSE_PROFILES}"
+
+  print_section "JWT Konfiguration"
+
+  existing_jwt_secret="$(read_env_value "$ENV_FILE" JWT_SECRET || true)"
+  if [[ -n "$existing_jwt_secret" ]]; then
+    JWT_SECRET="$(ask_secret JWT_SECRET "JWT_SECRET" "true")"
+    if [[ "$JWT_SECRET" == "__KEEP__" ]]; then
+      JWT_SECRET="$existing_jwt_secret"
+    fi
+  else
+    JWT_SECRET="$(ask_secret JWT_SECRET "JWT_SECRET" "false")"
+  fi
+
+  JWT_ISSUER_DEFAULT="$(default_for JWT_ISSUER || echo "BuergerbusDigital")"
+  JWT_AUDIENCE_DEFAULT="$(default_for JWT_AUDIENCE || echo "BuergerbusDigitalFrontend")"
+  JWT_EXPIRES_MINUTES_DEFAULT="$(default_for JWT_EXPIRES_MINUTES || echo "60")"
+
+  JWT_ISSUER="$(ask_value JWT_ISSUER "JWT_ISSUER" "$JWT_ISSUER_DEFAULT")"
+  JWT_AUDIENCE="$(ask_value JWT_AUDIENCE "JWT_AUDIENCE" "$JWT_AUDIENCE_DEFAULT")"
+  JWT_EXPIRES_MINUTES="$(ask_int JWT_EXPIRES_MINUTES "JWT_EXPIRES_MINUTES" "$JWT_EXPIRES_MINUTES_DEFAULT")"
+
+  print_section "Mail / SMTP"
+
+  if [[ "$ASPNETCORE_ENVIRONMENT" == "Development" ]]; then
+    print_info "Development-Default: Mailpit läuft über Compose-Profil 'dev'."
+    EMAIL_SMTP_HOST_DEFAULT="$(default_for EMAIL_SMTP_HOST || echo "mailpit")"
+    EMAIL_SMTP_PORT_DEFAULT="$(default_for EMAIL_SMTP_PORT || echo "1025")"
+    EMAIL_USE_SSL_DEFAULT="$(default_for EMAIL_USE_SSL || echo "false")"
+  else
+    print_info "Staging/Production: echten SMTP-Server eintragen. Mailpit wird nicht gestartet."
+    EMAIL_SMTP_HOST_DEFAULT="$(default_for EMAIL_SMTP_HOST || echo "smtp.example.com")"
+    EMAIL_SMTP_PORT_DEFAULT="$(default_for EMAIL_SMTP_PORT || echo "587")"
+    EMAIL_USE_SSL_DEFAULT="$(default_for EMAIL_USE_SSL || echo "true")"
+  fi
+
+  EMAIL_SMTP_USERNAME_DEFAULT="$(default_for EMAIL_SMTP_USERNAME || echo "")"
+  EMAIL_SMTP_PASSWORD_DEFAULT="$(default_for EMAIL_SMTP_PASSWORD || echo "")"
+  EMAIL_FROM_ADDRESS_DEFAULT="$(default_for EMAIL_FROM_ADDRESS || echo "no-reply@example.com")"
+  EMAIL_FROM_NAME_DEFAULT="$(default_for EMAIL_FROM_NAME || echo "Bürgerbus Digital")"
+  FRONTEND_URL_DEFAULT="$(default_for FRONTEND_URL || echo "$FRONTEND_ORIGIN")"
+
+  EMAIL_SMTP_HOST="$(ask_value EMAIL_SMTP_HOST "EMAIL_SMTP_HOST" "$EMAIL_SMTP_HOST_DEFAULT")"
+  EMAIL_SMTP_PORT="$(ask_int EMAIL_SMTP_PORT "EMAIL_SMTP_PORT" "$EMAIL_SMTP_PORT_DEFAULT")"
+  EMAIL_SMTP_USERNAME="$(ask_value EMAIL_SMTP_USERNAME "EMAIL_SMTP_USERNAME (leer erlaubt)" "$EMAIL_SMTP_USERNAME_DEFAULT")"
+
+  existing_email_password="$(read_env_value "$ENV_FILE" EMAIL_SMTP_PASSWORD || true)"
+  if [[ -n "$existing_email_password" ]]; then
+    EMAIL_SMTP_PASSWORD="$(ask_secret EMAIL_SMTP_PASSWORD "EMAIL_SMTP_PASSWORD" "true")"
+    if [[ "$EMAIL_SMTP_PASSWORD" == "__KEEP__" ]]; then
+      EMAIL_SMTP_PASSWORD="$existing_email_password"
+    fi
+  else
+    EMAIL_SMTP_PASSWORD="$(ask_value EMAIL_SMTP_PASSWORD "EMAIL_SMTP_PASSWORD (leer erlaubt)" "$EMAIL_SMTP_PASSWORD_DEFAULT")"
+  fi
+
+  EMAIL_FROM_ADDRESS="$(ask_value EMAIL_FROM_ADDRESS "EMAIL_FROM_ADDRESS" "$EMAIL_FROM_ADDRESS_DEFAULT")"
+  EMAIL_FROM_NAME="$(ask_value EMAIL_FROM_NAME "EMAIL_FROM_NAME" "$EMAIL_FROM_NAME_DEFAULT")"
+  EMAIL_USE_SSL="$(ask_bool_value EMAIL_USE_SSL "EMAIL_USE_SSL" "$EMAIL_USE_SSL_DEFAULT")"
+  FRONTEND_URL="$(ask_value FRONTEND_URL "FRONTEND_URL für Passwort-Reset-Links" "$FRONTEND_URL_DEFAULT")"
+
+  if [[ "$ASPNETCORE_ENVIRONMENT" != "Development" && "$EMAIL_SMTP_HOST" == "mailpit" ]]; then
+    print_error "In ${ASPNETCORE_ENVIRONMENT} darf EMAIL_SMTP_HOST nicht 'mailpit' sein."
+    exit 1
+  fi
+
   print_section "Initialer Admin-Seed (optional)"
 
   SEED_ADMIN_EMAIL_DEFAULT="$(default_for SEED_ADMIN_EMAIL || echo "admin@example.com")"
@@ -1022,9 +1223,11 @@ DB_PASSWORD=${DB_PASSWORD}
 DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
 
 # =========================
-# Backend (ASP.NET Core)
+# Backend / Startmodus
 # =========================
 ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+APP_RUN_MODE=${APP_RUN_MODE}
+COMPOSE_PROFILES=${COMPOSE_PROFILES}
 
 # =========================
 # Setup (Wizard)
@@ -1044,6 +1247,28 @@ CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
 # Hinweis: Muss aus dem Browser erreichbar sein.
 # =========================
 VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
+# Link, der in Passwort-Zurücksetzen-Mails verwendet wird
+FRONTEND_URL=${FRONTEND_URL}
+
+# =========================
+# JWT Konfiguration
+# =========================
+JWT_SECRET=${JWT_SECRET}
+JWT_ISSUER=${JWT_ISSUER}
+JWT_AUDIENCE=${JWT_AUDIENCE}
+JWT_EXPIRES_MINUTES=${JWT_EXPIRES_MINUTES}
+
+# =========================
+# Mailpit / E-Mail Entwicklung und SMTP
+# =========================
+EMAIL_SMTP_HOST=${EMAIL_SMTP_HOST}
+EMAIL_SMTP_PORT=${EMAIL_SMTP_PORT}
+EMAIL_SMTP_USERNAME=${EMAIL_SMTP_USERNAME}
+EMAIL_SMTP_PASSWORD=${EMAIL_SMTP_PASSWORD}
+EMAIL_FROM_ADDRESS=${EMAIL_FROM_ADDRESS}
+EMAIL_FROM_NAME=${EMAIL_FROM_NAME}
+EMAIL_USE_SSL=${EMAIL_USE_SSL}
 
 # =========================
 # Initialer Admin-Seed (Backend)
@@ -1076,18 +1301,29 @@ DB_PORT_SUMMARY="$(read_env_value "$ENV_FILE" DB_PORT || echo "-")"
 DB_NAME_SUMMARY="$(read_env_value "$ENV_FILE" DB_NAME || echo "-")"
 DB_USER_SUMMARY="$(read_env_value "$ENV_FILE" DB_USER || echo "-")"
 ASPNET_SUMMARY="$(read_env_value "$ENV_FILE" ASPNETCORE_ENVIRONMENT || echo "-")"
+APP_RUN_MODE_SUMMARY="$(read_env_value "$ENV_FILE" APP_RUN_MODE || echo "-")"
+COMPOSE_PROFILES_SUMMARY="$(read_env_value "$ENV_FILE" COMPOSE_PROFILES || echo "-")"
 CORS_SUMMARY="$(read_env_value "$ENV_FILE" CORS_ALLOWED_ORIGINS || echo "-")"
 VITE_SUMMARY="$(read_env_value "$ENV_FILE" VITE_API_BASE_URL || echo "-")"
+FRONTEND_URL_SUMMARY="$(read_env_value "$ENV_FILE" FRONTEND_URL || echo "-")"
 FRONTEND_ORIGIN_ENV_SUMMARY="$(read_env_value "$ENV_FILE" FRONTEND_ORIGIN || echo "-")"
 USAGE_MODE_SUMMARY="$(read_env_value "$ENV_FILE" USAGE_MODE || echo "-")"
+EMAIL_SMTP_HOST_SUMMARY="$(read_env_value "$ENV_FILE" EMAIL_SMTP_HOST || echo "-")"
+EMAIL_SMTP_PORT_SUMMARY="$(read_env_value "$ENV_FILE" EMAIL_SMTP_PORT || echo "-")"
+EMAIL_USE_SSL_SUMMARY="$(read_env_value "$ENV_FILE" EMAIL_USE_SSL || echo "-")"
+JWT_ISSUER_SUMMARY="$(read_env_value "$ENV_FILE" JWT_ISSUER || echo "-")"
+JWT_AUDIENCE_SUMMARY="$(read_env_value "$ENV_FILE" JWT_AUDIENCE || echo "-")"
 SEED_EMAIL_SUMMARY="$(read_env_value "$ENV_FILE" SEED_ADMIN_EMAIL || echo "-")"
 SEED_INIT_SUMMARY="$(read_env_value "$ENV_FILE" SEED_INITIATIVE_NAME || echo "-")"
 SEED_ATTEMPTS_SUMMARY="$(read_env_value "$ENV_FILE" DB_SEED_MAX_ATTEMPTS || echo "-")"
 
 echo "Environment:            ${ASPNET_SUMMARY}"
+echo "App-Run-Mode:           ${APP_RUN_MODE_SUMMARY}"
+echo "Compose-Profiles:       ${COMPOSE_PROFILES_SUMMARY}"
 echo "Nutzungsmodus:          ${USAGE_MODE_SUMMARY}"
 echo "Server-IP erkannt:      ${SERVER_IPV4_SUMMARY}"
 echo "VITE_API_BASE_URL:      ${VITE_SUMMARY}"
+echo "FRONTEND_URL:           ${FRONTEND_URL_SUMMARY}"
 echo "FRONTEND_ORIGIN:        ${FRONTEND_ORIGIN_ENV_SUMMARY}"
 echo "CORS_ALLOWED_ORIGINS:   ${CORS_SUMMARY}"
 echo "Datenbankstatus:        ${DB_RESET_STATUS}"
@@ -1118,6 +1354,11 @@ echo "DB_HOST:                ${DB_HOST_SUMMARY}"
 echo "DB_PORT:                ${DB_PORT_SUMMARY}"
 echo "DB_NAME:                ${DB_NAME_SUMMARY}"
 echo "DB_USER:                ${DB_USER_SUMMARY}"
+echo "JWT_ISSUER:             ${JWT_ISSUER_SUMMARY}"
+echo "JWT_AUDIENCE:           ${JWT_AUDIENCE_SUMMARY}"
+echo "EMAIL_SMTP_HOST:        ${EMAIL_SMTP_HOST_SUMMARY}"
+echo "EMAIL_SMTP_PORT:        ${EMAIL_SMTP_PORT_SUMMARY}"
+echo "EMAIL_USE_SSL:          ${EMAIL_USE_SSL_SUMMARY}"
 echo "SEED_ADMIN_EMAIL:       ${SEED_EMAIL_SUMMARY}"
 echo "SEED_INITIATIVE_NAME:   ${SEED_INIT_SUMMARY}"
 echo "DB_SEED_MAX_ATTEMPTS:   ${SEED_ATTEMPTS_SUMMARY}"
@@ -1149,13 +1390,28 @@ if ask_yes_no "Docker Container jetzt starten?" "Y"; then
     exit 1
   fi
 
-  print_info "Compose: ${COMPOSE_CMD[*]}"
+  COMPOSE_PROFILES_ENV="$(read_env_value "$ENV_FILE" COMPOSE_PROFILES || true)"
+  COMPOSE_PROFILE_ARGS=()
+  if [[ -n "${COMPOSE_PROFILES_ENV// }" ]]; then
+    while IFS= read -r arg; do
+      COMPOSE_PROFILE_ARGS+=("$arg")
+    done < <(compose_profile_args_from_env "$COMPOSE_PROFILES_ENV")
+    print_info "Aktive Compose-Profile: ${COMPOSE_PROFILES_ENV}"
+  fi
+
+  FRONTEND_SERVICE="$(frontend_service_for_profiles "$COMPOSE_PROFILES_ENV")"
+  BACKEND_SERVICE="$(backend_service_for_profiles "$COMPOSE_PROFILES_ENV")"
+
+  print_info "Compose: ${COMPOSE_CMD[*]} ${COMPOSE_PROFILE_ARGS[*]}"
+  print_info "Frontend-Service für dieses Profil: ${FRONTEND_SERVICE:-keiner}"
+  print_info "Backend-Service für dieses Profil: ${BACKEND_SERVICE:-keiner}"
+
   print_section "Docker-Start"
-  echo "Optionen:" 
-  echo "  1) Nur starten" 
-  echo "  2) Frontend neu bauen" 
-  echo "  3) Backend neu bauen" 
-  echo "  4) Alles neu bauen" 
+  echo "Optionen:"
+  echo "  1) Nur starten"
+  echo "  2) Frontend neu bauen (${FRONTEND_SERVICE:-nicht verfügbar})"
+  echo "  3) Backend neu bauen (${BACKEND_SERVICE:-nicht verfügbar})"
+  echo "  4) Alles neu bauen"
   echo
 
   start_choice=""
@@ -1165,34 +1421,42 @@ if ask_yes_no "Docker Container jetzt starten?" "Y"; then
     case "$start_choice" in
       1)
         print_info "Starte Container..."
-        "${COMPOSE_CMD[@]}" up -d
+        "${COMPOSE_CMD[@]}" "${COMPOSE_PROFILE_ARGS[@]}" up -d
         break
         ;;
       2)
-        print_info "Starte Container (Frontend rebuild)..."
-        "${COMPOSE_CMD[@]}" up -d --build frontend
+        if [[ -z "$FRONTEND_SERVICE" ]]; then
+          print_error "Für COMPOSE_PROFILES=${COMPOSE_PROFILES_ENV:-leer} ist kein Frontend-Service definiert."
+          continue
+        fi
+        print_info "Starte Container (Frontend rebuild: ${FRONTEND_SERVICE})..."
+        "${COMPOSE_CMD[@]}" "${COMPOSE_PROFILE_ARGS[@]}" up -d --build "$FRONTEND_SERVICE"
         break
         ;;
       3)
-        print_info "Starte Container (Backend rebuild)..."
+        if [[ -z "$BACKEND_SERVICE" ]]; then
+          print_error "Für COMPOSE_PROFILES=${COMPOSE_PROFILES_ENV:-leer} ist kein Backend-Service definiert."
+          continue
+        fi
+        print_info "Starte Container (Backend rebuild: ${BACKEND_SERVICE})..."
         print_warning "Falls NuGet hängt, prüfe Docker-DNS oder verwende build.network: host."
-        "${COMPOSE_CMD[@]}" up -d --build backend
+        "${COMPOSE_CMD[@]}" "${COMPOSE_PROFILE_ARGS[@]}" up -d --build "$BACKEND_SERVICE"
         break
         ;;
       4)
         print_info "Starte Container (alles rebuild)..."
         print_warning "Falls NuGet hängt, prüfe Docker-DNS oder verwende build.network: host."
-        "${COMPOSE_CMD[@]}" up -d --build
+        "${COMPOSE_CMD[@]}" "${COMPOSE_PROFILE_ARGS[@]}" up -d --build
         break
         ;;
       *)
-        print_warning "Ungültige Auswahl. Bitte 1-4 eingeben." 
+        print_warning "Ungültige Auswahl. Bitte 1-4 eingeben."
         ;;
     esac
   done
 
   echo
-  "${COMPOSE_CMD[@]}" ps
+  "${COMPOSE_CMD[@]}" "${COMPOSE_PROFILE_ARGS[@]}" ps
   echo
   print_success "Container laufen (wenn oben keine Fehler stehen)."
 else
