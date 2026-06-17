@@ -15,8 +15,12 @@ export type FahrgastUpsertRequest = {
 }
 
 
-export async function getFahrgaeste(): Promise<Fahrgast[]> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrgaeste`)
+function buildInitiativeQuery(initiativeId?: number | null) {
+  return initiativeId ? `?initiativeId=${initiativeId}` : ''
+}
+
+export async function getFahrgaeste(initiativeId?: number | null): Promise<Fahrgast[]> {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrgaeste${buildInitiativeQuery(initiativeId)}`)
 
   if (!response.ok) {
     if (response.status === 403) {

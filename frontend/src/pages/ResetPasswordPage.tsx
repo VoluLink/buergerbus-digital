@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Bus, ChevronLeft, LockKeyhole } from 'lucide-react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { resetPassword } from '../services/passwordReset'
+import { isPasswordLongEnough } from '../utils/password'
 
 function ResetPasswordPage() {
   const navigate = useNavigate()
@@ -34,7 +35,7 @@ function ResetPasswordPage() {
       return
     }
 
-    if (trimmedPassword.length < 6) {
+    if (!isPasswordLongEnough(trimmedPassword)) {
       setError('Das Passwort muss mindestens 6 Zeichen lang sein.')
       return
     }

@@ -2,6 +2,15 @@ import { API_BASE_URL } from './api'
 import { apiFetch } from './httpClient'
 import type { UserProfile } from '../types/UserProfile'
 
+export type ChangePasswordRequest = {
+  currentPassword: string
+  newPassword: string
+}
+
+export type ChangePasswordResponse = {
+  message: string
+}
+
 type UpdateFahrerProfileRequest = {
   bemerkung?: string | null
   aktiv: boolean
@@ -76,6 +85,27 @@ export async function updateUserProfile(userId: number, request: UpdateUserProfi
       }
     const errorText = await response.text()
     throw new Error(errorText || 'Profil konnte nicht gespeichert werden.')
+  }
+
+  return response.json()
+}
+
+export async function changePassword(request: ChangePasswordRequest): Promise<ChangePasswordResponse> {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/auth/change-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  })
+
+  if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('Keine Berechtigung.')
+    }
+
+    const errorText = await response.text()
+    throw new Error(errorText || 'Passwort konnte nicht geändert werden.')
   }
 
   return response.json()

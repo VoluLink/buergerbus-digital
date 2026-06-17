@@ -17,21 +17,30 @@ public static class FahrgastEndpoints
         // Alle Fahrgäste abrufen
         app.MapGet("/api/v1/fahrgaeste", async (
             HttpContext httpContext,
-            AppDbContext db
+            AppDbContext db,
+            int? initiativeId
         ) =>
         {
             var principal = httpContext.User;
             var isAdmin = AuthUtils.IsAdmin(principal);
-            var initiativeId = AuthUtils.GetInitiativeId(principal);
-            if (!isAdmin && !initiativeId.HasValue)
+            var claimInitiativeId = AuthUtils.GetInitiativeId(principal);
+
+            if (!isAdmin && !claimInitiativeId.HasValue)
             {
                 return Results.Forbid();
             }
 
+            if (!isAdmin && initiativeId.HasValue && initiativeId.Value != claimInitiativeId.Value)
+            {
+                return Results.Forbid();
+            }
+
+            var targetInitiativeId = initiativeId ?? claimInitiativeId;
+
             var fahrgaeste = await db.Fahrgaeste
                 .Include(f => f.Initiative)
                 .AsNoTracking()
-                .Where(f => f.Aktiv && (isAdmin || f.InitiativeId == initiativeId))
+                .Where(f => f.Aktiv && (!targetInitiativeId.HasValue || f.InitiativeId == targetInitiativeId.Value))
                 .OrderBy(f => f.Nachname)
                 .ThenBy(f => f.Vorname)
                 .ToListAsync();

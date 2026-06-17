@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import {
   Bus,
   LogOut,
@@ -12,8 +12,9 @@ import {
 import { useNavigate } from 'react-router-dom'
 import UserMenuButton from '../components/UserMenuButton'
 import { useAuth } from '../context/AuthContext'
-import { updateUserProfile } from '../services/profile'
+import { changePassword, updateUserProfile } from '../services/profile'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
+import { isPasswordLongEnough } from '../utils/password'
 
 function formatDateInput(value?: string | null) {
   if (!value) {
@@ -52,6 +53,9 @@ function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [changePasswordError, setChangePasswordError] = useState<string | null>(null)
+  const [changePasswordSuccess, setChangePasswordSuccess] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     username: '',
@@ -66,6 +70,12 @@ function ProfilePage() {
     postCode: '',
     city: '',
     remarks: '',
+  })
+
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmNewPassword: '',
   })
 
   const [phoneError, setPhoneError] = useState('')
@@ -94,6 +104,13 @@ function ProfilePage() {
     setIsAccountActive(currentUser.aktiv ?? true)
     setSaveError(null)
     setSaveSuccess(null)
+    setChangePasswordError(null)
+    setChangePasswordSuccess(null)
+    setPasswordForm({
+      currentPassword: '',
+      newPassword: '',
+      confirmNewPassword: '',
+    })
   }, [currentUser, refreshProfile])
 
   const userRoles = Array.from(new Set((currentUser?.roles ?? []).filter(Boolean)))
@@ -193,6 +210,56 @@ function ProfilePage() {
       setSaveError(err instanceof Error ? err.message : 'Profil konnte nicht gespeichert werden.')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  async function handleChangePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const currentPassword = passwordForm.currentPassword.trim()
+    const newPassword = passwordForm.newPassword.trim()
+    const confirmNewPassword = passwordForm.confirmNewPassword.trim()
+
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      setChangePasswordError('Bitte alle Passwortfelder ausfüllen.')
+      return
+    }
+
+    if (newPassword === currentPassword) {
+      setChangePasswordError('Neues Passwort darf nicht dem aktuellen Passwort entsprechen.')
+      return
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setChangePasswordError('Neues Passwort und Bestätigung stimmen nicht überein.')
+      return
+    }
+
+    if (!isPasswordLongEnough(newPassword)) {
+      setChangePasswordError('Das neue Passwort muss mindestens 6 Zeichen lang sein.')
+      return
+    }
+
+    setIsChangingPassword(true)
+    setChangePasswordError(null)
+    setChangePasswordSuccess(null)
+
+    try {
+      const response = await changePassword({
+        currentPassword,
+        newPassword,
+      })
+
+      setChangePasswordSuccess(response.message || 'Passwort wurde erfolgreich geändert.')
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmNewPassword: '',
+      })
+    } catch (err) {
+      setChangePasswordError(err instanceof Error ? err.message : 'Passwort konnte nicht geändert werden.')
+    } finally {
+      setIsChangingPassword(false)
     }
   }
 
@@ -486,23 +553,120 @@ function ProfilePage() {
             />
           </div>
 
-          {/* Aktiver Account */}
-          <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 p-3">
-            <span className="text-xs font-semibold text-slate-700">Aktiver Account</span>
-            <button
-              type="button"
-              onClick={() => setIsAccountActive(!isAccountActive)}
-              className={`relative inline-flex h-8 w-14 items-center rounded-full transition ${
-                isAccountActive ? 'bg-emerald-500' : 'bg-slate-300'
+
+        {/* Aktiver Account */}
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+          <span className="text-xs font-semibold text-slate-700">Aktiver Account</span>
+          <button
+            type="button"
+            onClick={() => setIsAccountActive(!isAccountActive)}
+            className={`relative inline-flex h-8 w-14 items-center rounded-full transition ${
+              isAccountActive ? 'bg-emerald-500' : 'bg-slate-300'
+            }`}
+          >
+            <span
+              className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition ${
+                isAccountActive ? 'translate-x-7' : 'translate-x-1'
               }`}
-            >
-              <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition ${
-                  isAccountActive ? 'translate-x-7' : 'translate-x-1'
-                }`}
-              />
-            </button>
+            />
+          </button>
+        </div>
+
+        {/* Passwort ändern */}
+        <div className="mt-6 border-t border-slate-200 pt-5">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-slate-800 sm:text-xl">Passwort ändern</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Verwenden Sie ein neues Passwort mit mindestens 6 Zeichen.
+            </p>
           </div>
+
+          <form className="grid gap-4 lg:grid-cols-2" onSubmit={handleChangePassword} noValidate>
+            <div className="lg:col-span-2">
+              <label
+                htmlFor="currentPassword"
+                className="block text-xs font-semibold text-slate-700"
+              >
+                Aktuelles Passwort
+              </label>
+              <input
+                id="currentPassword"
+                type="password"
+                autoComplete="current-password"
+                value={passwordForm.currentPassword}
+                onChange={(event) => {
+                  setPasswordForm((prev) => ({ ...prev, currentPassword: event.target.value }))
+                  setChangePasswordError(null)
+                  setChangePasswordSuccess(null)
+                }}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="newPassword" className="block text-xs font-semibold text-slate-700">
+                Neues Passwort
+              </label>
+              <input
+                id="newPassword"
+                type="password"
+                autoComplete="new-password"
+                value={passwordForm.newPassword}
+                onChange={(event) => {
+                  setPasswordForm((prev) => ({ ...prev, newPassword: event.target.value }))
+                  setChangePasswordError(null)
+                  setChangePasswordSuccess(null)
+                }}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="confirmNewPassword"
+                className="block text-xs font-semibold text-slate-700"
+              >
+                Neues Passwort bestätigen
+              </label>
+              <input
+                id="confirmNewPassword"
+                type="password"
+                autoComplete="new-password"
+                value={passwordForm.confirmNewPassword}
+                onChange={(event) => {
+                  setPasswordForm((prev) => ({ ...prev, confirmNewPassword: event.target.value }))
+                  setChangePasswordError(null)
+                  setChangePasswordSuccess(null)
+                }}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
+              />
+            </div>
+
+            {changePasswordSuccess ? (
+              <p className="lg:col-span-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {changePasswordSuccess}
+              </p>
+            ) : null}
+
+            {changePasswordError ? (
+              <p className="lg:col-span-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {changePasswordError}
+              </p>
+            ) : null}
+
+            <div className="lg:col-span-2 flex justify-end">
+              <button
+                type="submit"
+                disabled={isChangingPassword}
+                className={`inline-flex items-center gap-2 rounded-lg bg-[#0053a0] px-4 py-2 text-xs font-semibold text-white shadow-md transition hover:brightness-105 ${
+                  isChangingPassword ? 'cursor-not-allowed opacity-60' : ''
+                }`}
+              >
+                {isChangingPassword ? 'Ändere...' : 'Passwort ändern'}
+              </button>
+            </div>
+          </form>
+        </div>
 
           {/* Action Buttons */}
           <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-4">

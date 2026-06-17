@@ -647,6 +647,7 @@ function DashboardPage() {
   const [nextPassengerId, setNextPassengerId] = useState(2)
   const [isDashboardHydrated, setIsDashboardHydrated] = useState(false)
   const [knownGuests, setKnownGuests] = useState<Fahrgast[]>([])
+  const [knownGuestsLoaded, setKnownGuestsLoaded] = useState(false)
   const [fahrerListe, setFahrerListe] = useState<any[]>([])
   const [fahrzeugListe, setFahrzeugListe] = useState<any[]>([])
   const [initiativeListe, setInitiativeListe] = useState<Initiative[]>([])
@@ -783,14 +784,16 @@ function DashboardPage() {
 
     async function loadKnownGuests() {
       try {
-        const guests = await getFahrgaeste()
+        const guests = await getFahrgaeste(selectedInitiativeId)
 
         if (!isCancelled) {
           setKnownGuests(guests.filter((guest) => guest.aktiv))
+          setKnownGuestsLoaded(true)
         }
       } catch {
         if (!isCancelled) {
           setKnownGuests([])
+          setKnownGuestsLoaded(true)
         }
       }
     }
@@ -800,7 +803,47 @@ function DashboardPage() {
     return () => {
       isCancelled = true
     }
-  }, [])
+  }, [selectedInitiativeId])
+
+  useEffect(() => {
+    if (!knownGuestsLoaded) {
+      return
+    }
+
+    const allowedGuestIds = new Set(knownGuests.map((guest) => guest.id))
+
+    setRideFormsByType((currentState) => {
+      let hasChanges = false
+
+      const nextState = Object.entries(currentState).reduce<Record<RideFormType, RideFormState>>((accumulator, [rideFormKey, rideForm]) => {
+        const sanitizedPassengers = rideForm.passengers.map((passenger) => {
+          if (passenger.sourceGuestId == null || allowedGuestIds.has(passenger.sourceGuestId)) {
+            return passenger
+          }
+
+          hasChanges = true
+
+          return {
+            ...passenger,
+            sourceGuestId: null,
+            saveAsGuest: false,
+            name: '',
+            phone: '',
+            pickupAddress: '',
+          }
+        })
+
+        accumulator[rideFormKey as RideFormType] = {
+          ...rideForm,
+          passengers: sanitizedPassengers,
+        }
+
+        return accumulator
+      }, {} as Record<RideFormType, RideFormState>)
+
+      return hasChanges ? nextState : currentState
+    })
+  }, [knownGuests, knownGuestsLoaded])
 
   useEffect(() => {
     let isCancelled = false
