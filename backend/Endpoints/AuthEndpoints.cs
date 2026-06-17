@@ -16,6 +16,8 @@ namespace BuergerbusAPI.Endpoints;
 
 public static class AuthEndpoints
 {
+    private const int MinPasswordLength = 6;
+
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/api/v1/auth/login", async (
@@ -162,7 +164,7 @@ public static class AuthEndpoints
             }
 
             var newPassword = request.NewPassword.Trim();
-            if (newPassword.Length < 6)
+            if (newPassword.Length < MinPasswordLength)
             {
                 return Results.BadRequest("Passwort muss mindestens 6 Zeichen lang sein.");
             }
@@ -185,6 +187,68 @@ public static class AuthEndpoints
 
             return Results.Ok(new { message = "Passwort wurde erfolgreich zurückgesetzt." });
         });
+
+        app.MapPost("/api/v1/auth/change-password", async (
+            ChangePasswordRequest request,
+            HttpContext httpContext,
+            AppDbContext db,
+            IPasswordHasher<Benutzer> passwordHasher) =>
+        {
+            var principal = httpContext.User;
+            var currentUserId = AuthUtils.GetUserId(principal);
+
+            if (!currentUserId.HasValue)
+            {
+                return Results.Unauthorized();
+            }
+
+            if (string.IsNullOrWhiteSpace(request.CurrentPassword))
+            {
+                return Results.BadRequest("Aktuelles Passwort ist erforderlich.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.NewPassword))
+            {
+                return Results.BadRequest("Neues Passwort ist erforderlich.");
+            }
+
+            var currentPassword = request.CurrentPassword.Trim();
+            var newPassword = request.NewPassword.Trim();
+
+            if (newPassword.Length < MinPasswordLength)
+            {
+                return Results.BadRequest("Passwort muss mindestens 6 Zeichen lang sein.");
+            }
+
+            if (string.Equals(currentPassword, newPassword, StringComparison.Ordinal))
+            {
+                return Results.BadRequest("Neues Passwort darf nicht dem aktuellen Passwort entsprechen.");
+            }
+
+            var user = await db.Benutzer.FirstOrDefaultAsync(u => u.Id == currentUserId.Value);
+            if (user is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            var verificationResult = passwordHasher.VerifyHashedPassword(user, user.PasswortHash, currentPassword);
+            if (verificationResult == PasswordVerificationResult.Failed)
+            {
+                return Results.BadRequest("Aktuelles Passwort ist falsch.");
+            }
+
+            user.PasswortHash = passwordHasher.HashPassword(user, newPassword);
+            user.GeaendertAm = DateTime.UtcNow;
+
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new ChangePasswordResponse("Passwort wurde erfolgreich geändert."));
+        })
+        .Accepts<ChangePasswordRequest>("application/json")
+        .Produces<ChangePasswordResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status401Unauthorized)
+        .RequireAuthorization();
 
         app.MapGet("/api/v1/test", (HttpContext httpContext) =>
         {

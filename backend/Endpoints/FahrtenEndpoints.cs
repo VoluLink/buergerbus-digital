@@ -357,6 +357,7 @@ public static class FahrtenEndpoints
             if (participant.FahrgastId.HasValue)
             {
                 var guest = await db.Fahrgaeste
+                    .Include(f => f.Initiative)
                     .AsNoTracking()
                     .FirstOrDefaultAsync(f => f.Id == participant.FahrgastId.Value);
 
@@ -364,7 +365,7 @@ public static class FahrtenEndpoints
                     return Results.NotFound("Fahrgast wurde nicht gefunden.");
 
                 if (guest.InitiativeId != targetInitiativeId.Value)
-                    return Results.Forbid();
+                    return Results.BadRequest("Ein oder mehrere Fahrgäste gehören nicht zur Initiative dieser Fahrt.");
             }
         }
 
