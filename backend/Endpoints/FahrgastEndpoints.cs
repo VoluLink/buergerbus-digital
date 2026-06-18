@@ -40,7 +40,7 @@ public static class FahrgastEndpoints
             var fahrgaeste = await db.Fahrgaeste
                 .Include(f => f.Initiative)
                 .AsNoTracking()
-                .Where(f => f.Aktiv && (!targetInitiativeId.HasValue || f.InitiativeId == targetInitiativeId.Value))
+                .Where(f => (!targetInitiativeId.HasValue || f.InitiativeId == targetInitiativeId.Value))
                 .OrderBy(f => f.Nachname)
                 .ThenBy(f => f.Vorname)
                 .ToListAsync();
@@ -143,7 +143,7 @@ public static class FahrgastEndpoints
                 Bemerkung = request.Bemerkung,
                 AngelegtAm = DateTime.UtcNow,
                 GeaendertAm = null,
-                LetzteNutzung = request.LetzteNutzung,
+                LetzteNutzung = DateTime.UtcNow,
                 Aktiv = request.Aktiv,
                 InitiativeId = targetInitiativeId
             };
@@ -228,7 +228,7 @@ public static class FahrgastEndpoints
             fahrgast.Bemerkung = request.Bemerkung;
             fahrgast.GeaendertAm = DateTime.UtcNow;
             fahrgast.InitiativeId = targetInitiativeId;
-            fahrgast.LetzteNutzung = request.LetzteNutzung;
+            fahrgast.LetzteNutzung = DateTime.UtcNow;
             fahrgast.Aktiv = request.Aktiv;
 
             await db.SaveChangesAsync();
