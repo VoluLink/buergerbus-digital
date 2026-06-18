@@ -13,10 +13,26 @@ import RollenverteilungPage from './pages/RollenverteilungPage'
 import InitiativenPage from './pages/InitiativenPage'
 import UserProfilePage from './pages/UserProfilePage'
 
+import { useAuth } from './context/AuthContext'
+import { getStoredToken } from './services/httpClient'
+
 function App() {
+  const { currentUser, isLoading } = useAuth()
+
+  if (isLoading) {return null}
+
+  const token = getStoredToken()
+
   return (
     <Routes>
-      <Route path="/" element={<LoginPage />} />
+      <Route
+        path="/"
+        element={
+          token && currentUser
+            ? <Navigate to="/dashboard" replace />
+            : <LoginPage />
+        }
+      />
       <Route path="/passwort-vergessen" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route element={<ProtectedRoute />}>
