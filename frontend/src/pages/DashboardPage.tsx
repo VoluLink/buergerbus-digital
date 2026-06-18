@@ -2378,7 +2378,6 @@ setCalendarRides((currentRides) =>
       {isRideDialogOpen ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/65 p-3 backdrop-blur-sm sm:p-4"
-          onClick={closeRideDialog}
         >
           <section
             className="max-h-[96vh] w-full max-w-4xl overflow-hidden rounded-[1.75rem] bg-white shadow-[0_40px_100px_rgba(15,23,42,0.45)]"

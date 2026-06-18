@@ -887,7 +887,6 @@ function RollenverteilungPage() {
       {isCreateModalOpen ? (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-          onClick={closeCreateModal}
         >
           <section
             className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl"

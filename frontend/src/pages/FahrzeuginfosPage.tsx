@@ -877,7 +877,6 @@ function FahrzeuginfosPage() {
     return (
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-        onClick={closeModal}
       >
         <div
           className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-lg"

@@ -555,7 +555,6 @@ function InitiativenPage() {
       {isCreateModalOpen ? (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-          onClick={closeCreateModal}
         >
           <section
             className="relative w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-[0_35px_80px_rgba(15,23,42,0.4)]"
@@ -674,7 +673,6 @@ function InitiativenPage() {
       {isEditModalOpen && selectedInitiative ? (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-          onClick={closeEditModal}
         >
           <section
             className="relative w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-[0_35px_80px_rgba(15,23,42,0.4)]"

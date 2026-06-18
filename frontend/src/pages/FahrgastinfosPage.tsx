@@ -536,7 +536,6 @@ function FahrgastinfosPage() {
       {isEditModalOpen ? (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-          onClick={handleCloseEditModal}
         >
           <section
             className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl"
@@ -695,7 +694,6 @@ function FahrgastinfosPage() {
       {isCreateModalOpen ? (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-          onClick={handleCloseCreateModal}
         >
           <section
             className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl"
