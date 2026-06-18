@@ -555,6 +555,77 @@ public static class UserEndpoints
         .RequireAuthorization();
 
 // -----------------------------------------------------------------------------
+// Benutzerprofil löschen
+// - Nur Admins dürfen fremde Profile löschen
+// - Eigenes Profil darf nicht gelöscht werden
+// - Von dem Benutzer angelegte Fahrten werden auf den ausführenden Admin umgehängt
+// - Fahrer-Verknüpfungen werden vor dem Löschen gelöst
+// -----------------------------------------------------------------------------
+        app.MapDelete("/api/v1/users/{id:int}/profile", async (
+            int id,
+            HttpContext httpContext,
+            AppDbContext db
+        ) =>
+        {
+            var principal = httpContext.User;
+            if (!AuthUtils.IsAdmin(principal))
+            {
+                return Results.Forbid();
+            }
+
+            var requesterUserId = AuthUtils.GetUserId(principal);
+            if (!requesterUserId.HasValue)
+            {
+                return Results.Forbid();
+            }
+
+            if (requesterUserId.Value == id)
+            {
+                return Results.BadRequest("Das eigene Profil kann nicht gelöscht werden.");
+            }
+
+            var user = await db.Benutzer
+                .Include(u => u.Fahrer)
+                .FirstOrDefaultAsync(u => u.Id == id);
+
+            if (user is null)
+            {
+                return Results.NotFound("Benutzer wurde nicht gefunden.");
+            }
+
+            if (user.Fahrer is not null)
+            {
+                await db.Fahrten
+                    .Where(f => f.FahrerId == user.Fahrer.Id)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(f => f.FahrerId, (int?)null));
+
+                var fahrerFahrzeuge = await db.FahrerFahrzeuge
+                    .Where(link => link.FahrerId == user.Fahrer.Id)
+                    .ToListAsync();
+
+                if (fahrerFahrzeuge.Count > 0)
+                {
+                    db.FahrerFahrzeuge.RemoveRange(fahrerFahrzeuge);
+                }
+            }
+
+            await db.Fahrten
+                .Where(f => f.AngelegtVonUserId == id)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(f => f.AngelegtVonUserId, requesterUserId.Value));
+
+            db.Benutzer.Remove(user);
+            await db.SaveChangesAsync();
+
+            return Results.NoContent();
+        })
+        .Produces(StatusCodes.Status204NoContent)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAuthorization("AdminOnly");
+
+// -----------------------------------------------------------------------------
 // Rollen eines Benutzers anzeigen
 // -----------------------------------------------------------------------------
         app.MapGet("/api/v1/users/{id:int}/roles", async (int id, AppDbContext db) =>
