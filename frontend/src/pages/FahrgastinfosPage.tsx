@@ -156,9 +156,20 @@ function FahrgastinfosPage() {
     }
   }, [isAdmin])
 
-  const filteredGuests = guests.filter((entry) => entry.aktiv).filter((entry) => {
-    const haystack = `${entry.vorname ?? ''} ${entry.nachname ?? ''} ${entry.adresse ?? ''} ${entry.telefonnummer ?? ''}`.toLowerCase()
-    return haystack.includes((searchQuery ?? '').trim().toLowerCase())
+ const filteredGuests = guests
+  .filter(
+    (entry) =>
+      entry.vorname !== "Gelöschter" &&
+      entry.nachname !== "Fahrgast"
+  )
+  .filter((entry) => {
+    const haystack =
+      `${entry.vorname ?? ''} ${entry.nachname ?? ''} ${entry.adresse ?? ''} ${entry.telefonnummer ?? ''}`
+        .toLowerCase()
+
+    return haystack.includes(
+      (searchQuery ?? '').trim().toLowerCase()
+    )
   })
 
   function closeSideMenu() {
@@ -383,7 +394,14 @@ function FahrgastinfosPage() {
                   </tr>
                 ) : filteredGuests.length > 0 ? (
                   filteredGuests.map((guest) => (
-                    <tr key={guest.id} className="border-b border-slate-100">
+                   <tr
+                      key={guest.id}
+                      className={`border-b border-slate-100 transition ${
+                        guest.aktiv
+                          ? ''
+                          : 'bg-red-50 text-red-700'
+                      }`}
+                    >
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"

@@ -40,7 +40,7 @@ public static class FahrgastEndpoints
             var fahrgaeste = await db.Fahrgaeste
                 .Include(f => f.Initiative)
                 .AsNoTracking()
-                .Where(f => f.Aktiv && (!targetInitiativeId.HasValue || f.InitiativeId == targetInitiativeId.Value))
+                .Where(f => (!targetInitiativeId.HasValue || f.InitiativeId == targetInitiativeId.Value))
                 .OrderBy(f => f.Nachname)
                 .ThenBy(f => f.Vorname)
                 .ToListAsync();
