@@ -56,6 +56,7 @@ type RideFormState = {
   fahrzeugId: number | null
   driverName: string
   themeTitle: string
+  themeDestination: string
   remarks: string
   passengers: PassengerForm[]
 }
@@ -584,6 +585,13 @@ function createEmptyPassenger(id: number): PassengerForm {
   }
 }
 
+function applyThemeDestinationToPassengers(passengers: PassengerForm[], destination: string) {
+  return passengers.map((passenger) => ({
+    ...passenger,
+    destinationAddress: destination,
+  }))
+}
+
 function createInitialRideForms() {
   return {
     standard: {
@@ -591,6 +599,7 @@ function createInitialRideForms() {
       fahrzeugId: null,
       driverName: '',
       themeTitle: '',
+      themeDestination: '',
       remarks: '',
       passengers: [createEmptyPassenger(1)],
     },
@@ -599,6 +608,7 @@ function createInitialRideForms() {
       fahrzeugId: null,
       driverName: '',
       themeTitle: '',
+      themeDestination: '',
       remarks: '',
       passengers: [createEmptyPassenger(1)],
     },
@@ -1051,6 +1061,7 @@ function DashboardPage() {
       fahrerId: ride.fahrerId,
       fahrzeugId: ride.fahrzeugId,
       themeTitle: rideFormKey === 'theme' ? ride.title : '',
+      themeDestination: rideFormKey === 'theme' ? ride.passengers[0]?.destinationAddress ?? '' : '',
       remarks: ride.remarks,
       passengers: passengersForEdit,
     }
@@ -1115,7 +1126,15 @@ async function confirmDeleteRide() {
       ...currentState,
       [rideType]: {
         ...currentState[rideType],
-        passengers: [...currentState[rideType].passengers, createEmptyPassenger(nextPassengerId)],
+        passengers: [
+          ...currentState[rideType].passengers,
+          rideType === 'theme'
+            ? {
+                ...createEmptyPassenger(nextPassengerId),
+                destinationAddress: currentState.theme.themeDestination,
+              }
+            : createEmptyPassenger(nextPassengerId),
+        ],
       },
     }))
     setNextPassengerId((currentNextPassengerId) => currentNextPassengerId + 1)
@@ -1145,6 +1164,11 @@ async function confirmDeleteRide() {
       [rideType]: {
         ...currentState[rideType],
         [field]: value,
+        ...(rideType === 'theme' && field === 'themeDestination'
+          ? {
+              passengers: applyThemeDestinationToPassengers(currentState.theme.passengers, value),
+            }
+          : {}),
       },
     }))
   }
@@ -1441,7 +1465,10 @@ async function confirmDeleteRide() {
 
     const activeForm = rideFormsByType[rideType]
     const driverName = normalizePassengerText(activeForm.driverName).trim()
-    const passengers = activeForm.passengers.map((passenger, index) => ({
+    const passengers = (rideType === 'theme'
+      ? applyThemeDestinationToPassengers(activeForm.passengers, activeForm.themeDestination)
+      : activeForm.passengers
+    ).map((passenger, index) => ({
       ...passenger,
       id: index + 1,
     }))
@@ -2451,6 +2478,17 @@ setCalendarRides((currentRides) =>
                     placeholder="z. B. Weihnachtsmarkt-Tour"
                     className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/15"
                   />
+                  <label className="mt-4 block text-sm font-semibold text-slate-700" htmlFor="theme-destination">
+                    Zieladresse
+                  </label>
+                  <input
+                    id="theme-destination"
+                    type="text"
+                    value={activeRideForm?.themeDestination ?? ''}
+                    onChange={(event) => updateRideField('themeDestination', event.target.value)}
+                    placeholder="z. B. Marktplatz 1, Frankfurt"
+                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/15"
+                  />
                 </div>
               ) : null}
 
@@ -2703,16 +2741,18 @@ setCalendarRides((currentRides) =>
                                 className="w-full bg-transparent text-slate-700 outline-none placeholder:text-slate-400"
                               />
                             </label>
-                            <label className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-500">
-                              <MapPin className="h-4 w-4 text-[#2f73b3]" aria-hidden="true" />
-                              <input
-                                type="text"
-                                value={passenger.destinationAddress ?? ''}
-                                onChange={(event) => updatePassengerField(passenger.id, 'destinationAddress', event.target.value)}
-                                placeholder="Zieladresse"
-                                className="w-full bg-transparent text-slate-700 outline-none placeholder:text-slate-400"
-                              />
-                            </label>
+                            {rideType === 'theme' ? null : (
+                              <label className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-500">
+                                <MapPin className="h-4 w-4 text-[#2f73b3]" aria-hidden="true" />
+                                <input
+                                  type="text"
+                                  value={passenger.destinationAddress ?? ''}
+                                  onChange={(event) => updatePassengerField(passenger.id, 'destinationAddress', event.target.value)}
+                                  placeholder="Zieladresse"
+                                  className="w-full bg-transparent text-slate-700 outline-none placeholder:text-slate-400"
+                                />
+                              </label>
+                            )}
                             <label className="sm:col-span-2 flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-500">
                               <FiveMinuteTimeField
                                 value={passenger.time ?? ''}
