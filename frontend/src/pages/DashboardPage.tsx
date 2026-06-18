@@ -2188,6 +2188,10 @@ setCalendarRides((currentRides) =>
 
                           {collapsedDriverRideIds.includes(ride.id) ? (
                             <div className="mt-4 space-y-3 border-t border-slate-200 pt-3">
+                              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Bemerkungen</div>
+                                <div className="mt-2 whitespace-pre-line text-base leading-7 text-slate-700">{ride.remarks || '-'}</div>
+                              </div>
                               {ride.passengers.length > 0 ? (
                                 ride.passengers.map((passenger) => (
                                   <div key={passenger.id} className={`rounded-2xl border border-slate-200 bg-white p-3 transition ${passenger.istAbgehakt ? 'opacity-70' : ''}`}>
@@ -2261,8 +2265,11 @@ setCalendarRides((currentRides) =>
                             <div>
                               <span className="font-semibold text-slate-700">Erstellt von:</span> {ride.createdByName || '-'}
                             </div>
-                            <div>
-                              <span className="font-semibold text-slate-700">Bemerkungen:</span> {ride.remarks || '-'}
+                            <div className="sm:col-span-2">
+                              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Bemerkungen</div>
+                                <div className="mt-2 whitespace-pre-line text-base leading-7 text-slate-700">{ride.remarks || '-'}</div>
+                              </div>
                             </div>
                           </div>
 
