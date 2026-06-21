@@ -28,16 +28,35 @@ public static class UserEndpoints
     /// </summary>
     public static IEndpointRouteBuilder MapUserEndpoints(this IEndpointRouteBuilder app)
     {
+        static bool CanManageUsers(ClaimsPrincipal principal)
+            => AuthUtils.IsAdmin(principal) || principal.IsInRole("Disponent");
+
+        static bool IsDisponentWithoutAdmin(ClaimsPrincipal principal)
+            => !AuthUtils.IsAdmin(principal) && principal.IsInRole("Disponent");
 
 // -----------------------------------------------------------------------------
 // Benutzer anlegen (ohne Rechteprüfung; wird später ergänzt)
 // -----------------------------------------------------------------------------
         app.MapPost("/api/v1/benutzer", async (
             CreateBenutzerRequest request,
+            HttpContext httpContext,
             AppDbContext db,
-            IPasswordHasher<Benutzer> passwordHasher
+            IPasswordHasher<Benutzer> passwordHasher,
+            INotificationService notificationService,
+            ILoggerFactory loggerFactory
         ) =>
         {
+            var logger = loggerFactory.CreateLogger("UserEndpoints");
+            var principal = httpContext.User;
+            var isAdmin = AuthUtils.IsAdmin(principal);
+            var isDisponent = IsDisponentWithoutAdmin(principal);
+            var requesterInitiativeId = AuthUtils.GetInitiativeId(principal);
+
+            if (!CanManageUsers(principal))
+            {
+                return Results.Forbid();
+            }
+
             if (string.IsNullOrWhiteSpace(request.Name))
             {
                 return Results.BadRequest("Name ist erforderlich.");
@@ -111,6 +130,24 @@ public static class UserEndpoints
                 return Results.NotFound("Rolle wurde nicht gefunden.");
             }
 
+            if (isDisponent)
+            {
+                if (!requesterInitiativeId.HasValue)
+                {
+                    return Results.Forbid();
+                }
+
+                if (request.InitiativeId != requesterInitiativeId.Value)
+                {
+                    return Results.Forbid();
+                }
+
+                if (string.Equals(role.Rollenname, "Admin", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Results.Forbid();
+                }
+            }
+
             await using var transaction = await db.Database.BeginTransactionAsync();
 
             var user = new Benutzer
@@ -145,6 +182,15 @@ public static class UserEndpoints
                 });
             }
 
+            var inviteToken = PasswordResetTokenHelper.GenerateToken();
+            db.PasswordResetTokens.Add(new PasswordResetToken
+            {
+                UserId = user.Id,
+                TokenHash = PasswordResetTokenHelper.HashToken(inviteToken),
+                ExpiresAt = DateTime.UtcNow.AddMinutes(60),
+                CreatedAt = DateTime.UtcNow,
+            });
+
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
 
@@ -160,13 +206,22 @@ public static class UserEndpoints
                 return Results.Problem("Benutzer wurde angelegt, konnte aber nicht geladen werden.");
             }
 
+            try
+            {
+                await notificationService.SendUserCreatedEmailAsync(loadedUser, inviteToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Einladungs-E-Mail für Benutzer {UserId} konnte nicht versendet werden.", loadedUser.Id);
+            }
+
             return Results.Created($"/api/v1/users/{loadedUser.Id}", UserMapper.CreateUserProfile(loadedUser));
         })
         .Accepts<CreateBenutzerRequest>("application/json")
         .Produces<UserProfileDto>(StatusCodes.Status201Created)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
-        .RequireAuthorization("AdminOnly");
+        .RequireAuthorization();
 
 // -----------------------------------------------------------------------------
 // Eigenes Benutzerprofil anhand von userId oder E-Mail laden
@@ -239,13 +294,34 @@ public static class UserEndpoints
             int page,
             int pageSize,
             string? search,
+            HttpContext httpContext,
             AppDbContext db
         ) =>
         {
+            var principal = httpContext.User;
+            var isAdmin = AuthUtils.IsAdmin(principal);
+            var isDisponent = IsDisponentWithoutAdmin(principal);
+            var requesterInitiativeId = AuthUtils.GetInitiativeId(principal);
+
+            if (!CanManageUsers(principal))
+            {
+                return Results.Forbid();
+            }
+
+            if (isDisponent && !requesterInitiativeId.HasValue)
+            {
+                return Results.Forbid();
+            }
+
             page = Math.Max(1, page == 0 ? 1 : page);
             pageSize = Math.Clamp(pageSize == 0 ? 25 : pageSize, 1, 100);
 
             var query = db.Benutzer.AsNoTracking();
+
+            if (isDisponent)
+            {
+                query = query.Where(b => b.InitiativeId == requesterInitiativeId!.Value);
+            }
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -300,7 +376,7 @@ public static class UserEndpoints
                 totalPages,
             });
         })
-        .RequireAuthorization("AdminOnly");
+        .RequireAuthorization();
 
 // -----------------------------------------------------------------------------
 // Einzelnen Benutzer anhand der ID laden
@@ -347,14 +423,10 @@ public static class UserEndpoints
         ) =>
         {
             var principal = httpContext.User;
-            if (!AuthUtils.IsAdmin(principal))
-            {
-                var tokenUserId = AuthUtils.GetUserId(principal);
-                if (!tokenUserId.HasValue || tokenUserId.Value != id)
-                {
-                    return Results.Forbid();
-                }
-            }
+            var tokenUserId = AuthUtils.GetUserId(principal);
+            var isAdmin = AuthUtils.IsAdmin(principal);
+            var isDisponent = principal.IsInRole("Disponent");
+            var currentInitiativeId = AuthUtils.GetInitiativeId(principal);
 
             var user = await db.Benutzer
                 .Include(u => u.Initiative)
@@ -367,7 +439,19 @@ public static class UserEndpoints
             {
                 return Results.NotFound("Benutzer wurde nicht gefunden.");
             }
-            
+
+            if (!isAdmin)
+            {
+                var isOwnProfile = tokenUserId.HasValue && tokenUserId.Value == id;
+                var isSameInitiativeDisponent = isDisponent
+                    && currentInitiativeId.HasValue
+                    && user.InitiativeId == currentInitiativeId.Value;
+
+                if (!isOwnProfile && !isSameInitiativeDisponent)
+                {
+                    return Results.Forbid();
+                }
+            }
 
             return Results.Ok(UserMapper.CreateUserProfile(user));
         })
@@ -471,6 +555,77 @@ public static class UserEndpoints
         .RequireAuthorization();
 
 // -----------------------------------------------------------------------------
+// Benutzerprofil löschen
+// - Nur Admins dürfen fremde Profile löschen
+// - Eigenes Profil darf nicht gelöscht werden
+// - Von dem Benutzer angelegte Fahrten werden auf den ausführenden Admin umgehängt
+// - Fahrer-Verknüpfungen werden vor dem Löschen gelöst
+// -----------------------------------------------------------------------------
+        app.MapDelete("/api/v1/users/{id:int}/profile", async (
+            int id,
+            HttpContext httpContext,
+            AppDbContext db
+        ) =>
+        {
+            var principal = httpContext.User;
+            if (!AuthUtils.IsAdmin(principal))
+            {
+                return Results.Forbid();
+            }
+
+            var requesterUserId = AuthUtils.GetUserId(principal);
+            if (!requesterUserId.HasValue)
+            {
+                return Results.Forbid();
+            }
+
+            if (requesterUserId.Value == id)
+            {
+                return Results.BadRequest("Das eigene Profil kann nicht gelöscht werden.");
+            }
+
+            var user = await db.Benutzer
+                .Include(u => u.Fahrer)
+                .FirstOrDefaultAsync(u => u.Id == id);
+
+            if (user is null)
+            {
+                return Results.NotFound("Benutzer wurde nicht gefunden.");
+            }
+
+            if (user.Fahrer is not null)
+            {
+                await db.Fahrten
+                    .Where(f => f.FahrerId == user.Fahrer.Id)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(f => f.FahrerId, (int?)null));
+
+                var fahrerFahrzeuge = await db.FahrerFahrzeuge
+                    .Where(link => link.FahrerId == user.Fahrer.Id)
+                    .ToListAsync();
+
+                if (fahrerFahrzeuge.Count > 0)
+                {
+                    db.FahrerFahrzeuge.RemoveRange(fahrerFahrzeuge);
+                }
+            }
+
+            await db.Fahrten
+                .Where(f => f.AngelegtVonUserId == id)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(f => f.AngelegtVonUserId, requesterUserId.Value));
+
+            db.Benutzer.Remove(user);
+            await db.SaveChangesAsync();
+
+            return Results.NoContent();
+        })
+        .Produces(StatusCodes.Status204NoContent)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAuthorization("AdminOnly");
+
+// -----------------------------------------------------------------------------
 // Rollen eines Benutzers anzeigen
 // -----------------------------------------------------------------------------
         app.MapGet("/api/v1/users/{id:int}/roles", async (int id, AppDbContext db) =>
@@ -512,6 +667,16 @@ public static class UserEndpoints
             JwtService jwtService
         ) =>
         {
+            var principal = httpContext.User;
+            var isAdmin = AuthUtils.IsAdmin(principal);
+            var isDisponent = IsDisponentWithoutAdmin(principal);
+            var requesterInitiativeId = AuthUtils.GetInitiativeId(principal);
+
+            if (!CanManageUsers(principal))
+            {
+                return Results.Forbid();
+            }
+
             // Benutzer inklusive aktueller Rollen und optionalem Fahrer-Datensatz laden
             var user = await db.Benutzer
                 .Include(u => u.BenutzerRollen)
@@ -542,9 +707,30 @@ public static class UserEndpoints
                 .Distinct()
                 .ToList();
 
+            if (isDisponent)
+            {
+                if (!requesterInitiativeId.HasValue || user.InitiativeId != requesterInitiativeId.Value)
+                {
+                    return Results.Forbid();
+                }
+
+                var userHasAdminRole = user.BenutzerRollen.Any(br =>
+                    string.Equals(br.Rolle.Rollenname, "Admin", StringComparison.OrdinalIgnoreCase));
+
+                if (userHasAdminRole || normalizedRoles.Contains("admin"))
+                {
+                    return Results.Forbid();
+                }
+            }
+
             if (normalizedRoles.Count > 2)
             {
                 return Results.BadRequest("Ein Benutzer kann maximal zwei Rollen haben.");
+            }
+
+            if (normalizedRoles.Count < 1)
+            {
+                return Results.BadRequest("Ein Benutzer muss mindestens eine Rolle haben.");
             }
 
             // Bereits vorhandene Rollen aus der Datenbank laden
@@ -632,7 +818,7 @@ public static class UserEndpoints
                 user.AktiveRolle,
                 refreshedToken));
         })
-        .RequireAuthorization("AdminOnly");
+            .RequireAuthorization();
         // Alle Benutzer-Endpunkte wurden registriert
         return app;
     }

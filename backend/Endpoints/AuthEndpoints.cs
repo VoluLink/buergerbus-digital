@@ -5,6 +5,9 @@ using BuergerbusAPI.Models;
 using BuergerbusAPI.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Net.Mail;
+using System.Security.Cryptography;
+using System.Text;
 /// <summary>
 /// Enthält API-Endpunkte für Authentifizierung.
 /// Aktuell wird hier der Login-Prozess implementiert.
@@ -13,6 +16,8 @@ namespace BuergerbusAPI.Endpoints;
 
 public static class AuthEndpoints
 {
+    private const int MinPasswordLength = 6;
+
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/api/v1/auth/login", async (
@@ -69,9 +74,181 @@ public static class AuthEndpoints
                 true,
                 "Login erfolgreich.",
                 token,
-                UserMapper.CreateUserProfile(user))
-            );
+                UserMapper.CreateUserProfile(user)));
         });
+
+        app.MapPost("/api/auth/forgot-password", async (
+            ForgotPasswordRequest request,
+            AppDbContext db,
+            IEmailService emailService,
+            EmailSettings emailSettings,
+            ILoggerFactory loggerFactory) =>
+        {
+            var logger = loggerFactory.CreateLogger("AuthEndpoints");
+            const string neutralResponse = "Falls ein Konto mit dieser E-Mail existiert, wurde eine E-Mail zum Zurücksetzen versendet.";
+
+            var email = request.Email?.Trim();
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return Results.BadRequest("E-Mail ist erforderlich.");
+            }
+
+            try
+            {
+                _ = new MailAddress(email);
+            }
+            catch
+            {
+                return Results.BadRequest("E-Mail ist ungültig.");
+            }
+
+            try
+            {
+                var normalizedEmail = email.ToLowerInvariant();
+                var user = await db.Benutzer.FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail);
+
+                if (user is not null)
+                {
+                    var token = CreatePasswordResetToken();
+                    var tokenHash = HashToken(token);
+
+                    var existingTokens = await db.PasswordResetTokens
+                        .Where(t => t.UserId == user.Id && t.UsedAt == null)
+                        .ToListAsync();
+
+                    if (existingTokens.Count > 0)
+                    {
+                        db.PasswordResetTokens.RemoveRange(existingTokens);
+                    }
+
+                    db.PasswordResetTokens.Add(new PasswordResetToken
+                    {
+                        UserId = user.Id,
+                        TokenHash = tokenHash,
+                        ExpiresAt = DateTime.UtcNow.AddMinutes(60),
+                        CreatedAt = DateTime.UtcNow,
+                    });
+
+                    await db.SaveChangesAsync();
+
+                    var resetLink = BuildResetLink(emailSettings.FrontendUrl, token);
+                    var htmlBody = $@"<p>Hallo {System.Net.WebUtility.HtmlEncode(user.Nutzername)},</p>
+<p>du hast eine Zurücksetzung deines Passworts angefordert.</p>
+<p><a href=""{resetLink}"">Passwort jetzt zurücksetzen</a></p>
+<p>Der Link ist 60 Minuten gültig. Falls du das nicht angefordert hast, kannst du diese E-Mail ignorieren.</p>";
+
+                    await emailService.SendEmailAsync(user.Email, "Passwort zurücksetzen", htmlBody);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Fehler beim Anlegen oder Senden des Passwort-Reset-Tokens.");
+            }
+
+            return Results.Ok(new { message = neutralResponse });
+        });
+
+        app.MapPost("/api/auth/reset-password", async (
+            ResetPasswordRequest request,
+            AppDbContext db,
+            IPasswordHasher<Benutzer> passwordHasher) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Token))
+            {
+                return Results.BadRequest("Token ist erforderlich.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.NewPassword))
+            {
+                return Results.BadRequest("Neues Passwort ist erforderlich.");
+            }
+
+            var newPassword = request.NewPassword.Trim();
+            if (newPassword.Length < MinPasswordLength)
+            {
+                return Results.BadRequest("Passwort muss mindestens 6 Zeichen lang sein.");
+            }
+
+            var tokenHash = HashToken(request.Token.Trim());
+            var resetToken = await db.PasswordResetTokens
+                .Include(t => t.Benutzer)
+                .FirstOrDefaultAsync(t => t.TokenHash == tokenHash);
+
+            if (resetToken is null || resetToken.UsedAt is not null || resetToken.ExpiresAt <= DateTime.UtcNow)
+            {
+                return Results.BadRequest("Token ist ungültig oder abgelaufen.");
+            }
+
+            var user = resetToken.Benutzer;
+            user.PasswortHash = passwordHasher.HashPassword(user, newPassword);
+            resetToken.UsedAt = DateTime.UtcNow;
+
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new { message = "Passwort wurde erfolgreich zurückgesetzt." });
+        });
+
+        app.MapPost("/api/v1/auth/change-password", async (
+            ChangePasswordRequest request,
+            HttpContext httpContext,
+            AppDbContext db,
+            IPasswordHasher<Benutzer> passwordHasher) =>
+        {
+            var principal = httpContext.User;
+            var currentUserId = AuthUtils.GetUserId(principal);
+
+            if (!currentUserId.HasValue)
+            {
+                return Results.Unauthorized();
+            }
+
+            if (string.IsNullOrWhiteSpace(request.CurrentPassword))
+            {
+                return Results.BadRequest("Aktuelles Passwort ist erforderlich.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.NewPassword))
+            {
+                return Results.BadRequest("Neues Passwort ist erforderlich.");
+            }
+
+            var currentPassword = request.CurrentPassword.Trim();
+            var newPassword = request.NewPassword.Trim();
+
+            if (newPassword.Length < MinPasswordLength)
+            {
+                return Results.BadRequest("Passwort muss mindestens 6 Zeichen lang sein.");
+            }
+
+            if (string.Equals(currentPassword, newPassword, StringComparison.Ordinal))
+            {
+                return Results.BadRequest("Neues Passwort darf nicht dem aktuellen Passwort entsprechen.");
+            }
+
+            var user = await db.Benutzer.FirstOrDefaultAsync(u => u.Id == currentUserId.Value);
+            if (user is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            var verificationResult = passwordHasher.VerifyHashedPassword(user, user.PasswortHash, currentPassword);
+            if (verificationResult == PasswordVerificationResult.Failed)
+            {
+                return Results.BadRequest("Aktuelles Passwort ist falsch.");
+            }
+
+            user.PasswortHash = passwordHasher.HashPassword(user, newPassword);
+            user.GeaendertAm = DateTime.UtcNow;
+
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new ChangePasswordResponse("Passwort wurde erfolgreich geändert."));
+        })
+        .Accepts<ChangePasswordRequest>("application/json")
+        .Produces<ChangePasswordResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status401Unauthorized)
+        .RequireAuthorization();
 
         app.MapGet("/api/v1/test", (HttpContext httpContext) =>
         {
@@ -85,5 +262,27 @@ public static class AuthEndpoints
         }).RequireAuthorization();
 
         return app;
+    }
+
+    private static string CreatePasswordResetToken()
+    {
+        var bytes = RandomNumberGenerator.GetBytes(32);
+        return Convert.ToBase64String(bytes)
+            .Replace('+', '-')
+            .Replace('/', '_')
+            .TrimEnd('=');
+    }
+
+    private static string HashToken(string token)
+    {
+        var tokenBytes = Encoding.UTF8.GetBytes(token);
+        var hashBytes = SHA256.HashData(tokenBytes);
+        return Convert.ToHexString(hashBytes);
+    }
+
+    private static string BuildResetLink(string frontendUrl, string token)
+    {
+        var baseUrl = frontendUrl.TrimEnd('/');
+        return $"{baseUrl}/reset-password?token={Uri.EscapeDataString(token)}";
     }
 }

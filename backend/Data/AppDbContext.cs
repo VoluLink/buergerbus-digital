@@ -18,9 +18,13 @@ namespace BuergerbusAPI.Data
         public DbSet<Benutzer> Benutzer { get; set; }
         public DbSet<Rollen> Rollen { get; set; }
         public DbSet<BenutzerRolle> BenutzerRollen { get; set; }
+        public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
+        public DbSet<NotificationRecipient> NotificationRecipients { get; set; }
 
         // Fahrten-System
         public DbSet<Fahrten> Fahrten { get; set; }
+        public DbSet<FahrtTeilnehmer> FahrtTeilnehmer { get; set; }
         public DbSet<Teilstrecke> Teilstrecken { get; set; }
 
         // Fahrer
@@ -91,6 +95,14 @@ namespace BuergerbusAPI.Data
                 .HasForeignKey(f => f.FahrzeugId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+
+            // Fahrt -> Benutzer (1:1)
+            modelBuilder.Entity<Fahrten>()
+                .HasOne(f => f.AngelegtVonUser)
+                .WithMany(b => b.AngelegteFahrten)
+                .HasForeignKey(f => f.AngelegtVonUserId);
+                 
+
             // Fahrer <-> Fahrzeug (n:m)
 
             modelBuilder.Entity<FahrerFahrzeug>()
@@ -127,13 +139,29 @@ namespace BuergerbusAPI.Data
                 .WithMany(f => f.Teilstrecken)
                 .HasForeignKey(t => t.FahrtId);
 
+            // Fahrt -> FahrtTeilnehmer (1:n)
+
+            modelBuilder.Entity<FahrtTeilnehmer>()
+                .HasOne(tp => tp.Fahrt)
+                .WithMany(f => f.Teilnehmer)
+                .HasForeignKey(tp => tp.FahrtId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // FahrtTeilnehmer -> Teilstrecke (1:n)
+
+            modelBuilder.Entity<Teilstrecke>()
+                .HasOne(t => t.FahrtTeilnehmer)
+                .WithMany(tp => tp.Teilstrecken)
+                .HasForeignKey(t => t.FahrtTeilnehmerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // Fahrgast -> Teilstrecke (1:n)
 
             modelBuilder.Entity<Teilstrecke>()
                 .HasOne(t => t.Fahrgast)
                 .WithMany(f => f.Teilstrecken)
                 .HasForeignKey(t => t.FahrgastId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.SetNull);
 
             // Initiative -> Teilstrecke (1:n)
 
@@ -155,6 +183,26 @@ namespace BuergerbusAPI.Data
                 .HasOne(b => b.Initiative)
                 .WithMany(i => i.Benutzer)
                 .HasForeignKey(b => b.InitiativeId);
+
+            modelBuilder.Entity<PasswordResetToken>()
+                .HasOne(t => t.Benutzer)
+                .WithMany(b => b.PasswordResetTokens)
+                .HasForeignKey(t => t.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PasswordResetToken>()
+                .HasIndex(t => t.TokenHash)
+                .IsUnique();
+
+            modelBuilder.Entity<Notification>()
+                .HasMany(n => n.Recipients)
+                .WithOne(r => r.Notification)
+                .HasForeignKey(r => r.NotificationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<NotificationRecipient>()
+                .HasIndex(r => new { r.NotificationId, r.UserId })
+                .IsUnique();
 
             // Initiative -> Fahrten (1:n)
 
@@ -205,11 +253,12 @@ namespace BuergerbusAPI.Data
                 .WithMany(i => i.Loeschfristen)
                 .HasForeignKey(l => l.InitiativeId);
 
-            // Fahrgast darf pro Fahrt nur einmal vorkommen
+            // Legacy: Fahrgast darf pro Fahrt nur einmal vorkommen.
 
             modelBuilder.Entity<Teilstrecke>()
                 .HasIndex(t => new { t.FahrtId, t.FahrgastId })
                 .IsUnique();
+
         }
     }
 }

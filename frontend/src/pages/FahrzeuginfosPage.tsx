@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Bus, Menu, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
+import { Bus, Menu, Search, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
   createFahrzeug,
@@ -241,7 +241,7 @@ function createEmptySchadenForm(): SchadenFormData {
 function FahrzeuginfosPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
-  const { canManageDataCrud, isDisponent, isFahrer } = useRoleVisibility()
+  const { canManageDataCrud, canManageInitiatives, isFahrer } = useRoleVisibility()
   const isCrudRestricted = !canManageDataCrud
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [vehicles, setVehicles] = useState<Fahrzeug[]>([])
@@ -249,6 +249,7 @@ function FahrzeuginfosPage() {
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<FahrzeugFormMode>('create')
   const [formData, setFormData] = useState<FahrzeugFormData>(createEmptyVehicleForm())
@@ -630,7 +631,11 @@ function FahrzeuginfosPage() {
     setSchadenFormError('')
   }
 
-  const sortedVehicles = [...vehicles].sort((a, b) =>
+  const filteredVehicles = vehicles.filter((vehicle) => {
+    const haystack = `${vehicle.id} ${vehicle.kennzeichen} ${vehicle.bezeichnung} ${vehicle.initiativeName ?? ''} ${vehicle.status} ${vehicle.bemerkung ?? ''}`.toLowerCase()
+    return haystack.includes(searchQuery.trim().toLowerCase())
+  })
+  const sortedVehicles = [...filteredVehicles].sort((a, b) =>
     a.kennzeichen.localeCompare(b.kennzeichen, 'de'),
   )
   const sortedSchaeden = [...schaeden].sort((first, second) => {
@@ -872,7 +877,6 @@ function FahrzeuginfosPage() {
     return (
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-        onClick={closeModal}
       >
         <div
           className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-lg"
@@ -937,7 +941,7 @@ function FahrzeuginfosPage() {
                 <div className="space-y-4">
                   {isCreateMode ? (
                     <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                      Wartungen koennen erst nach dem Speichern des Fahrzeugs erfasst werden.
+                      Wartungen können erst nach dem Speichern des Fahrzeugs erfasst werden.
                     </div>
                   ) : (
                     <>
@@ -1113,7 +1117,7 @@ function FahrzeuginfosPage() {
                 <div className="space-y-4">
                   {isCreateMode ? (
                     <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                      Schäden koennen erst nach dem Speichern des Fahrzeugs erfasst werden.
+                      Schäden können erst nach dem Speichern des Fahrzeugs erfasst werden.
                     </div>
                   ) : (
                     <>
@@ -1304,6 +1308,19 @@ function FahrzeuginfosPage() {
 
       <div className="p-2 sm:p-3 lg:p-4">
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Suche nach Kennzeichen, Bezeichnung, Initiative ..."
+                className="w-full rounded-xl border border-slate-300 py-2 pl-9 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
+              />
+            </div>
+          </div>
+
           {loadError ? (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {loadError}
@@ -1321,9 +1338,9 @@ function FahrzeuginfosPage() {
               <div className="flex items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-sm text-slate-500">
                 Fahrzeugdaten werden geladen...
               </div>
-            ) : vehicles.length === 0 ? (
+            ) : sortedVehicles.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center text-sm text-slate-500">
-                Noch keine Fahrzeuge vorhanden.
+                {searchQuery.trim() ? 'Keine passenden Fahrzeuge gefunden.' : 'Noch keine Fahrzeuge vorhanden.'}
               </div>
             ) : (
               <table className="w-full min-w-[1200px] border-collapse text-sm">
@@ -1441,7 +1458,7 @@ function FahrzeuginfosPage() {
                 onClick={openCreateVehicleModal}
                 className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
               >
-                Fahrzeug hinzufuegen
+                Fahrzeug hinzufügen
               </button>
               <button
                 type="button"
@@ -1463,7 +1480,7 @@ function FahrzeuginfosPage() {
                   selectedVehicle ? 'bg-red-500 hover:bg-red-600' : 'cursor-not-allowed bg-red-300'
                 }`}
               >
-                Fahrzeug loeschen
+                Fahrzeug löschen
               </button>
             </div>
           ) : null}
@@ -1533,7 +1550,7 @@ function FahrzeuginfosPage() {
                 </button>
               ) : null}
 
-              {!isFahrer ? (
+              {canManageInitiatives ? (
                 <button
                   type="button"
                   onClick={() => goToPage('/initiativen')}
@@ -1544,7 +1561,7 @@ function FahrzeuginfosPage() {
                 </button>
               ) : null}
 
-              {!isDisponent && !isFahrer ? (
+              {!isFahrer ? (
                 <button
                   type="button"
                   onClick={() => goToPage('/rollenverteilung')}

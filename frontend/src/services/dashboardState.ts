@@ -1,6 +1,7 @@
 import { API_BASE_URL } from './api'
 import { apiFetch } from './httpClient'
 import type { CalendarRide, PassengerForm, RideStatus, RideType } from '../types/DashboardRide'
+import type { FahrerListItem } from '../types/FahrerListItem'
 
 type DashboardStateSnapshot = {
   rides: CalendarRide[]
@@ -17,55 +18,82 @@ type BackendFahrgastDto = {
 
 type BackendTeilstreckeDto = {
   id: number
+  fahrtTeilnehmerId: number
   abholadresse: string
   zieladresse: string
   startzeit?: string | null
   status?: string | null
-  fahrgastId: number
+  fahrgastId?: number | null
   fahrgast?: BackendFahrgastDto | null
+}
+
+type BackendFahrtTeilnehmerDto = {
+  id: number
+  fahrtId: number
+  fahrgastId?: number | null
+  vorname: string
+  nachname: string
+  adresse?: string | null
+  telefonnummer?: string | null
+  istAbgehakt: boolean
+  abgehaktAm?: string | null
+  istTemporaer: boolean
+  alsStammgastGespeichert: boolean
+  teilstrecken?: BackendTeilstreckeDto[] | null
 }
 
 type BackendFahrtDto = {
   id: number
   titel: string
   datum: string
+  datumBis: string | null
   fahrttyp: string
   startzeit: string
   endzeit?: string | null
   bemerkung?: string | null
   status: string
-  teilstrecken?: BackendTeilstreckeDto[] | null
+  angelegtVonUserName?: string | null
+  fahrerId?: number | null
+  fahrzeugId?: number | null
+  teilnehmer?: BackendFahrtTeilnehmerDto[] | null
 }
 
 type BackendFahrtWriteDto = {
-  titel: string
-  datum: string
-  zielort: string
-  fahrttyp: string
-  startzeit: string
-  endzeit: string | null
-  bemerkung: string | null
-  status: string
-
-  angelegtVon: string
-
-  fahrerId: number | null
-  fahrzeugId: number | null
-
-  initiativeId: number  
-
-  teilstrecken: Array<{
+  fahrt: {
+    titel: string
+    datum: string
+    datumBis: string | null
+    zielort: string
+    fahrttyp: string
+    startzeit: string
+    endzeit: string | null
+    bemerkung: string | null
+    status: string
+    fahrerId: number | null
+    fahrzeugId: number | null
+    initiativeId: number | null
+  }
+  teilnehmer: Array<{
+    fahrgastId: number | null
+    vorname: string
+    nachname: string
+    adresse: string | null
+    telefonnummer: string | null
+    alsStammgastSpeichern: boolean
     abholadresse: string
     zieladresse: string
     startzeit: string | null
     endzeit: string | null
-    reihenfolge: number
+    reihenfolge: number | null
     status: string | null
-    fahrgastId: number | null
   }>
 }
 
 const DASHBOARD_STORAGE_KEY = 'bb.dashboard.state.v1'
+
+function safeText(value?: string | null) {
+  return value ?? ''
+}
 
 function extractHourMinute(value?: string | null) {
   if (!value) return ''
@@ -74,15 +102,22 @@ function extractHourMinute(value?: string | null) {
 }
 
 function mapBackendTypeToRideType(fahrttyp: string): RideType {
-  const normalized = fahrttyp.trim().toLowerCase()
+  const normalized = safeText(fahrttyp).trim().toLowerCase()
 
   if (normalized.includes('theme')) return 'theme'
-  if (normalized.includes('vermiet')) return 'rental'
+
+  if (
+    normalized.includes('vermiet') ||
+    normalized === 'rental'
+  ) {
+    return 'rental'
+  }
+
   return 'standard'
 }
 
 function mapBackendStatusToRideStatus(status: string, type: RideType): RideStatus {
-  const normalized = status.trim().toLowerCase()
+  const normalized = safeText(status).trim().toLowerCase()
 
   if (normalized.includes('abgeschlossen') || normalized.includes('completed')) return 'completed'
   if (normalized.includes('zugewiesen') || normalized.includes('assigned')) return 'assigned'
@@ -114,13 +149,35 @@ function mapTeilstreckenToPassengers(teilstrecken?: BackendTeilstreckeDto[] | nu
     id: index + 1,
     sourceGuestId: item.fahrgastId > 0 ? item.fahrgastId : null,
     name: item.fahrgast
-      ? `${item.fahrgast.vorname} ${item.fahrgast.nachname}`.trim()
+      ? `${safeText(item.fahrgast.vorname)} ${safeText(item.fahrgast.nachname)}`.trim()
       : `Fahrgast ${index + 1}`,
-    phone: item.fahrgast?.telefonnummer ?? '',
-    pickupAddress: item.abholadresse,
-    destinationAddress: item.zieladresse,
+    phone: safeText(item.fahrgast?.telefonnummer),
+    pickupAddress: safeText(item.abholadresse),
+    destinationAddress: safeText(item.zieladresse),
     time: extractHourMinute(item.startzeit),
   }))
+}
+
+function mapTeilnehmerToPassengers(teilnehmer?: BackendFahrtTeilnehmerDto[] | null): PassengerForm[] {
+  if (!teilnehmer) return []
+
+  return teilnehmer.map((item, index) => {
+    const firstSegment = item.teilstrecken?.[0]
+    const fullName = `${safeText(item.vorname)} ${safeText(item.nachname)}`.trim()
+
+    return {
+      id: item.id,
+      sourceGuestId: item.fahrgastId ?? null,
+      saveAsGuest: item.alsStammgastGespeichert,
+      name: fullName,
+      phone: safeText(item.telefonnummer),
+      pickupAddress: safeText(firstSegment?.abholadresse ?? item.adresse),
+      destinationAddress: safeText(firstSegment?.zieladresse),
+      time: extractHourMinute(firstSegment?.startzeit),
+      istAbgehakt: item.istAbgehakt,
+      abgehaktAm: item.abgehaktAm ?? null,
+    }
+  })
 }
 
 function toLocalDateString(date: Date) {
@@ -130,62 +187,110 @@ function toLocalDateString(date: Date) {
   return `${yyyy}-${mm}-${dd}`
 }
 
-export function mapBackendRideToCalendarRide(dto: BackendFahrtDto): CalendarRide {
+export function mapBackendRideToCalendarRide(dto: BackendFahrtDto, fahrerListe: FahrerListItem[] = []): CalendarRide {
   const type = mapBackendTypeToRideType(dto.fahrttyp)
+  const safeFahrerListe = Array.isArray(fahrerListe) ? fahrerListe : []
 
-  return {
+  const fahrer = safeFahrerListe.find(
+    (f) => f.fahrerId === dto.fahrerId,
+  )
+
+  return {  
     id: dto.id,
     date: new Date(dto.datum),
+    dateBis: dto.datumBis ? new Date(dto.datumBis) : null,
     type,
     status: mapBackendStatusToRideStatus(dto.status, type),
     title: dto.titel,
     time: extractHourMinute(dto.startzeit),
-    driverName: '',
-    passengers: mapTeilstreckenToPassengers(dto.teilstrecken),
+    endTime: dto.endzeit,
+    driverName: fahrer?.name ?? '',
+    createdByName: safeText(dto.angelegtVonUserName),
+    fahrerId: dto.fahrerId ?? null,
+    fahrzeugId: dto.fahrzeugId ?? null,
+    passengers: mapTeilnehmerToPassengers(dto.teilnehmer),
     remarks: dto.bemerkung ?? '',
   }
 }
 
-export function mapCalendarRideToBackendWriteDto(ride: CalendarRide): BackendFahrtWriteDto {
+export function mapCalendarRideToBackendWriteDto(ride: CalendarRide, initiativeId?: number | null): BackendFahrtWriteDto {
   const firstPassenger = ride.passengers[0]
+  const earliestTime = ride.passengers
+    .map(p => p.time)
+    .filter((t): t is string => !!t)
+    .sort()[0]
+
+  if (ride.type === 'rental') {
+    const [timeFrom, timeTo] = (ride.time ?? '').split('-')
+
+    return {
+      fahrt: {
+        titel: ride.title,
+
+        datum: toLocalDateString(ride.date),
+
+        datumBis: ride.dateBis
+          ? toLocalDateString(ride.dateBis)
+          : null,
+
+        zielort: '',
+
+        fahrttyp: ride.type,
+
+        startzeit: `${toLocalDateString(ride.date)}T${timeFrom || '00:00'}:00`,
+
+        endzeit: timeTo
+          ? `${toLocalDateString(
+              ride.dateBis ?? ride.date
+            )}T${timeTo}:00`
+          : null,
+
+        bemerkung: safeText(ride.remarks).trim() || null,
+
+        status: mapRideStatusToBackendStatus(ride.status),
+
+        fahrerId: ride.fahrerId,
+        fahrzeugId: ride.fahrzeugId,
+
+        initiativeId: initiativeId ?? null,
+      },
+
+      teilnehmer: [],
+    }
+  }
 
   return {
-  titel: ride.title,
-  datum: toLocalDateString(ride.date),
-  zielort: firstPassenger?.destinationAddress || '',
-  fahrttyp: ride.type,
-
-  startzeit: ride.time
-    ? new Date(
-        `${ride.date.toISOString().split('T')[0]}T${ride.time}:00`
-      ).toISOString()
-    : new Date(ride.date).toISOString(),
-
-  endzeit: null,
-  bemerkung: ride.remarks || null,
-  status: mapRideStatusToBackendStatus(ride.status),
-
-  angelegtVon: 'Disponent',
-
-  fahrerId: null,
-  fahrzeugId: null,
-
-  initiativeId: 1,
-
-  teilstrecken: ride.passengers.map((p) => ({
-    abholadresse: p.pickupAddress,
-    zieladresse: p.destinationAddress,
-
-    startzeit: p.time
-      ? new Date(
-          `${ride.date.toISOString().split('T')[0]}T${p.time}:00`
-        ).toISOString()
-      : null,
-
-    endzeit: null,
-    reihenfolge: 0,
-    status: null,
-    fahrgastId: p.sourceGuestId ?? null,
+    fahrt: {
+      titel: ride.title,
+      datum: toLocalDateString(ride.date),
+      datumBis: null,
+      zielort: firstPassenger?.destinationAddress || '',
+      fahrttyp: ride.type,
+      startzeit: earliestTime
+        ? `${toLocalDateString(ride.date)}T${earliestTime}:00`
+        : `${toLocalDateString(ride.date)}T00:00:00`,
+      endzeit: null,
+      bemerkung: safeText(ride.remarks).trim() || null,
+      status: mapRideStatusToBackendStatus(ride.status),
+      fahrerId: ride.fahrerId,
+      fahrzeugId: ride.fahrzeugId,
+      initiativeId: initiativeId ?? null,
+    },
+    teilnehmer: ride.passengers.map((p, index) => ({
+      fahrgastId: p.sourceGuestId ?? null,
+      vorname: safeText(p.name).trim().split(/\s+/)[0] ?? '',
+      nachname: safeText(p.name).trim().split(/\s+/).slice(1).join(' ') || safeText(p.name).trim(),
+      adresse: p.saveAsGuest ? (safeText(p.pickupAddress).trim() || null) : null,
+      telefonnummer: safeText(p.phone).trim() ? safeText(p.phone).trim() : null,
+      alsStammgastSpeichern: Boolean(p.saveAsGuest),
+      abholadresse: safeText(p.pickupAddress),
+      zieladresse: safeText(p.destinationAddress),
+      startzeit: p.time
+        ? `${toLocalDateString(ride.date)}T${p.time}:00`
+        : null,
+      endzeit: null,
+      reihenfolge: index + 1,
+      status: null,
     })),
   }
 }
@@ -200,6 +305,7 @@ function parseStoredState(raw: string | null): DashboardStateSnapshot {
     return {
       rides: (parsed.rides ?? []).map((r: any) => ({
         ...r,
+        createdByName: r.createdByName ?? '',
         date: new Date(r.date),
       })),
       completedPassengerKeys: parsed.completedPassengerKeys ?? [],
@@ -242,13 +348,20 @@ function serializeState(state: DashboardStateSnapshot) {
   }
 }*/
 
-async function tryLoadFromBackend(): Promise<CalendarRide[] | null> {
+async function tryLoadFromBackend(
+  fahrerListe: FahrerListItem[],
+  initiativeId?: number | null,
+): Promise<CalendarRide[] | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/fahrten`)
+    const query = initiativeId ? `?initiativeId=${initiativeId}` : ''
+    const res = await fetch(`${API_BASE_URL}/api/v1/fahrten${query}`)
     if (!res.ok) return null
 
     const data: BackendFahrtDto[] = await res.json()
-    return data.map(mapBackendRideToCalendarRide)
+
+    return data.map((dto) =>
+      mapBackendRideToCalendarRide(dto, fahrerListe)
+    )
   } catch {
     return null
   }
@@ -293,16 +406,20 @@ async function trySaveToBackend(rides: CalendarRide[]) {
    PUBLIC API (FRONTEND)
 ========================= */
 
-export async function loadDashboardState(): Promise<DashboardStateSnapshot> {
+export async function loadDashboardState(
+  fahrerListe: FahrerListItem[],
+  initiativeId?: number | null,
+): Promise<DashboardStateSnapshot> {
   const local = parseStoredState(localStorage.getItem(DASHBOARD_STORAGE_KEY))
-  const backend = await tryLoadFromBackend()
+  const backend = await tryLoadFromBackend(fahrerListe, initiativeId)
 
   if (!backend) return local
 
   return {
     rides: backend,
     completedPassengerKeys: local.completedPassengerKeys,
-    nextRideId: backend.reduce((m, r) => Math.max(m, r.id), 0) + 1,
+    nextRideId:
+      backend.reduce((m, r) => Math.max(m, r.id), 0) + 1,
   }
 }
 

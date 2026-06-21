@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react'
-import { Bus, CircleUserRound, Menu, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
+import { Bus, CircleUserRound, Menu, Search, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { FahrerListItem } from '../types/FahrerListItem'
 import { getAllFahrer } from '../services/fahrerList'
 import UserMenuButton from '../components/UserMenuButton'
+import { useRoleVisibility } from '../hooks/useRoleVisibility'
 
 function FahrerinfosPage() {
   const navigate = useNavigate()
+  const { canManageInitiatives } = useRoleVisibility()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [drivers, setDrivers] = useState<FahrerListItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     let isMounted = true
@@ -46,6 +49,11 @@ function FahrerinfosPage() {
     navigate(path)
   }
 
+  const filteredDrivers = drivers.filter((driver) => {
+    const haystack = `${driver.fahrerId} ${driver.name} ${driver.telefonnummer ?? ''} ${driver.fahrzeug ?? ''} ${driver.status} ${driver.bemerkung ?? ''}`.toLowerCase()
+    return haystack.includes(searchQuery.trim().toLowerCase())
+  })
+
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
       <header className="border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
@@ -72,6 +80,19 @@ function FahrerinfosPage() {
         <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 p-5 sm:p-6">
             <h1 className="text-4xl font-bold tracking-tight text-slate-800">Fahrerinfos</h1>
+
+            <div className="mt-4 w-full">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Suche nach Name, Telefonnummer, Fahrzeug ..."
+                  className="w-full rounded-xl border border-slate-300 py-2 pl-9 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="p-5 sm:p-6">
@@ -83,9 +104,9 @@ function FahrerinfosPage() {
               <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                 {error}
               </div>
-            ) : drivers.length === 0 ? (
+            ) : filteredDrivers.length === 0 ? (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                Keine Fahrer vorhanden.
+                {searchQuery.trim() ? 'Keine passenden Fahrer gefunden.' : 'Keine Fahrer vorhanden.'}
               </div>
             ) : (
               <div className="overflow-x-auto rounded-2xl border border-slate-200">
@@ -101,7 +122,7 @@ function FahrerinfosPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {drivers.map((driver) => (
+                    {filteredDrivers.map((driver) => (
                       <tr key={driver.fahrerId} className="border-b border-slate-100">
                         <td className="px-4 py-3">{driver.fahrerId}</td>
                         <td className="px-4 py-3">{driver.name}</td>
@@ -178,14 +199,16 @@ function FahrerinfosPage() {
                 Fahrgastinfos
               </button>
 
-              <button
-                type="button"
-                onClick={() => goToPage('/initiativen')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <Bus className="h-5 w-5" aria-hidden="true" />
-                Initiativen
-              </button>
+              {canManageInitiatives ? (
+                <button
+                  type="button"
+                  onClick={() => goToPage('/initiativen')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                >
+                  <Bus className="h-5 w-5" aria-hidden="true" />
+                  Initiativen
+                </button>
+              ) : null}
 
               <button
                 type="button"

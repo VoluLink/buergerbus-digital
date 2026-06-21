@@ -1,63 +1,80 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bus, Menu, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
+import { AlertTriangle, Bus, Menu, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import UserMenuButton from '../components/UserMenuButton'
+import { useAuth } from '../context/AuthContext'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
 import { setStoredToken } from '../services/httpClient'
 import {
   createBenutzer,
   fetchInitiatives,
   fetchRoles,
-  fetchUserProfile,
   getUsers,
   updateUserInitiative,
   updateUserRoles,
 } from '../services/users'
-import type { InitiativeSummary, RoleSummary, UserProfile, UserSummary } from '../types/UserProfile'
+import type { InitiativeSummary, RoleSummary, UserSummary } from '../types/UserProfile'
 
-function formatRoleLabel(role: string, roles: RoleSummary[]) {
-  const matchedRole = roles.find((entry) => entry.name.toLowerCase() === role.toLowerCase())
-  if (matchedRole) {
-    return matchedRole.name
-  }
-
-  return role.charAt(0).toUpperCase() + role.slice(1)
-}
-
-function getRoleActiveClass(roleName: string) {
+function getRoleSelectedClass(roleName: string) {
   const normalized = roleName.toLowerCase()
 
   if (normalized === 'admin') {
-    return 'bg-[#0053a0] text-white'
+    return 'border-[#0053a0] bg-[#0053a0] text-white'
   }
 
   if (normalized === 'disponent') {
-    return 'bg-amber-500 text-white'
+    return 'border-amber-500 bg-amber-500 text-white'
   }
 
   if (normalized === 'fahrer') {
-    return 'bg-emerald-600 text-white'
+    return 'border-emerald-600 bg-emerald-600 text-white'
   }
 
-  return 'bg-slate-800 text-white'
+  return 'border-slate-800 bg-slate-800 text-white'
 }
 
-function buildDisplayName(profile: UserProfile | null) {
-  if (!profile) {
-    return ''
+function getRoleInactiveClass(roleName: string) {
+  const normalized = roleName.toLowerCase()
+
+  if (normalized === 'admin') {
+    return 'border-[#0053a0]/30 bg-white text-[#0053a0] hover:bg-[#0053a0]/5'
   }
 
-  const nameParts = [profile.vorname, profile.nachname].filter(Boolean)
-  if (nameParts.length > 0) {
-    return nameParts.join(' ')
+  if (normalized === 'disponent') {
+    return 'border-amber-300 bg-white text-amber-700 hover:bg-amber-50'
   }
 
-  return profile.username || profile.email
+  if (normalized === 'fahrer') {
+    return 'border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50'
+  }
+
+  return 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
 }
+
+type PendingAdminConfirmation =
+  | {
+      kind: 'existing-user'
+      userId: number
+      userName: string
+      nextRoles: string[]
+      nextActiveRole: string
+      previousRoles: string[]
+      previousActiveRole: string | null
+    }
+  | {
+      kind: 'new-user'
+      userName: string
+      email: string
+      roleId: number
+      initiativeId: number
+      password: string
+    }
 
 function RollenverteilungPage() {
   const navigate = useNavigate()
-  const { canManageRoleAssignments, isFahrer } = useRoleVisibility()
+  const { currentUser } = useAuth()
+  const { canManageInitiatives, canManageRoleAssignments, isAdmin, isDisponent, isFahrer } = useRoleVisibility()
+  const currentInitiativeId = currentUser?.initiative?.id ?? null
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -74,10 +91,7 @@ function RollenverteilungPage() {
   const [saveSuccess, setSaveSuccess] = useState('')
   const successTimerRef = useRef<number | null>(null)
   const [savingUserId, setSavingUserId] = useState<number | null>(null)
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
-  const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null)
-  const [isProfileLoading, setIsProfileLoading] = useState(false)
-  const [profileError, setProfileError] = useState('')
+  const [pendingAdminConfirmation, setPendingAdminConfirmation] = useState<PendingAdminConfirmation | null>(null)
 
   const [createForm, setCreateForm] = useState({
     roleId: '',
@@ -146,9 +160,6 @@ function RollenverteilungPage() {
         setUsers(response.items)
         setTotalItems(response.totalItems)
         setTotalPages(response.totalPages)
-        setSelectedUserId(null)
-        setSelectedProfile(null)
-        setProfileError('')
       } catch (err) {
         if (isActive) {
           setLoadError(err instanceof Error ? err.message : 'Nutzer konnten nicht geladen werden.')
@@ -178,7 +189,7 @@ function RollenverteilungPage() {
 
     setCreateForm({
       roleId: '',
-      initiativeId: '',
+      initiativeId: isDisponent && currentInitiativeId != null ? String(currentInitiativeId) : '',
       name: '',
       email: '',
       password: '',
@@ -201,20 +212,114 @@ function RollenverteilungPage() {
     navigate(path)
   }
 
-  async function handleSelectUser(userId: number) {
-    setSelectedUserId(userId)
-    setSelectedProfile(null)
-    setProfileError('')
-    setIsProfileLoading(true)
+  function closeAdminConfirmation() {
+    const isExistingUserUpdatePending =
+      pendingAdminConfirmation?.kind === 'existing-user'
+      && savingUserId === pendingAdminConfirmation.userId
+
+    if (isCreating || isExistingUserUpdatePending) {
+      return
+    }
+
+    setPendingAdminConfirmation(null)
+  }
+
+  function applyUserRoleUpdate(
+    userId: number,
+    nextRoles: string[],
+    nextActiveRole: string,
+    previousRoles: string[],
+    previousActiveRole: string | null,
+  ) {
+    setUsers((prev) =>
+      prev.map((entry) =>
+        entry.id === userId
+          ? { ...entry, roles: nextRoles, activeRole: nextActiveRole }
+          : entry,
+      ),
+    )
+
+    setSavingUserId(userId)
+
+    void updateUserRoles(userId, nextRoles, nextActiveRole)
+      .then((saved) => {
+        if (saved.newToken) {
+          setStoredToken(saved.newToken)
+        }
+
+        setUsers((prev) =>
+          prev.map((entry) =>
+            entry.id === userId ? { ...entry, roles: saved.roles, activeRole: saved.activeRole ?? nextActiveRole } : entry,
+          ),
+        )
+      })
+      .catch((err) => {
+        setUsers((prev) =>
+          prev.map((entry) =>
+            entry.id === userId ? { ...entry, roles: previousRoles, activeRole: previousActiveRole } : entry,
+          ),
+        )
+        setSaveError(err instanceof Error ? err.message : 'Rollen konnten nicht gespeichert werden.')
+      })
+      .finally(() => {
+        setSavingUserId((current) => (current === userId ? null : current))
+      })
+  }
+
+  async function submitCreateUser(payload: {
+    name: string
+    email: string
+    password: string
+    roleId: number
+    initiativeId: number
+  }) {
+    setIsCreating(true)
 
     try {
-      const profile = await fetchUserProfile(userId)
-      setSelectedProfile(profile)
+      await createBenutzer(payload)
+
+      setPage(1)
+      setSearchQuery(payload.email)
+      await reloadUsers({ page: 1, searchQuery: payload.email })
+
+      showSuccess('Benutzer wurde erfolgreich angelegt.')
+      closeCreateModal()
+      setCreateForm({
+        roleId: '',
+        initiativeId: '',
+        name: '',
+        email: '',
+        password: '',
+      })
+      setCreateFieldErrors({})
     } catch (err) {
-      setProfileError(err instanceof Error ? err.message : 'Profil konnte nicht geladen werden.')
+      setCreateError(err instanceof Error ? err.message : 'Benutzer konnte nicht angelegt werden.')
     } finally {
-      setIsProfileLoading(false)
+      setIsCreating(false)
     }
+  }
+
+  function handleAdminConfirmation() {
+    if (!pendingAdminConfirmation) {
+      return
+    }
+
+    if (pendingAdminConfirmation.kind === 'existing-user') {
+      const { userId, nextRoles, nextActiveRole, previousRoles, previousActiveRole } = pendingAdminConfirmation
+      setPendingAdminConfirmation(null)
+      applyUserRoleUpdate(userId, nextRoles, nextActiveRole, previousRoles, previousActiveRole)
+      return
+    }
+
+    const { userName, email, roleId, initiativeId, password } = pendingAdminConfirmation
+    setPendingAdminConfirmation(null)
+    void submitCreateUser({
+      name: userName,
+      email,
+      password,
+      roleId,
+      initiativeId,
+    })
   }
 
   function toggleRole(userId: number, role: string) {
@@ -243,43 +348,25 @@ function RollenverteilungPage() {
       return
     }
 
-    setUsers((prev) =>
-      prev.map((entry) =>
-        entry.id === userId
-          ? { ...entry, roles: nextRoles, activeRole: nextActiveRole }
-          : entry,
-      ),
-    )
+    if (hasRole && user.roles.length <= 1) {
+      setSaveError('Benutzer müssen mindestens eine Rolle haben.')
+      return
+    }
 
-    setSavingUserId(userId)
-
-    void updateUserRoles(userId, nextRoles, nextActiveRole)
-      .then((saved) => {
-        if (saved.newToken) {
-          setStoredToken(saved.newToken)
-        }
-
-        setUsers((prev) =>
-          prev.map((entry) =>
-            entry.id === userId ? { ...entry, roles: saved.roles, activeRole: saved.activeRole ?? nextActiveRole } : entry,
-          ),
-        )
-
-        setSelectedProfile((prev) =>
-          prev && prev.id === userId ? { ...prev, roles: saved.roles, activeRole: saved.activeRole ?? nextActiveRole } : prev,
-        )
+    if (!hasRole && normalizedClickedRole === 'admin') {
+      setPendingAdminConfirmation({
+        kind: 'existing-user',
+        userId,
+        userName: user.username,
+        nextRoles,
+        nextActiveRole,
+        previousRoles: user.roles,
+        previousActiveRole: user.activeRole ?? null,
       })
-      .catch((err) => {
-        setUsers((prev) =>
-          prev.map((entry) =>
-            entry.id === userId ? { ...entry, roles: user.roles, activeRole: user.activeRole } : entry,
-          ),
-        )
-        setSaveError(err instanceof Error ? err.message : 'Rollen konnten nicht gespeichert werden.')
-      })
-      .finally(() => {
-        setSavingUserId((current) => (current === userId ? null : current))
-      })
+      return
+    }
+
+    applyUserRoleUpdate(userId, nextRoles, nextActiveRole, user.roles, user.activeRole ?? null)
   }
 
   function handleInitiativeChange(userId: number, nextValue: string) {
@@ -315,12 +402,6 @@ function RollenverteilungPage() {
             entry.id === userId ? { ...entry, initiative: savedInitiative } : entry,
           ),
         )
-
-        setSelectedProfile((prev) =>
-          prev && prev.id === userId
-            ? { ...prev, initiative: savedInitiative }
-            : prev,
-        )
       })
       .catch((err) => {
         setUsers((prev) =>
@@ -332,11 +413,10 @@ function RollenverteilungPage() {
       })
   }
 
-  const displayName = buildDisplayName(selectedProfile)
-
   const allowedRoleOrder = ['admin', 'disponent', 'fahrer', 'gast']
   const createRoleOptions = roles
     .filter((role) => allowedRoleOrder.includes(role.name.toLowerCase()))
+    .filter((role) => !isDisponent || role.name.toLowerCase() !== 'admin')
     .sort((a, b) => {
       const left = allowedRoleOrder.indexOf(a.name.toLowerCase())
       const right = allowedRoleOrder.indexOf(b.name.toLowerCase())
@@ -406,37 +486,31 @@ function RollenverteilungPage() {
       return
     }
 
-    setIsCreating(true)
+    const selectedRole = roles.find((entry) => entry.id === roleId)
+    if (!selectedRole) {
+      setCreateError('Die ausgewählte Rolle konnte nicht gefunden werden.')
+      return
+    }
 
-    try {
-      await createBenutzer({
-        name: trimmedName,
+    if (selectedRole.name.toLowerCase() === 'admin') {
+      setPendingAdminConfirmation({
+        kind: 'new-user',
+        userName: trimmedName,
         email: trimmedEmail,
-        password: createForm.password,
         roleId,
         initiativeId,
+        password: createForm.password,
       })
-
-      // Ensure the new user is immediately visible in the table.
-      setPage(1)
-      setSearchQuery(trimmedEmail)
-      await reloadUsers({ page: 1, searchQuery: trimmedEmail })
-
-      showSuccess('Benutzer wurde erfolgreich angelegt.')
-      closeCreateModal()
-      setCreateForm({
-        roleId: '',
-        initiativeId: '',
-        name: '',
-        email: '',
-        password: '',
-      })
-      setCreateFieldErrors({})
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Benutzer konnte nicht angelegt werden.')
-    } finally {
-      setIsCreating(false)
+      return
     }
+
+    await submitCreateUser({
+      name: trimmedName,
+      email: trimmedEmail,
+      password: createForm.password,
+      roleId,
+      initiativeId,
+    })
   }
 
   return (
@@ -535,14 +609,32 @@ function RollenverteilungPage() {
                   </tr>
                 ) : (
                   users.map((user) => {
-                    const isSelected = selectedUserId === user.id
+                    const canManageUser =
+                      canManageRoleAssignments
+                      && (
+                        isAdmin
+                        || (
+                          isDisponent
+                          && currentInitiativeId != null
+                          && user.initiative?.id != null
+                          && user.initiative.id === currentInitiativeId
+                        )
+                      )
+
+                    const canViewProfile =
+                      isAdmin
+                      || (currentUser?.id != null && currentUser.id === user.id)
+                      || (
+                        isDisponent
+                        && currentUser?.initiative?.id != null
+                        && user.initiative?.id != null
+                        && currentUser.initiative.id === user.initiative.id
+                      )
 
                     return (
                       <tr
                         key={user.id}
-                        className={`border-b border-slate-100 hover:bg-slate-50 ${
-                          isSelected ? 'bg-slate-50' : ''
-                        }`}
+                        className="border-b border-slate-100 hover:bg-slate-50"
                       >
                       <td className="px-2 py-3 text-slate-700 truncate">{user.id}</td>
                       <td className="px-2 py-3 text-slate-700 truncate">{user.username}</td>
@@ -552,7 +644,7 @@ function RollenverteilungPage() {
                           value={user.initiative?.id ?? ''}
                           onChange={(event) => handleInitiativeChange(user.id, event.target.value)}
                           className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-                          disabled={!canManageRoleAssignments || initiatives.length === 0}
+                          disabled={!canManageUser || initiatives.length === 0 || isDisponent}
                         >
                           <option value="">Keine Initiative</option>
                           {initiatives.map((initiative) => (
@@ -567,22 +659,20 @@ function RollenverteilungPage() {
                           {roles.length === 0 ? (
                             <span className="text-xs text-slate-400">Keine Rollen verfügbar</span>
                           ) : roles.map((role) => {
-                            const normalizedRole = role.name.toLowerCase()
-                            const isSelected = user.roles.map((entry) => entry.toLowerCase()).includes(normalizedRole)
-                            const isActive = user.activeRole?.toLowerCase() === normalizedRole
-
+                                const normalizedRole = role.name.toLowerCase()
+                                const selectedRoleNames = user.roles.map((entry) => entry.toLowerCase())
+                                const isSelected = selectedRoleNames.includes(normalizedRole)
+                                const isAdminRole = normalizedRole === 'admin'
                             return (
                               <button
                                 key={role.id}
                                 type="button"
                                 onClick={() => toggleRole(user.id, role.name)}
-                                disabled={!canManageRoleAssignments || savingUserId === user.id}
-                                className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition ${
-                                  isActive
-                                    ? `${getRoleActiveClass(role.name)} ring-2 ring-offset-2 ring-slate-200`
-                                    : isSelected
-                                      ? 'border border-[#0053a0] bg-[#0053a0] text-white'
-                                    : 'border border-slate-300 bg-white text-slate-500 hover:bg-slate-50'
+                                disabled={!canManageUser || savingUserId === user.id || (isDisponent && isAdminRole)}
+                                className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0053a0]/20 disabled:opacity-60 ${
+                                  isSelected
+                                    ? getRoleSelectedClass(role.name)
+                                    : getRoleInactiveClass(role.name)
                                 }`}
                               >
                                 {role.name}
@@ -594,8 +684,14 @@ function RollenverteilungPage() {
                       <td className="px-2 py-3">
                         <button
                           type="button"
-                          onClick={() => handleSelectUser(user.id)}
-                          className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
+                          onClick={() => navigate(`/users/${user.id}/profile`)}
+                          disabled={!canViewProfile}
+                          title={
+                            canViewProfile
+                              ? 'Profil öffnen'
+                              : 'Keine Berechtigung: Fremde Profile nur für Admin oder Disponent gleicher Initiative.'
+                          }
+                          className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 transition enabled:hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Profil anzeigen
                         </button>
@@ -649,66 +745,6 @@ function RollenverteilungPage() {
                 Weiter
               </button>
             </div>
-          </div>
-
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-            <h2 className="text-lg font-semibold text-slate-800">Ausgewähltes Profil</h2>
-            {isProfileLoading ? (
-              <p className="mt-2 text-sm text-slate-500">Profil wird geladen...</p>
-            ) : profileError ? (
-              <p className="mt-2 text-sm text-rose-600">{profileError}</p>
-            ) : selectedProfile ? (
-              <div className="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Name</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-800">{displayName}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">E-Mail</p>
-                  <p className="mt-1 text-sm text-slate-700">{selectedProfile.email}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Benutzername</p>
-                  <p className="mt-1 text-sm text-slate-700">{selectedProfile.username}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Initiative</p>
-                  <p className="mt-1 text-sm text-slate-700">
-                    {selectedProfile.initiative?.name ?? 'Nicht gesetzt'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Rollen</p>
-                  <p className="mt-1 text-sm text-slate-700">
-                    {selectedProfile.activeRole
-                      ? `Aktiv: ${formatRoleLabel(selectedProfile.activeRole, roles)}`
-                      : selectedProfile.roles.length > 0
-                        ? `Aktiv: ${formatRoleLabel(selectedProfile.roles[0], roles)}`
-                      : 'Keine Rollen'}
-                  </p>
-                  {selectedProfile.roles.length > 1 ? (
-                    <p className="mt-1 text-xs text-slate-500">
-                      Weitere Rollen: {selectedProfile.roles
-                        .filter((role) => role !== selectedProfile.activeRole)
-                        .map((role) => formatRoleLabel(role, roles))
-                        .join(', ')}
-                    </p>
-                  ) : null}
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Fahrerprofil</p>
-                  <p className="mt-1 text-sm text-slate-700">
-                    {selectedProfile.fahrer
-                      ? `ID ${selectedProfile.fahrer.id}`
-                      : 'Nicht vorhanden'}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <p className="mt-2 text-sm text-slate-500">
-                Wähle einen Benutzer aus, um Profildetails zu sehen.
-              </p>
-            )}
           </div>
         </section>
       </div>
@@ -773,7 +809,7 @@ function RollenverteilungPage() {
                 </button>
               ) : null}
 
-              {!isFahrer ? (
+              {canManageInitiatives ? (
                 <button
                   type="button"
                   onClick={() => goToPage('/initiativen')}
@@ -784,7 +820,7 @@ function RollenverteilungPage() {
                 </button>
               ) : null}
 
-              {canManageRoleAssignments ? (
+              {!isFahrer ? (
                 <button
                   type="button"
                   onClick={() => goToPage('/rollenverteilung')}
@@ -799,10 +835,58 @@ function RollenverteilungPage() {
         </div>
       ) : null}
 
+      {pendingAdminConfirmation ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-sm"
+          onClick={closeAdminConfirmation}
+        >
+          <section
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+            aria-label="Admin-Rolle bestätigen"
+          >
+            <div className="flex items-start gap-4">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                <AlertTriangle className="h-6 w-6" aria-hidden="true" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl font-bold text-slate-800">Admin-Rolle bestätigen</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  {pendingAdminConfirmation.kind === 'existing-user'
+                    ? `Sind Sie sicher, dass Sie ${pendingAdminConfirmation.userName} die Rolle Admin zuweisen möchten?`
+                    : `Sind Sie sicher, dass Sie den neuen Benutzer ${pendingAdminConfirmation.userName} mit der Rolle Admin anlegen möchten?`}
+                </p>
+                <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Die Rolle Admin vergibt weitreichende Berechtigungen. Bitte bestätigen Sie diese Zuweisung ausdrücklich.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeAdminConfirmation}
+                className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                disabled={isCreating || (pendingAdminConfirmation.kind === 'existing-user' && savingUserId === pendingAdminConfirmation.userId)}
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleAdminConfirmation}
+                className="rounded-xl bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-60"
+                disabled={isCreating || (pendingAdminConfirmation.kind === 'existing-user' && savingUserId === pendingAdminConfirmation.userId)}
+              >
+                Bestätigen
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
       {isCreateModalOpen ? (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-          onClick={closeCreateModal}
         >
           <section
             className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl"
@@ -861,7 +945,7 @@ function RollenverteilungPage() {
                   value={createForm.initiativeId}
                   onChange={(event) => setCreateForm((prev) => ({ ...prev, initiativeId: event.target.value }))}
                   className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
-                  disabled={!canManageRoleAssignments || initiatives.length === 0 || isCreating}
+                  disabled={!canManageRoleAssignments || initiatives.length === 0 || isCreating || isDisponent}
                 >
                   <option value="">Bitte wählen...</option>
                   {initiatives.map((initiative) => (

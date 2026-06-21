@@ -4,6 +4,7 @@ public record FahrtenDto(
     int Id,
     string Titel,
     DateTime Datum,
+    DateTime? DatumBis,
     string Zielort,
     string Fahrttyp,
     DateTime Startzeit,
@@ -11,70 +12,82 @@ public record FahrtenDto(
     string? Bemerkung,
     string Status,
     DateTime AngelegtAm,
-    string AngelegtVon,
-
+    int AngelegtVonUserId,
+    string AngelegtVonUserName,
     int? FahrerId,
     int? FahrzeugId,
-
     int InitiativeId,
+    List<FahrtTeilnehmerDto> Teilnehmer
+);
+
+public record FahrtMetaDto(
+    string Titel,
+    DateTime Datum,
+    DateTime? DatumBis,
+    string Zielort,
+    string Fahrttyp,
+    DateTime Startzeit,
+    DateTime? Endzeit,
+    string? Bemerkung,
+    string Status,
+    int? FahrerId,
+    int? FahrzeugId,
+    int? InitiativeId
+);
+
+public record CreateFahrtRequest(
+    FahrtMetaDto Fahrt,
+    List<CreateFahrtTeilnehmerDto> Teilnehmer
+);
+
+public record UpdateFahrtRequest(
+    FahrtMetaDto Fahrt,
+    List<CreateFahrtTeilnehmerDto> Teilnehmer
+);
+
+public record FahrtTeilnehmerDto(
+    int Id,
+    int FahrtId,
+    int? FahrgastId,
+    string Vorname,
+    string Nachname,
+    string? Adresse,
+    string? Telefonnummer,
+    bool IstAbgehakt,
+    DateTime? AbgehaktAm,
+    bool IstTemporaer,
+    bool AlsStammgastGespeichert,
     List<TeilstreckeDto> Teilstrecken
 );
 
-public record CreateFahrtenDto(
-    string Titel,
-    DateTime Datum,
-    string Zielort,
-    string Fahrttyp,
-    DateTime Startzeit,
-    DateTime? Endzeit,
-    string? Bemerkung,
-    string Status,
-    string AngelegtVon,
-
-    int? FahrerId,     // optional
-    int? FahrzeugId,   // optional
-
-    int InitiativeId,
-    List<CreateTeilstreckeDto> Teilstrecken
+public record FahrtTeilnehmerCheckDto(
+    bool IstAbgehakt
 );
 
-public record UpdateFahrtenDto(
-    string Titel,
-    DateTime Datum,
-    string Zielort,
-    string Fahrttyp,
-    DateTime Startzeit,
+public record CreateFahrtTeilnehmerDto(
+    int? FahrgastId,
+    string Vorname,
+    string Nachname,
+    string? Adresse,
+    string? Telefonnummer,
+    bool AlsStammgastSpeichern,
+    string Abholadresse,
+    string Zieladresse,
+    DateTime? Startzeit,
     DateTime? Endzeit,
-    string? Bemerkung,
-    string Status,
-
-    int? FahrerId,     // optional (Zuweisung später möglich)
-    int? FahrzeugId,   // optional
-
-    int InitiativeId,
-    
-    List<CreateTeilstreckeDto> Teilstrecken
+    int? Reihenfolge,
+    string? Status
 );
 
 public record TeilstreckeDto(
     int Id,
+    int FahrtTeilnehmerId,
     string Abholadresse,
     string Zieladresse,
     DateTime? Startzeit,
     DateTime? Endzeit,
     int? Reihenfolge,
     string? Status,
-    int FahrgastId,
-    int FahrtId,
+    int? FahrgastId,
     FahrgastDto? Fahrgast
-);
-
-public record CreateTeilstreckeDto(
-    string Abholadresse,
-    string Zieladresse,
-    DateTime? Startzeit,
-    DateTime? Endzeit,
-    int? Reihenfolge,
-    string? Status,
-    int FahrgastId
 );

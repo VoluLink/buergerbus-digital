@@ -1,11 +1,26 @@
 import { API_BASE_URL } from './api'
 import { apiFetch } from './httpClient'
-import type { Fahrgast} from '../types/Fahrgast'
-import { mapFahrgastToDto } from '../types/Fahrgast'
+import { mapDtoToFahrgast, type Fahrgast, type FahrgastBackendDto } from '../types/Fahrgast'
+
+export type FahrgastUpsertRequest = {
+  vorname: string
+  nachname: string
+  adresse: string
+  email?: string | null
+  telefonnummer?: string | null
+  bemerkung?: string | null
+  letzteNutzung?: string | null
+  aktiv: boolean
+  initiativeId?: number
+}
 
 
-export async function getFahrgaeste(): Promise<Fahrgast[]> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrgaeste`)
+function buildInitiativeQuery(initiativeId?: number | null) {
+  return initiativeId ? `?initiativeId=${initiativeId}` : ''
+}
+
+export async function getFahrgaeste(initiativeId?: number | null): Promise<Fahrgast[]> {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrgaeste${buildInitiativeQuery(initiativeId)}`)
 
   if (!response.ok) {
     if (response.status === 403) {
@@ -14,18 +29,18 @@ export async function getFahrgaeste(): Promise<Fahrgast[]> {
     throw new Error('Fehler beim Laden der Fahrgäste')
   }
 
-  return response.json()
+  const data = (await response.json()) as FahrgastBackendDto[]
+  return data.map(mapDtoToFahrgast)
 }
 
-export async function createFahrgast(fahrgast: Fahrgast): Promise<Fahrgast> {
-  const dto = mapFahrgastToDto(fahrgast)
+export async function createFahrgast(payload: FahrgastUpsertRequest): Promise<Fahrgast> {
 
   const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrgaeste`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(dto),
+    body: JSON.stringify(payload),
   })
 
   if (!response.ok) {
@@ -36,18 +51,18 @@ export async function createFahrgast(fahrgast: Fahrgast): Promise<Fahrgast> {
     throw new Error(errorText || 'Fehler beim Erstellen')
   }
 
-  return response.json()
+  const data = (await response.json()) as FahrgastBackendDto
+  return mapDtoToFahrgast(data)
 }
 
-export async function updateFahrgast(fahrgastId: number, fahrgast: Fahrgast): Promise<Fahrgast> {
-  const dto = mapFahrgastToDto(fahrgast)
+export async function updateFahrgast(fahrgastId: number, payload: FahrgastUpsertRequest): Promise<Fahrgast> {
 
   const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrgaeste/${fahrgastId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(dto),
+    body: JSON.stringify(payload),
   })
 
   if (!response.ok) {
@@ -58,10 +73,11 @@ export async function updateFahrgast(fahrgastId: number, fahrgast: Fahrgast): Pr
     throw new Error(errorText || 'Fehler beim Aktualisieren')
   }
 
-  return response.json()
+  const data = (await response.json()) as FahrgastBackendDto
+  return mapDtoToFahrgast(data)
 }
 
-export async function deleteFahrgast(fahrgastId: number): Promise<void> {
+export async function deletePassenger(fahrgastId: number): Promise<void> {
   const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrgaeste/${fahrgastId}`, {
     method: 'DELETE',
   })
@@ -74,3 +90,5 @@ export async function deleteFahrgast(fahrgastId: number): Promise<void> {
     throw new Error(errorText || 'Fehler beim Löschen')
   }
 }
+
+export const deleteFahrgast = deletePassenger

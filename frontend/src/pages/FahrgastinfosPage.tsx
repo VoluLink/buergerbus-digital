@@ -3,13 +3,18 @@ import { Bus, CircleUserRound, Menu, Search, Settings, UserRound, UserRoundPlus,
 import { useNavigate } from 'react-router-dom'
 import {
   createFahrgast,
-  deleteFahrgast,
+  deletePassenger,
   getFahrgaeste,
+  type FahrgastUpsertRequest,
   updateFahrgast,
 } from '../services/fahrgastApi'
+import { normalizeFahrgastFormData, normalizeFahrgastText } from '../types/Fahrgast'
 import type { Fahrgast, FahrgastFormData } from '../types/Fahrgast'
 import UserMenuButton from '../components/UserMenuButton'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
+import { useAuth } from '../context/AuthContext'
+import { getInitiativen } from '../services/initiativeApi'
+import type { Initiative } from '../types/Initiative'
 
 function formatDateDisplay(value: string) {
   if (!value) {
@@ -25,17 +30,7 @@ function formatDateDisplay(value: string) {
 }
 
 function createFormFromGuest(guest: Fahrgast): FahrgastFormData {
-  return {
-    vorname: guest.vorname,
-    nachname: guest.nachname,
-    adresse: guest.adresse,
-    email: guest.email,
-    telefonnummer: guest.telefonnummer,
-    bemerkung: guest.bemerkung,
-    letzteNutzung: guest.letzteNutzung.slice(0, 10),
-    aktiv: guest.aktiv ? 'true' : 'false',
-    initiativeId: String(guest.initiativeId),
-  }
+  return normalizeFahrgastFormData(guest)
 }
 
 function createEmptyForm(): FahrgastFormData {
@@ -48,32 +43,44 @@ function createEmptyForm(): FahrgastFormData {
     bemerkung: '',
     letzteNutzung: '',
     aktiv: 'true',
-    initiativeId: '1',
+    initiativeId: '',
   }
 }
 
-function toGuestModel(form: FahrgastFormData, existing: Fahrgast | null, nextId: number): Fahrgast {
-  const nowIso = new Date().toISOString()
+function toFahrgastUpsertRequest(form: FahrgastFormData, options: { isAdmin: boolean }): FahrgastUpsertRequest {
+  const vorname = normalizeFahrgastText(form.vorname).trim()
+  const nachname = normalizeFahrgastText(form.nachname).trim()
+  const adresse = normalizeFahrgastText(form.adresse).trim()
+  const email = normalizeFahrgastText(form.email).trim()
+  const telefonnummer = normalizeFahrgastText(form.telefonnummer).trim()
+  const bemerkung = normalizeFahrgastText(form.bemerkung).trim()
+  const letzteNutzung = normalizeFahrgastText(form.letzteNutzung).trim()
 
-  return {
-    id: existing?.id ?? nextId,
-    vorname: form.vorname.trim(),
-    nachname: form.nachname.trim(),
-    adresse: form.adresse.trim(),
-    email: form.email.trim(),
-    telefonnummer: form.telefonnummer.trim(),
-    bemerkung: form.bemerkung.trim(),
-    angelegtAm: existing?.angelegtAm ?? nowIso,
-    geaendertAm: existing ? nowIso : '',
-    letzteNutzung: form.letzteNutzung ? `${form.letzteNutzung}T00:00:00Z` : nowIso,
+  const payload: FahrgastUpsertRequest = {
+    vorname,
+    nachname,
+    adresse,
+    email: email || null,
+    telefonnummer: telefonnummer || null,
+    bemerkung: bemerkung || null,
+    letzteNutzung: letzteNutzung ? `${letzteNutzung}T00:00:00Z` : null,
     aktiv: form.aktiv === 'true',
-    initiativeId: Number(form.initiativeId),
   }
+
+  if (options.isAdmin) {
+    const parsedInitiativeId = Number(form.initiativeId)
+    if (!Number.isNaN(parsedInitiativeId)) {
+      payload.initiativeId = parsedInitiativeId
+    }
+  }
+
+  return payload
 }
 
 function FahrgastinfosPage() {
   const navigate = useNavigate()
-  const { canManageDataCrud, isDisponent, isFahrer } = useRoleVisibility()
+  const { currentUser } = useAuth()
+  const { canManageDataCrud, canManageInitiatives, isAdmin, isDisponent, isFahrer } = useRoleVisibility()
   const isCrudRestricted = !canManageDataCrud
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -81,10 +88,15 @@ function FahrgastinfosPage() {
   const [guests, setGuests] = useState<Fahrgast[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [loadError, setLoadError] = useState('')
+  const [editError, setEditError] = useState('')
+  const [createError, setCreateError] = useState('')
+  const [deleteError, setDeleteError] = useState('')
   const [selectedGuestId, setSelectedGuestId] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [editForm, setEditForm] = useState<FahrgastFormData>(createEmptyForm())
   const [createForm, setCreateForm] = useState<FahrgastFormData>(createEmptyForm())
+  const [initiatives, setInitiatives] = useState<Initiative[]>([])
+  const [initiativesError, setInitiativesError] = useState('')
 
   const selectedGuest = guests.find((entry) => entry.id === selectedGuestId) ?? null
 
@@ -119,9 +131,45 @@ function FahrgastinfosPage() {
     }
   }, [])
 
-  const filteredGuests = guests.filter((entry) => {
-    const haystack = `${entry.vorname} ${entry.nachname} ${entry.adresse} ${entry.telefonnummer}`.toLowerCase()
-    return haystack.includes(searchQuery.trim().toLowerCase())
+  useEffect(() => {
+    if (!isAdmin) {
+      return
+    }
+
+    let isActive = true
+    setInitiativesError('')
+
+    void getInitiativen()
+      .then((loaded) => {
+        if (isActive) {
+          setInitiatives(loaded)
+        }
+      })
+      .catch((err) => {
+        if (isActive) {
+          setInitiativesError(err instanceof Error ? err.message : 'Initiativen konnten nicht geladen werden.')
+        }
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [isAdmin])
+
+ const filteredGuests = guests
+  .filter(
+    (entry) =>
+      entry.vorname !== "Gelöschter" &&
+      entry.nachname !== "Fahrgast"
+  )
+  .filter((entry) => {
+    const haystack =
+      `${entry.vorname ?? ''} ${entry.nachname ?? ''} ${entry.adresse ?? ''} ${entry.telefonnummer ?? ''}`
+        .toLowerCase()
+
+    return haystack.includes(
+      (searchQuery ?? '').trim().toLowerCase()
+    )
   })
 
   function closeSideMenu() {
@@ -143,6 +191,7 @@ function FahrgastinfosPage() {
     }
 
     setEditForm(createFormFromGuest(selectedGuest))
+    setEditError('')
     setIsEditModalOpen(true)
   }
 
@@ -173,11 +222,34 @@ function FahrgastinfosPage() {
       return
     }
 
-    const updatedGuest = toGuestModel(editForm, selectedGuest, selectedGuest.id)
-    const savedGuest = await updateFahrgast(selectedGuest.id, updatedGuest)
+    setEditError('')
+    setDeleteError('')
 
-    setGuests((prev) => prev.map((entry) => (entry.id === selectedGuest.id ? savedGuest : entry)))
-    setIsEditModalOpen(false)
+    try {
+      const payload = toFahrgastUpsertRequest(editForm, { isAdmin })
+
+      if (isAdmin) {
+        if (!payload.initiativeId || payload.initiativeId <= 0) {
+          setEditError('Bitte eine Initiative auswählen.')
+          return
+        }
+      }
+
+      const savedGuest = await updateFahrgast(selectedGuest.id, payload)
+      setGuests((prev) =>
+        prev
+          .map((entry) => (entry.id === selectedGuest.id ? savedGuest : entry))
+          .filter((entry) => entry.aktiv),
+      )
+
+      if (!savedGuest.aktiv) {
+        setSelectedGuestId(null)
+      }
+
+      setIsEditModalOpen(false)
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Fahrgast konnte nicht gespeichert werden.')
+    }
   }
 
   async function handleDeleteGuest() {
@@ -195,10 +267,18 @@ function FahrgastinfosPage() {
       return
     }
 
-    await deleteFahrgast(selectedGuest.id)
+    setDeleteError('')
 
-    setGuests((prev) => prev.filter((entry) => entry.id !== selectedGuest.id))
-    setSelectedGuestId(null)
+    try {
+      console.info('Deleting passenger', { passengerId: selectedGuest.id, route: '/api/v1/fahrgaeste/:id' })
+      await deletePassenger(selectedGuest.id)
+
+      setGuests((prev) => prev.filter((entry) => entry.id !== selectedGuest.id))
+      setSelectedGuestId(null)
+    } catch (err) {
+      console.error('Failed to delete passenger', { passengerId: selectedGuest.id, route: '/api/v1/fahrgaeste/:id', error: err })
+      setDeleteError(err instanceof Error ? err.message : 'Fahrgast konnte nicht gelöscht werden.')
+    }
   }
 
   function handleOpenCreateModal() {
@@ -206,7 +286,12 @@ function FahrgastinfosPage() {
       return
     }
 
-    setCreateForm(createEmptyForm())
+    const defaultInitiativeId = isAdmin && initiatives.length > 0 ? String(initiatives[0].id) : ''
+    setCreateForm({
+      ...createEmptyForm(),
+      initiativeId: defaultInitiativeId,
+    })
+    setCreateError('')
     setIsCreateModalOpen(true)
   }
 
@@ -219,13 +304,26 @@ function FahrgastinfosPage() {
       return
     }
 
-    const nextId = guests.length > 0 ? Math.max(...guests.map((entry) => entry.id)) + 1 : 1
-    const newGuest = toGuestModel(createForm, null, nextId)
-    const savedGuest = await createFahrgast(newGuest)
+    setCreateError('')
 
-    setGuests((prev) => [...prev, savedGuest])
-    setSelectedGuestId(savedGuest.id)
-    setIsCreateModalOpen(false)
+    try {
+      const payload = toFahrgastUpsertRequest(createForm, { isAdmin })
+
+      if (isAdmin) {
+        if (!payload.initiativeId || payload.initiativeId <= 0) {
+          setCreateError('Bitte eine Initiative auswählen.')
+          return
+        }
+      }
+
+      const savedGuest = await createFahrgast(payload)
+
+      setGuests((prev) => (savedGuest.aktiv ? [...prev, savedGuest] : prev))
+      setSelectedGuestId(savedGuest.aktiv ? savedGuest.id : null)
+      setIsCreateModalOpen(false)
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Fahrgast konnte nicht angelegt werden.')
+    }
   }
 
   return (
@@ -269,6 +367,12 @@ function FahrgastinfosPage() {
             </div>
           </div>
 
+          {deleteError ? (
+            <div className="border-b border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-800 sm:px-6">
+              {deleteError}
+            </div>
+          ) : null}
+
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
@@ -290,7 +394,14 @@ function FahrgastinfosPage() {
                   </tr>
                 ) : filteredGuests.length > 0 ? (
                   filteredGuests.map((guest) => (
-                    <tr key={guest.id} className="border-b border-slate-100">
+                   <tr
+                      key={guest.id}
+                      className={`border-b border-slate-100 transition ${
+                        guest.aktiv
+                          ? ''
+                          : 'bg-red-50 text-red-700'
+                      }`}
+                    >
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"
@@ -414,7 +525,7 @@ function FahrgastinfosPage() {
                 </button>
               ) : null}
 
-              {!isFahrer ? (
+              {canManageInitiatives ? (
                 <button
                   type="button"
                   onClick={() => goToPage('/initiativen')}
@@ -425,7 +536,7 @@ function FahrgastinfosPage() {
                 </button>
               ) : null}
 
-              {!isDisponent && !isFahrer ? (
+              {!isFahrer ? (
                 <button
                   type="button"
                   onClick={() => goToPage('/rollenverteilung')}
@@ -443,7 +554,6 @@ function FahrgastinfosPage() {
       {isEditModalOpen ? (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-          onClick={handleCloseEditModal}
         >
           <section
             className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl"
@@ -468,11 +578,14 @@ function FahrgastinfosPage() {
                 void handleSaveGuestChanges()
               }}
             >
+              {editError ? (
+                <p className="sm:col-span-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{editError}</p>
+              ) : null}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Vorname</label>
                 <input
                   type="text"
-                  value={editForm.vorname}
+                  value={editForm.vorname ?? ''}
                   onChange={(event) => handleEditFormChange('vorname', event.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                 />
@@ -482,7 +595,7 @@ function FahrgastinfosPage() {
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Nachname</label>
                 <input
                   type="text"
-                  value={editForm.nachname}
+                  value={editForm.nachname ?? ''}
                   onChange={(event) => handleEditFormChange('nachname', event.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                 />
@@ -492,7 +605,7 @@ function FahrgastinfosPage() {
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Adresse</label>
                 <input
                   type="text"
-                  value={editForm.adresse}
+                  value={editForm.adresse ?? ''}
                   onChange={(event) => handleEditFormChange('adresse', event.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                 />
@@ -502,7 +615,7 @@ function FahrgastinfosPage() {
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">E-Mail</label>
                 <input
                   type="email"
-                  value={editForm.email}
+                  value={editForm.email ?? ''}
                   onChange={(event) => handleEditFormChange('email', event.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                 />
@@ -512,7 +625,7 @@ function FahrgastinfosPage() {
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Telefonnummer</label>
                 <input
                   type="text"
-                  value={editForm.telefonnummer}
+                  value={editForm.telefonnummer ?? ''}
                   onChange={(event) => handleEditFormChange('telefonnummer', event.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                 />
@@ -522,16 +635,17 @@ function FahrgastinfosPage() {
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Letzte Nutzung</label>
                 <input
                   type="date"
-                  value={editForm.letzteNutzung}
-                  onChange={(event) => handleEditFormChange('letzteNutzung', event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  value={editForm.letzteNutzung ?? ''}
+                  readOnly
+                  className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-500"
                 />
+                <p className="mt-1 text-xs text-slate-500">Wird automatisch durch Fahrten aktualisiert.</p>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Aktiv</label>
                 <select
-                  value={editForm.aktiv}
+                  value={editForm.aktiv ?? 'true'}
                   onChange={(event) => handleEditFormChange('aktiv', event.target.value as 'true' | 'false')}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                 >
@@ -541,19 +655,34 @@ function FahrgastinfosPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Initiative-ID</label>
-                <input
-                  type="number"
-                  value={editForm.initiativeId}
-                  onChange={(event) => handleEditFormChange('initiativeId', event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                />
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Initiative</label>
+                {isAdmin ? (
+                  <select
+                    value={editForm.initiativeId ?? ''}
+                    onChange={(event) => handleEditFormChange('initiativeId', event.target.value)}
+                    className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  >
+                    <option value="" disabled>Bitte wählen</option>
+                    {initiatives.map((initiative) => (
+                      <option key={initiative.id} value={String(initiative.id)}>
+                        {initiative.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={selectedGuest?.initiativeName ?? currentUser?.initiative?.name ?? '-'}
+                    disabled
+                    className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                  />
+                )}
               </div>
 
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Bemerkungen</label>
                 <textarea
-                  value={editForm.bemerkung}
+                  value={editForm.bemerkung ?? ''}
                   onChange={(event) => handleEditFormChange('bemerkung', event.target.value)}
                   rows={3}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
@@ -583,7 +712,6 @@ function FahrgastinfosPage() {
       {isCreateModalOpen ? (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-          onClick={handleCloseCreateModal}
         >
           <section
             className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl"
@@ -608,11 +736,18 @@ function FahrgastinfosPage() {
                 void handleCreateGuest()
               }}
             >
+              {createError ? (
+                <p className="sm:col-span-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{createError}</p>
+              ) : null}
+
+              {initiativesError && isAdmin ? (
+                <p className="sm:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{initiativesError}</p>
+              ) : null}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Vorname</label>
                 <input
                   type="text"
-                  value={createForm.vorname}
+                  value={createForm.vorname ?? ''}
                   onChange={(event) => handleCreateFormChange('vorname', event.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                 />
@@ -622,7 +757,7 @@ function FahrgastinfosPage() {
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Nachname</label>
                 <input
                   type="text"
-                  value={createForm.nachname}
+                  value={createForm.nachname ?? ''}
                   onChange={(event) => handleCreateFormChange('nachname', event.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                 />
@@ -632,7 +767,7 @@ function FahrgastinfosPage() {
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Adresse</label>
                 <input
                   type="text"
-                  value={createForm.adresse}
+                  value={createForm.adresse ?? ''}
                   onChange={(event) => handleCreateFormChange('adresse', event.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                 />
@@ -642,7 +777,7 @@ function FahrgastinfosPage() {
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">E-Mail</label>
                 <input
                   type="email"
-                  value={createForm.email}
+                  value={createForm.email ?? ''}
                   onChange={(event) => handleCreateFormChange('email', event.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                 />
@@ -652,7 +787,7 @@ function FahrgastinfosPage() {
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Telefonnummer</label>
                 <input
                   type="text"
-                  value={createForm.telefonnummer}
+                  value={createForm.telefonnummer ?? ''}
                   onChange={(event) => handleCreateFormChange('telefonnummer', event.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                 />
@@ -662,16 +797,17 @@ function FahrgastinfosPage() {
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Letzte Nutzung</label>
                 <input
                   type="date"
-                  value={createForm.letzteNutzung}
-                  onChange={(event) => handleCreateFormChange('letzteNutzung', event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  value={createForm.letzteNutzung ?? ''}
+                  readOnly
+                  className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-500"
                 />
+                <p className="mt-1 text-xs text-slate-500">Wird automatisch durch Fahrten aktualisiert.</p>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Aktiv</label>
                 <select
-                  value={createForm.aktiv}
+                  value={createForm.aktiv ?? 'true'}
                   onChange={(event) => handleCreateFormChange('aktiv', event.target.value as 'true' | 'false')}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                 >
@@ -681,19 +817,34 @@ function FahrgastinfosPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Initiative-ID</label>
-                <input
-                  type="number"
-                  value={createForm.initiativeId}
-                  onChange={(event) => handleCreateFormChange('initiativeId', event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                />
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Initiative</label>
+                {isAdmin ? (
+                  <select
+                    value={createForm.initiativeId ?? ''}
+                    onChange={(event) => handleCreateFormChange('initiativeId', event.target.value)}
+                    className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  >
+                    <option value="" disabled>Bitte wählen</option>
+                    {initiatives.map((initiative) => (
+                      <option key={initiative.id} value={String(initiative.id)}>
+                        {initiative.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={currentUser?.initiative?.name ?? '-'}
+                    disabled
+                    className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                  />
+                )}
               </div>
 
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Bemerkungen</label>
                 <textarea
-                  value={createForm.bemerkung}
+                  value={createForm.bemerkung ?? ''}
                   onChange={(event) => handleCreateFormChange('bemerkung', event.target.value)}
                   rows={3}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"

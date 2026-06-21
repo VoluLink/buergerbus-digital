@@ -5,15 +5,18 @@ namespace BuergerbusAPI.Mappers;
 
 public static class FahrtenMapper
 {
-    // =========================================================
-    // ENTITY -> DTO
-    // =========================================================
     public static FahrtenDto ToDto(Fahrten f)
     {
+        var teilnehmer = (f.Teilnehmer ?? new List<FahrtTeilnehmer>())
+            .Select(ToDto)
+            .OrderBy(tp => tp.Id)
+            .ToList();
+
         return new FahrtenDto(
             f.Id,
             f.Titel,
             f.Datum,
+            f.DatumBis,
             f.Zielort,
             f.Fahrttyp,
             f.Startzeit,
@@ -21,23 +24,41 @@ public static class FahrtenMapper
             f.Bemerkung,
             f.Status,
             f.AngelegtAm,
-            f.AngelegtVon,
-
+            f.AngelegtVonUserId,
+            f.AngelegtVonUser?.Nutzername ?? string.Empty,
             f.FahrerId,
             f.FahrzeugId,
-
             f.InitiativeId,
-            f.Teilstrecken.Select(ToDto).ToList()
+            teilnehmer
         );
     }
 
-    // =========================================================
-    // TEILSTRECKE ENTITY -> DTO
-    // =========================================================
+    public static FahrtTeilnehmerDto ToDto(FahrtTeilnehmer teilnehmer)
+    {
+        return new FahrtTeilnehmerDto(
+            teilnehmer.Id,
+            teilnehmer.FahrtId,
+            teilnehmer.FahrgastId,
+            teilnehmer.Vorname,
+            teilnehmer.Nachname,
+            teilnehmer.Adresse,
+            teilnehmer.Telefonnummer,
+            teilnehmer.IstAbgehakt,
+            teilnehmer.AbgehaktAm,
+            teilnehmer.IstTemporaer,
+            teilnehmer.AlsStammgastGespeichert,
+            (teilnehmer.Teilstrecken ?? new List<Teilstrecke>())
+                .OrderBy(t => t.Startzeit)
+                .Select(ToDto)
+                .ToList()
+        );
+    }
+
     public static TeilstreckeDto ToDto(Teilstrecke t)
     {
         return new TeilstreckeDto(
             t.Id,
+            t.FahrtTeilnehmerId ?? 0,
             t.Abholadresse,
             t.Zieladresse,
             t.Startzeit,
@@ -45,61 +66,61 @@ public static class FahrtenMapper
             t.Reihenfolge,
             t.Status,
             t.FahrgastId,
-            t.FahrtId,
-
             t.Fahrgast == null
                 ? null
                 : new FahrgastDto(
-                      t.Fahrgast.Id,
-                      t.Fahrgast.Vorname,
-                      t.Fahrgast.Nachname,
-                      t.Fahrgast.Adresse,
-                      t.Fahrgast.Email,
-                      t.Fahrgast.Telefonnummer,
-                      t.Fahrgast.Bemerkung,
-                      t.Fahrgast.AngelegtAm,
-                      t.Fahrgast.GeaendertAm,
-                      t.Fahrgast.LetzteNutzung,
-                      t.Fahrgast.Aktiv,
-                      t.Fahrgast.InitiativeId
-                )   
-            
+                    t.Fahrgast.Id,
+                    t.Fahrgast.Vorname,
+                    t.Fahrgast.Nachname,
+                    t.Fahrgast.Adresse,
+                    t.Fahrgast.Email,
+                    t.Fahrgast.Telefonnummer,
+                    t.Fahrgast.Bemerkung,
+                    t.Fahrgast.AngelegtAm,
+                    t.Fahrgast.GeaendertAm,
+                    t.Fahrgast.LetzteNutzung,
+                    t.Fahrgast.Aktiv,
+                    t.Fahrgast.InitiativeId,
+                    t.Fahrgast.Initiative?.Name
+                )
         );
     }
 
-    // =========================================================
-    // CREATE DTO -> ENTITY
-    // =========================================================
-    public static Fahrten ToEntity(CreateFahrtenDto dto)
+    public static Fahrten ToEntity(CreateFahrtRequest request)
     {
         return new Fahrten
         {
-            Titel = dto.Titel,
-            Datum = dto.Datum,
-            Zielort = dto.Zielort,
-            Fahrttyp = dto.Fahrttyp,
-            Startzeit = dto.Startzeit,
-            Endzeit = dto.Endzeit,
-            Bemerkung = dto.Bemerkung,
-            Status = dto.Status,
-            AngelegtVon = dto.AngelegtVon,
-            AngelegtAm = DateTime.UtcNow,
-
-            FahrerId = dto.FahrerId,
-            FahrzeugId = dto.FahrzeugId,
-
-            InitiativeId = dto.InitiativeId,
-
-            Teilstrecken = dto.Teilstrecken?
-                .Select(ToEntity)
-                .ToList() ?? new List<Teilstrecke>()
+            Titel = request.Fahrt.Titel,
+            Datum = request.Fahrt.Datum,
+            DatumBis = request.Fahrt.DatumBis,
+            Zielort = request.Fahrt.Zielort,
+            Fahrttyp = request.Fahrt.Fahrttyp,
+            Startzeit = request.Fahrt.Startzeit,
+            Endzeit = request.Fahrt.Endzeit,
+            Bemerkung = request.Fahrt.Bemerkung,
+            Status = request.Fahrt.Status,
+            FahrerId = request.Fahrt.FahrerId,
+            FahrzeugId = request.Fahrt.FahrzeugId,
         };
     }
 
-    // =========================================================
-    // CREATE TEILSTRECKE DTO -> ENTITY
-    // =========================================================
-    public static Teilstrecke ToEntity(CreateTeilstreckeDto dto)
+    public static FahrtTeilnehmer ToEntity(CreateFahrtTeilnehmerDto dto)
+    {
+        return new FahrtTeilnehmer
+        {
+            FahrgastId = dto.FahrgastId,
+            Vorname = dto.Vorname,
+            Nachname = dto.Nachname,
+            Adresse = dto.Adresse,
+            Telefonnummer = dto.Telefonnummer,
+            IstAbgehakt = false,
+            AbgehaktAm = null,
+            IstTemporaer = dto.FahrgastId is null && !dto.AlsStammgastSpeichern,
+            AlsStammgastGespeichert = dto.AlsStammgastSpeichern,
+        };
+    }
+
+    public static Teilstrecke ToEntity(CreateFahrtTeilnehmerDto dto, int teilnehmerIndex, int teilnehmerId = 0)
     {
         return new Teilstrecke
         {
@@ -107,35 +128,10 @@ public static class FahrtenMapper
             Zieladresse = dto.Zieladresse,
             Startzeit = dto.Startzeit,
             Endzeit = dto.Endzeit,
-            Reihenfolge = dto.Reihenfolge,
+            Reihenfolge = dto.Reihenfolge ?? teilnehmerIndex,
             Status = dto.Status,
-            FahrgastId = dto.FahrgastId
+            FahrgastId = dto.FahrgastId,
+            FahrtTeilnehmerId = teilnehmerId > 0 ? teilnehmerId : null,
         };
-    }
-
-    // =========================================================
-    // UPDATE (partiell auf Entity anwenden)
-    // =========================================================
-   public static void ApplyUpdate(Fahrten f, UpdateFahrtenDto dto)
-    {
-    f.Titel = dto.Titel;
-    f.Datum = dto.Datum;
-    f.Zielort = dto.Zielort;
-    f.Fahrttyp = dto.Fahrttyp;
-    f.Startzeit = dto.Startzeit;
-    f.Endzeit = dto.Endzeit;
-    f.Bemerkung = dto.Bemerkung;
-    f.Status = dto.Status;
-
-    f.FahrerId = dto.FahrerId;
-    f.FahrzeugId = dto.FahrzeugId;
-    f.InitiativeId = dto.InitiativeId;
-
-    f.Teilstrecken.Clear();
-
-    foreach (var t in dto.Teilstrecken ?? new())
-    {
-        f.Teilstrecken.Add(FahrtenMapper.ToEntity(t));
-    }
     }
 }

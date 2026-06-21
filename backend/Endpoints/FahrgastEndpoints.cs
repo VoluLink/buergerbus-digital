@@ -17,21 +17,30 @@ public static class FahrgastEndpoints
         // Alle Fahrgäste abrufen
         app.MapGet("/api/v1/fahrgaeste", async (
             HttpContext httpContext,
-            AppDbContext db
+            AppDbContext db,
+            int? initiativeId
         ) =>
         {
             var principal = httpContext.User;
             var isAdmin = AuthUtils.IsAdmin(principal);
-            var initiativeId = AuthUtils.GetInitiativeId(principal);
-            if (!isAdmin && !initiativeId.HasValue)
+            var claimInitiativeId = AuthUtils.GetInitiativeId(principal);
+
+            if (!isAdmin && !claimInitiativeId.HasValue)
             {
                 return Results.Forbid();
             }
 
+            if (!isAdmin && initiativeId.HasValue && initiativeId.Value != claimInitiativeId.Value)
+            {
+                return Results.Forbid();
+            }
+
+            var targetInitiativeId = initiativeId ?? claimInitiativeId;
+
             var fahrgaeste = await db.Fahrgaeste
                 .Include(f => f.Initiative)
                 .AsNoTracking()
-                .Where(f => isAdmin || f.InitiativeId == initiativeId)
+                .Where(f => (!targetInitiativeId.HasValue || f.InitiativeId == targetInitiativeId.Value))
                 .OrderBy(f => f.Nachname)
                 .ThenBy(f => f.Vorname)
                 .ToListAsync();
@@ -88,22 +97,36 @@ public static class FahrgastEndpoints
         {
             var principal = httpContext.User;
             var isAdmin = AuthUtils.IsAdmin(principal);
-            var initiativeId = AuthUtils.GetInitiativeId(principal);
-            if (!isAdmin)
+            var claimInitiativeId = AuthUtils.GetInitiativeId(principal);
+
+            int targetInitiativeId;
+            if (isAdmin)
             {
-                if (!initiativeId.HasValue)
+                if (!request.InitiativeId.HasValue || request.InitiativeId.Value <= 0)
+                {
+                    return Results.BadRequest("Initiative muss angegeben werden.");
+                }
+
+                targetInitiativeId = request.InitiativeId.Value;
+            }
+            else
+            {
+                if (!claimInitiativeId.HasValue)
+                {
+                    return Results.BadRequest("Benutzer hat keine Initiative zugeordnet.");
+                }
+
+                if (request.InitiativeId.HasValue && request.InitiativeId.Value != claimInitiativeId.Value)
                 {
                     return Results.Forbid();
                 }
 
-                if (request.InitiativeId != initiativeId.Value)
-                {
-                    return Results.Forbid();
-                }
+                targetInitiativeId = claimInitiativeId.Value;
             }
 
             var initiative = await db.Initiativen
-                .FirstOrDefaultAsync(i => i.Id == request.InitiativeId);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(i => i.Id == targetInitiativeId);
 
             if (initiative is null)
             {
@@ -120,9 +143,9 @@ public static class FahrgastEndpoints
                 Bemerkung = request.Bemerkung,
                 AngelegtAm = DateTime.UtcNow,
                 GeaendertAm = null,
-                LetzteNutzung = request.LetzteNutzung,
+                LetzteNutzung = DateTime.UtcNow,
                 Aktiv = request.Aktiv,
-                InitiativeId = request.InitiativeId
+                InitiativeId = targetInitiativeId
             };
 
             db.Fahrgaeste.Add(fahrgast);
@@ -147,18 +170,31 @@ public static class FahrgastEndpoints
         {
             var principal = httpContext.User;
             var isAdmin = AuthUtils.IsAdmin(principal);
-            var initiativeId = AuthUtils.GetInitiativeId(principal);
-            if (!isAdmin)
+            var claimInitiativeId = AuthUtils.GetInitiativeId(principal);
+
+            int targetInitiativeId;
+            if (isAdmin)
             {
-                if (!initiativeId.HasValue)
+                if (!request.InitiativeId.HasValue || request.InitiativeId.Value <= 0)
+                {
+                    return Results.BadRequest("Initiative muss angegeben werden.");
+                }
+
+                targetInitiativeId = request.InitiativeId.Value;
+            }
+            else
+            {
+                if (!claimInitiativeId.HasValue)
+                {
+                    return Results.BadRequest("Benutzer hat keine Initiative zugeordnet.");
+                }
+
+                if (request.InitiativeId.HasValue && request.InitiativeId.Value != claimInitiativeId.Value)
                 {
                     return Results.Forbid();
                 }
 
-                if (request.InitiativeId != initiativeId.Value)
-                {
-                    return Results.Forbid();
-                }
+                targetInitiativeId = claimInitiativeId.Value;
             }
 
             var fahrgast = await db.Fahrgaeste
@@ -170,13 +206,14 @@ public static class FahrgastEndpoints
                 return Results.NotFound("Fahrgast wurde nicht gefunden.");
             }
 
-            if (!isAdmin && fahrgast.InitiativeId != initiativeId)
+            if (!isAdmin && fahrgast.InitiativeId != claimInitiativeId)
             {
                 return Results.Forbid();
             }
 
             var initiative = await db.Initiativen
-                .FirstOrDefaultAsync(i => i.Id == request.InitiativeId);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(i => i.Id == targetInitiativeId);
 
             if (initiative is null)
             {
@@ -190,8 +227,8 @@ public static class FahrgastEndpoints
             fahrgast.Telefonnummer = request.Telefonnummer;
             fahrgast.Bemerkung = request.Bemerkung;
             fahrgast.GeaendertAm = DateTime.UtcNow;
-            fahrgast.InitiativeId = initiative.Id;
-            fahrgast.LetzteNutzung = request.LetzteNutzung;
+            fahrgast.InitiativeId = targetInitiativeId;
+            fahrgast.LetzteNutzung = DateTime.UtcNow;
             fahrgast.Aktiv = request.Aktiv;
 
             await db.SaveChangesAsync();
@@ -230,14 +267,60 @@ public static class FahrgastEndpoints
                 return Results.Forbid();
             }
 
-            db.Fahrgaeste.Remove(fahrgast);
+            await SoftDeleteFahrgastAsync(id, fahrgast, db);
 
-            await db.SaveChangesAsync();
-
-            return Results.Ok("Fahrgast wurde gelöscht.");
+            return Results.Ok("Fahrgast wurde deaktiviert und anonymisiert.");
         })
         .RequireAuthorization();
 
         return app;
+    }
+
+    private static async Task SoftDeleteFahrgastAsync(int fahrgastId, Fahrgast fahrgast, AppDbContext db)
+    {
+        fahrgast.Vorname = "Gelöschter";
+        fahrgast.Nachname = "Fahrgast";
+        fahrgast.Adresse = string.Empty;
+        fahrgast.Email = null;
+        fahrgast.Telefonnummer = string.Empty;
+        fahrgast.Bemerkung = null;
+        fahrgast.Aktiv = false;
+        fahrgast.GeaendertAm = DateTime.UtcNow;
+
+        var fahrtenTeilnehmer = await db.FahrtTeilnehmer
+            .Where(tp => tp.FahrgastId == fahrgastId)
+            .ToListAsync();
+
+        foreach (var teilnehmer in fahrtenTeilnehmer)
+        {
+            teilnehmer.Vorname = "Gelöschter";
+            teilnehmer.Nachname = "Fahrgast";
+            teilnehmer.Adresse = string.Empty;
+            teilnehmer.Telefonnummer = string.Empty;
+        }
+
+        var teilstrecken = await db.Teilstrecken
+            .Where(ts => ts.FahrgastId == fahrgastId)
+            .ToListAsync();
+
+        foreach (var teilstrecke in teilstrecken)
+        {
+            teilstrecke.Abholadresse = string.Empty;
+            teilstrecke.Zieladresse = string.Empty;
+            teilstrecke.FahrgastId = fahrgastId;
+            if (teilstrecke.Fahrgast is not null)
+            {
+                teilstrecke.Fahrgast.Vorname = "Gelöschter";
+                teilstrecke.Fahrgast.Nachname = "Fahrgast";
+                teilstrecke.Fahrgast.Adresse = string.Empty;
+                teilstrecke.Fahrgast.Email = null;
+                teilstrecke.Fahrgast.Telefonnummer = string.Empty;
+                teilstrecke.Fahrgast.Bemerkung = null;
+                teilstrecke.Fahrgast.Aktiv = false;
+                teilstrecke.Fahrgast.GeaendertAm = DateTime.UtcNow;
+            }
+        }
+
+        await db.SaveChangesAsync();
     }
 }

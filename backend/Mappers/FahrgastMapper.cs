@@ -7,13 +7,6 @@ public static class FahrgastMapper
 {
     public static FahrgastDto CreateFahrgast(Fahrgast f)
     {
-        var initiative = f.Initiative == null
-            ? null
-            : new InitiativeDto(
-                f.Initiative.Id,
-                f.Initiative.Name
-            );
-
         return new FahrgastDto(
             f.Id,
             f.Vorname,
@@ -26,7 +19,8 @@ public static class FahrgastMapper
             f.GeaendertAm,
             f.LetzteNutzung,
             f.Aktiv,
-            f.InitiativeId
+            f.InitiativeId,
+            f.Initiative?.Name
         );
     }
 }
