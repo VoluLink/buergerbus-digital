@@ -26,7 +26,7 @@ public class FahrgastCleanupService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var cutoff = DateTime.UtcNow.AddMinutes(-2); // TEST: später z.B. -60 Tage
+        var cutoff = DateTime.UtcNow.AddDays(-60); // hier wird gesetzt wie viele Tage vergangen sein müssen bis Aktiv = 0
 
         var oldFahrgaeste = await db.Fahrgaeste
             .Where(f => f.Aktiv && f.LetzteNutzung < cutoff)
