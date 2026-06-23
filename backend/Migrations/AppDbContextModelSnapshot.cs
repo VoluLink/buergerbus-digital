@@ -414,6 +414,52 @@ namespace BuergerbusAPI.Migrations
                     b.ToTable("Fahrzeuge");
                 });
 
+            modelBuilder.Entity("BuergerbusAPI.Models.FooterLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ExternalUrl")
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("LinkType")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("OpenInNewTab")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<Guid?>("SitePageId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SitePageId");
+
+                    b.HasIndex("IsActive", "SortOrder");
+
+                    b.ToTable("FooterLinks");
+                });
+
             modelBuilder.Entity("BuergerbusAPI.Models.Initiativen", b =>
                 {
                     b.Property<int>("Id")
@@ -640,6 +686,50 @@ namespace BuergerbusAPI.Migrations
                     b.HasIndex("InitiativeId");
 
                     b.ToTable("Schaeden");
+                });
+
+            modelBuilder.Entity("BuergerbusAPI.Models.SitePage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("FooterSortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("ShowInFooter")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.ToTable("SitePages");
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.Teilstrecke", b =>
@@ -879,6 +969,16 @@ namespace BuergerbusAPI.Migrations
                         .IsRequired();
 
                     b.Navigation("Initiative");
+                });
+
+            modelBuilder.Entity("BuergerbusAPI.Models.FooterLink", b =>
+                {
+                    b.HasOne("BuergerbusAPI.Models.SitePage", "SitePage")
+                        .WithMany()
+                        .HasForeignKey("SitePageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("SitePage");
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.Loeschfristen", b =>

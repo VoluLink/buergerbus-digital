@@ -61,6 +61,8 @@ public static class SeedData
         var initiativeName = Environment.GetEnvironmentVariable("SEED_INITIATIVE_NAME")
                              ?? "Default";
 
+        var now = DateTime.UtcNow;
+
         var requiredRoleNames = new[] { "Admin", "Disponent", "Fahrer", "Gast" };
         var existingRoles = await db.Rollen.ToListAsync();
 
@@ -82,6 +84,8 @@ public static class SeedData
         {
             await db.SaveChangesAsync();
         }
+
+        await SeedPagesAndFooterAsync(db, now, logger);
 
         var adminRole = existingRoles.FirstOrDefault(r =>
             string.Equals(r.Rollenname, "Admin", StringComparison.OrdinalIgnoreCase));
@@ -154,5 +158,81 @@ public static class SeedData
                 adminRole.Rollenname
             );
         }
+    }
+
+    private static async Task SeedPagesAndFooterAsync(AppDbContext db, DateTime now, ILogger logger)
+    {
+        var standardPages = new[]
+        {
+            new { Slug = "impressum", Title = "Impressum", Content = "Angaben gemäß § 5 TMG.", SortOrder = 1 },
+            new { Slug = "datenschutz", Title = "Datenschutz", Content = "Hinweise zum Datenschutz.", SortOrder = 2 },
+            new { Slug = "kontakt", Title = "Kontakt", Content = "Kontaktdaten und Ansprechpartner.", SortOrder = 3 },
+        };
+
+        var pagesBySlug = await db.SitePages.ToDictionaryAsync(page => page.Slug, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var pageData in standardPages)
+        {
+            if (pagesBySlug.ContainsKey(pageData.Slug))
+            {
+                continue;
+            }
+
+            var page = new SitePage
+            {
+                Id = Guid.NewGuid(),
+                Slug = pageData.Slug,
+                Title = pageData.Title,
+                Content = pageData.Content,
+                IsPublished = true,
+                ShowInFooter = true,
+                FooterSortOrder = pageData.SortOrder,
+                CreatedAt = now,
+                UpdatedAt = now,
+            };
+
+            db.SitePages.Add(page);
+            pagesBySlug[page.Slug] = page;
+            logger.LogInformation("Seed-Seite {Slug} wurde erstellt.", page.Slug);
+        }
+
+        await db.SaveChangesAsync();
+
+        var footerSeeds = new[]
+        {
+            (Label: "Impressum", Slug: "impressum", SortOrder: 1),
+            (Label: "Datenschutz", Slug: "datenschutz", SortOrder: 2),
+            (Label: "Kontakt", Slug: "kontakt", SortOrder: 3),
+        };
+
+        foreach (var footerSeed in footerSeeds)
+        {
+            if (!pagesBySlug.TryGetValue(footerSeed.Slug, out var page))
+            {
+                continue;
+            }
+
+            var exists = await db.FooterLinks.AnyAsync(link => link.SitePageId == page.Id);
+            if (exists)
+            {
+                continue;
+            }
+
+            db.FooterLinks.Add(new FooterLink
+            {
+                Id = Guid.NewGuid(),
+                Label = footerSeed.Label,
+                LinkType = FooterLinkType.InternalPage,
+                SitePageId = page.Id,
+                ExternalUrl = null,
+                SortOrder = footerSeed.SortOrder,
+                IsActive = true,
+                OpenInNewTab = false,
+                CreatedAt = now,
+                UpdatedAt = now,
+            });
+        }
+
+        await db.SaveChangesAsync();
     }
 }

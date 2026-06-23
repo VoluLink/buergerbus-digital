@@ -47,6 +47,8 @@ builder.Services.AddSingleton(new EmailSettings
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ITemporaryParticipantCleanupService, TemporaryParticipantCleanupService>();
+builder.Services.AddScoped<PageService>();
+builder.Services.AddScoped<FooterService>();
 builder.Services.AddHostedService<TemporaryParticipantCleanupBackgroundService>();
 builder.Services.AddControllers();
 
@@ -163,6 +165,10 @@ app.UseAuthorization();
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapAdminNotificationEndpoints();
+app.MapPublicPagesEndpoints();
+app.MapPublicFooterEndpoints();
+app.MapAdminPagesEndpoints();
+app.MapAdminFooterEndpoints();
 app.MapRoleEndpoints();
 app.MapInitiativeEndpoints();
 app.MapFahrzeugServiceEndpoints();
