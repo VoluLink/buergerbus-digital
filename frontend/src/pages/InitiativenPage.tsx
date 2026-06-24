@@ -273,13 +273,8 @@ function InitiativenPage() {
       return
     }
 
-    if (!isDefaultInitiative(initiativeToDelete) && !deletePreview) {
-      setDeleteError('Vorschau zum Löschen konnte nicht geladen werden.')
-      return
-    }
-
-    if (deletePreview && !deletePreview.canDelete) {
-      setDeleteError(deletePreview.reason || 'Die Initiative kann nicht gelöscht werden.')
+    if (isDefaultInitiative(initiativeToDelete)) {
+      setDeleteError('Die Default-Initiative kann nicht gelöscht werden.')
       return
     }
 
@@ -843,29 +838,28 @@ function InitiativenPage() {
                     <p>Ermittle abhängige Daten ...</p>
                   ) : deletePreview ? (
                     <div className="space-y-2">
-                      {deletePreview.canDelete ? null : (
-                        <p className="font-semibold text-rose-700">
-                          {deletePreview.reason || 'Die Initiative kann nicht gelöscht werden.'}
-                        </p>
-                      )}
-
-                      <p className="font-semibold text-slate-800">
-                        Dabei werden folgende abhängige Daten entfernt:
+                      <p className="font-semibold text-rose-700">
+                        Diese Initiative wird gelöscht. Alle zugehörigen Fahrten, Fahrzeuge, Fahrgäste und
+                        weiteren Daten werden entfernt.
                       </p>
 
+                      <p>
+                        Benutzer bleiben erhalten und werden der Default-Initiative zugeordnet.
+                      </p>
+
+                      <p className="font-semibold text-slate-800">Betroffene Daten laut Vorschau:</p>
+
                       <ul className="list-disc space-y-1 pl-5">
+                        <li>{deletePreview.affected.users} Benutzer-Zuordnungen</li>
                         <li>{deletePreview.affected.vehicles} Fahrzeuge</li>
                         <li>{deletePreview.affected.maintenanceRecords} Wartungseinträge</li>
                         <li>{deletePreview.affected.damageReports} Schadensmeldungen</li>
-                        <li>
-                          {deletePreview.affected.users} Benutzer-Zuordnungen (Benutzer werden auf "Default"
-                          verschoben)
-                        </li>
                         <li>{deletePreview.affected.rides} Fahrten</li>
                         <li>{deletePreview.affected.rideSegments} Teilstrecken</li>
                         <li>{deletePreview.affected.passengers} Fahrgäste</li>
                         <li>{deletePreview.affected.deletionDeadlines} Löschfristen</li>
                         <li>{deletePreview.affected.notifications} Benachrichtigungen</li>
+                        <li>{deletePreview.affected.driverVehicleAssignments} Fahrer-Fahrzeug-Zuordnungen</li>
                       </ul>
 
                       <p className="pt-1 text-xs text-slate-600">
@@ -873,9 +867,17 @@ function InitiativenPage() {
                       </p>
                     </div>
                   ) : (
-                    <p className="text-slate-600">
-                      Vorschau konnte nicht geladen werden.
-                    </p>
+                    <div className="space-y-2">
+                      <p className="font-semibold text-rose-700">
+                        Diese Initiative wird gelöscht. Alle zugehörigen Daten werden entfernt.
+                      </p>
+
+                      <p>
+                        Benutzer bleiben erhalten und werden der Default-Initiative zugeordnet.
+                      </p>
+
+                      <p className="text-slate-600">Vorschau konnte nicht geladen werden.</p>
+                    </div>
                   )}
                 </div>
               ) : null}
@@ -897,10 +899,7 @@ function InitiativenPage() {
                   disabled={
                     isDeleting ||
                     isDefaultInitiative(initiativeToDelete) ||
-                    isDeletePreviewLoading ||
-                    deletePreviewError !== null ||
-                    !deletePreview ||
-                    (deletePreview ? !deletePreview.canDelete : false)
+                    isDeletePreviewLoading
                   }
                 >
                   {isDeleting ? 'Lösche...' : 'Löschen'}
