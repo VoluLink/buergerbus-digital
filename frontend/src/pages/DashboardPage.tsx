@@ -126,6 +126,12 @@ const dayHeaderDateFormatter = new Intl.DateTimeFormat('de-DE', {
   year: 'numeric',
 })
 
+const rentalRangeDateFormatter = new Intl.DateTimeFormat('de-DE', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+})
+
 const dateInputFormatter = new Intl.DateTimeFormat('en-CA')
 const hourTimeOptions = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'))
 const minuteTimeOptions = Array.from({ length: 12 }, (_, index) => String(index * 5).padStart(2, '0'))
@@ -239,6 +245,16 @@ function getRentalStartTime(time?: string | null) {
   return normalizedTime.split('-')[0]?.trim() ?? ''
 }
 
+function getRentalEndTime(time?: string | null) {
+  const normalizedTime = normalizePassengerText(time).trim()
+
+  if (!normalizedTime) {
+    return ''
+  }
+
+  return normalizedTime.split('-')[1]?.trim() ?? ''
+}
+
 function parseTimeToMinutes(value?: string | null) {
   const normalizedTime = normalizePassengerText(value).trim()
   const match = normalizedTime.match(/^(\d{1,2}):(\d{2})$/)
@@ -259,6 +275,14 @@ function parseTimeToMinutes(value?: string | null) {
   }
 
   return Math.min(hours * 60 + minutes, 24 * 60)
+}
+
+function formatMinutesAsTime(totalMinutes: number) {
+  const clampedMinutes = Math.max(0, Math.min(totalMinutes, 24 * 60))
+  const hours = Math.floor(clampedMinutes / 60)
+  const minutes = clampedMinutes % 60
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
 }
 
 function snapTimeToFiveMinuteStep(value?: string | null) {
@@ -381,58 +405,9 @@ function isSameRentalSeriesRide(
     && left.fahrzeugId === right.fahrzeugId
 }
 
-function getRentalSeriesBounds(
-  ride: Pick<CalendarRide, 'id' | 'date' | 'type' | 'title' | 'time' | 'remarks' | 'fahrzeugId'>,
-  rides: Array<Pick<CalendarRide, 'id' | 'date' | 'type' | 'title' | 'time' | 'remarks' | 'fahrzeugId'>>,
-) {
-  if (ride.type !== 'rental') {
-    return null
-  }
-
-  const matchingRides = rides
-    .filter((candidate) => candidate.id === ride.id || isSameRentalSeriesRide(ride, candidate))
-    .sort((left, right) => left.date.getTime() - right.date.getTime())
-
-  const rideIndex = matchingRides.findIndex((candidate) => candidate.id === ride.id)
-
-  if (rideIndex === -1) {
-    return null
-  }
-
-  let startIndex = rideIndex
-  let endIndex = rideIndex
-
-  while (startIndex > 0) {
-    const currentRide = matchingRides[startIndex]
-    const previousRide = matchingRides[startIndex - 1]
-
-    if (!isSameDay(previousRide.date, addDays(currentRide.date, -1))) {
-      break
-    }
-
-    startIndex -= 1
-  }
-
-  while (endIndex < matchingRides.length - 1) {
-    const currentRide = matchingRides[endIndex]
-    const nextRide = matchingRides[endIndex + 1]
-
-    if (!isSameDay(nextRide.date, addDays(currentRide.date, 1))) {
-      break
-    }
-
-    endIndex += 1
-  }
-
-  return {
-    startDate: matchingRides[startIndex].date,
-    endDate: matchingRides[endIndex].date,
-  }
-}
-
 function getRideTimelineRange(
-  ride: Pick<CalendarRide, 'id' | 'date' | 'type' | 'time' | 'passengers' | 'title' | 'remarks' | 'fahrzeugId'>,
-  rides: Array<Pick<CalendarRide, 'id' | 'date' | 'type' | 'time' | 'passengers' | 'title' | 'remarks' | 'fahrzeugId'>> = [],
+  ride: Pick<CalendarRide, 'id' | 'date' | 'dateBis' | 'type' | 'time' | 'passengers' | 'title' | 'remarks' | 'fahrzeugId'>,
+  activeDay?: Date,
 ) {
   if (ride.type === 'rental') {
     const [startTime, endTime] = normalizePassengerText(ride.time).split('-')
@@ -443,17 +418,18 @@ function getRideTimelineRange(
     }
 
     const parsedEndMinutes = parseTimeToMinutes(endTime)
-    const rentalSeriesBounds = getRentalSeriesBounds(ride, rides)
+    const selectedDay = activeDay ? normalizeDate(activeDay) : normalizeDate(ride.date)
+    const rentalEndDate = ride.dateBis ? normalizeDate(ride.dateBis) : null
 
-    if (rentalSeriesBounds && !isSameDay(rentalSeriesBounds.startDate, rentalSeriesBounds.endDate)) {
-      if (isSameDay(ride.date, rentalSeriesBounds.startDate)) {
+    if (rentalEndDate && !isSameDay(ride.date, rentalEndDate)) {
+      if (isSameDay(selectedDay, ride.date)) {
         return {
           startMinutes,
           endMinutes: 24 * 60,
         }
       }
 
-      if (isSameDay(ride.date, rentalSeriesBounds.endDate)) {
+      if (isSameDay(selectedDay, rentalEndDate)) {
         return {
           startMinutes: 0,
           endMinutes: parsedEndMinutes !== null ? parsedEndMinutes : 24 * 60,
@@ -483,6 +459,106 @@ function getRideTimelineRange(
     startMinutes,
     endMinutes: Math.min(startMinutes + 60, 24 * 60),
   }
+}
+
+type DayTimelineRideLayout = {
+  ride: CalendarRide
+  startMinutes: number
+  endMinutes: number
+  column: number
+  columnCount: number
+}
+
+function buildDayTimelineRideLayout(
+  rides: Array<{ ride: CalendarRide; startMinutes: number; endMinutes: number }>,
+): DayTimelineRideLayout[] {
+  const layouts: DayTimelineRideLayout[] = []
+  const activeLayouts: DayTimelineRideLayout[] = []
+  let clusterLayouts: DayTimelineRideLayout[] = []
+  let clusterColumnCount = 0
+
+  const finalizeCluster = () => {
+    clusterLayouts.forEach((layout) => {
+      layout.columnCount = clusterColumnCount || 1
+    })
+
+    clusterLayouts = []
+    clusterColumnCount = 0
+  }
+
+  rides.forEach(({ ride, startMinutes, endMinutes }) => {
+    for (let index = activeLayouts.length - 1; index >= 0; index -= 1) {
+      if (activeLayouts[index].endMinutes <= startMinutes) {
+        activeLayouts.splice(index, 1)
+      }
+    }
+
+    if (activeLayouts.length === 0 && clusterLayouts.length > 0) {
+      finalizeCluster()
+    }
+
+    const usedColumns = new Set(activeLayouts.map((layout) => layout.column))
+    let column = 0
+
+    while (usedColumns.has(column)) {
+      column += 1
+    }
+
+    const layout: DayTimelineRideLayout = {
+      ride,
+      startMinutes,
+      endMinutes,
+      column,
+      columnCount: 1,
+    }
+
+    activeLayouts.push(layout)
+    clusterLayouts.push(layout)
+    clusterColumnCount = Math.max(clusterColumnCount, activeLayouts.length)
+    layouts.push(layout)
+  })
+
+  if (clusterLayouts.length > 0) {
+    finalizeCluster()
+  }
+
+  return layouts
+}
+
+function getDayTimelineRideDisplayTime(
+  ride: Pick<CalendarRide, 'type' | 'time' | 'passengers' | 'date' | 'dateBis'>,
+  startMinutes: number,
+  endMinutes: number,
+) {
+  if (ride.type === 'rental') {
+    const rentalEndTime = getRentalEndTime(ride.time)
+
+    if (ride.dateBis && !isSameDay(ride.date, ride.dateBis) && rentalEndTime) {
+      return `${rentalRangeDateFormatter.format(ride.date)} ${getRentalStartTime(ride.time)} - ${rentalRangeDateFormatter.format(ride.dateBis)} ${rentalEndTime}`
+    }
+
+    return `${formatMinutesAsTime(startMinutes)}-${formatMinutesAsTime(endMinutes)}`
+  }
+
+  return getRideCalendarDisplayTime(ride)
+}
+
+function getDayTimelineRideTitle(
+  ride: CalendarRide,
+  startMinutes: number,
+  endMinutes: number,
+) {
+  const displayTime = getDayTimelineRideDisplayTime(ride, startMinutes, endMinutes)
+
+  if (!displayTime) {
+    return `${ride.title} • Keine Uhrzeit (${statusMetadata[ride.status].label})`
+  }
+
+  if (ride.type === 'rental') {
+    return `${ride.title} • Vermietet ${displayTime} Uhr (${statusMetadata[ride.status].label})`
+  }
+
+  return getRideCalendarTitle(ride)
 }
 
 function getRideTimeSummary(ride: Pick<CalendarRide, 'type' | 'time' | 'passengers'>) {
@@ -1035,12 +1111,10 @@ function DashboardPage() {
           : rideDateValue
       )
 
-      setRentalTimeFrom((ride.time ?? '').trim())
+      setRentalTimeFrom(getRentalStartTime(ride.time))
 
       setRentalTimeTo(
-        ride.endTime
-          ? ride.endTime.substring(11, 16)
-          : ''
+        normalizePassengerText(ride.endTime).trim() || normalizePassengerText(ride.time).split('-')[1]?.trim() || ''
       )
       setRentalVehicleId(ride.fahrzeugId ?? null)
       setRideFormsByType(createInitialRideForms())
@@ -1642,9 +1716,9 @@ setCalendarRides((currentRides) =>
   const activeRideForm = rideType === 'rental' ? null : rideFormsByType[rideType]
   const selectedDayRides = ridesByDay.get(toDateKey(selectedDate)) ?? []
   const dayTimelineRides = useMemo(() => {
-    return selectedDayRides
+    const scheduledRides = selectedDayRides
       .map((ride) => {
-        const timelineRange = getRideTimelineRange(ride, filteredCalendarRides)
+        const timelineRange = getRideTimelineRange(ride, selectedDate)
 
         if (!timelineRange) {
           return null
@@ -1658,10 +1732,12 @@ setCalendarRides((currentRides) =>
       })
       .filter((entry): entry is { ride: CalendarRide; startMinutes: number; endMinutes: number } => entry !== null)
       .sort((left, right) => left.startMinutes - right.startMinutes || left.ride.title.localeCompare(right.ride.title, 'de-DE'))
-  }, [filteredCalendarRides, selectedDayRides])
+
+    return buildDayTimelineRideLayout(scheduledRides)
+  }, [selectedDate, selectedDayRides])
   const dayTimelineUnscheduledRides = useMemo(() => {
-    return selectedDayRides.filter((ride) => getRideTimelineRange(ride, filteredCalendarRides) === null)
-  }, [filteredCalendarRides, selectedDayRides])
+    return selectedDayRides.filter((ride) => getRideTimelineRange(ride, selectedDate) === null)
+  }, [selectedDate, selectedDayRides])
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
@@ -1820,23 +1896,37 @@ setCalendarRides((currentRides) =>
                         />
                       ))}
 
-                      {dayTimelineRides.map(({ ride, startMinutes, endMinutes }) => {
+                      {dayTimelineRides.map(({ ride, startMinutes, endMinutes, column, columnCount }) => {
                         const top = ((startMinutes / 60) * DAY_TIMELINE_HOUR_HEIGHT) + DAY_TIMELINE_VERTICAL_PADDING
                         const durationMinutes = Math.max(endMinutes - startMinutes, 45)
                         const height = Math.max((durationMinutes / 60) * DAY_TIMELINE_HOUR_HEIGHT, 44)
+                        const columnGapPercent = columnCount > 1 ? 1.5 : 0
+                        const widthPercent = (100 - (columnGapPercent * (columnCount - 1))) / columnCount
+                        const leftPercent = column * (widthPercent + columnGapPercent)
+                        const displayTime = getDayTimelineRideDisplayTime(ride, startMinutes, endMinutes)
+                        const showFullRentalPeriod = ride.type === 'rental' && !!ride.dateBis && !isSameDay(ride.date, ride.dateBis)
 
                         return (
                           <button
                             key={ride.id}
                             type="button"
                             onClick={() => openDayDialog(ride.date)}
-                            className="absolute left-2 right-2 overflow-hidden rounded-2xl border border-slate-200 bg-white/95 p-3 text-left shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:border-[#0053a0]/40 hover:bg-white"
-                            style={{ top: `${top}px`, height: `${height}px` }}
-                            title={getRideCalendarTitle(ride)}
+                            className="absolute overflow-hidden rounded-2xl border border-slate-200 bg-white/95 p-3 text-left shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:border-[#0053a0]/40 hover:bg-white"
+                            style={{
+                              top: `${top}px`,
+                              left: `calc(${leftPercent}% + 0.5rem)`,
+                              width: `calc(${widthPercent}% - 0.5rem)`,
+                              height: `${height}px`,
+                            }}
+                            title={getDayTimelineRideTitle(ride, startMinutes, endMinutes)}
                           >
                             <div className="space-y-2">
-                              <span className={`block truncate rounded-full px-1.5 py-0.5 text-center text-[9px] font-semibold leading-none text-white ${statusMetadata[ride.status].color}`}>
-                                {getRideCalendarDisplayTime(ride) || '---'}
+                              <span className={`block rounded-full text-center font-semibold text-white ${statusMetadata[ride.status].color} ${
+                                showFullRentalPeriod
+                                  ? 'whitespace-normal break-words px-2 py-1 text-[9px] leading-tight'
+                                  : 'truncate px-1.5 py-0.5 text-[9px] leading-none'
+                              }`}>
+                                {displayTime || '---'}
                               </span>
                               <div className="min-w-0">
                                 <div className="truncate text-sm font-semibold text-slate-800">{ride.title}</div>

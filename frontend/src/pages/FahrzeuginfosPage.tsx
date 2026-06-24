@@ -36,7 +36,7 @@ const vehicleFormFields: FahrzeugFieldConfig[] = [
   { name: 'kennzeichen', label: 'Kennzeichen', type: 'text' },
   { name: 'bezeichnung', label: 'Bezeichnung', type: 'text' },
   { name: 'initiativeId', label: 'Initiative', type: 'select' },
-  { name: 'kapazitaet', label: 'Kapazitaet', type: 'number' },
+  { name: 'kapazitaet', label: 'Kapazität', type: 'number' },
   { name: 'kilometerstand', label: 'Kilometerstand', type: 'number' },
   { name: 'betriebsaufnahme', label: 'Betriebsaufnahme', type: 'date' },
   { name: 'status', label: 'Status', type: 'text' },
@@ -426,7 +426,7 @@ function FahrzeuginfosPage() {
     }
 
     if (!selectedVehicle) {
-      alert('Bitte waehlen Sie ein Fahrzeug aus, um die Daten zu bearbeiten.')
+      alert('Bitte wählen Sie ein Fahrzeug aus, um die Daten zu bearbeiten.')
       return
     }
 
@@ -468,7 +468,7 @@ function FahrzeuginfosPage() {
     }
 
     if (!Number.isFinite(kapazitaet) || kapazitaet < 1 || kapazitaet > 8) {
-      return 'Kapazitaet muss zwischen 1 und 8 liegen.'
+      return 'Kapazität muss zwischen 1 und 8 liegen.'
     }
 
     if (!Number.isFinite(kilometerstand) || kilometerstand < 0) {
@@ -544,7 +544,7 @@ function FahrzeuginfosPage() {
     }
 
     if (!selectedVehicle) {
-      alert('Bitte waehlen Sie ein Fahrzeug aus, um es zu loeschen.')
+      alert('Bitte wählen Sie ein Fahrzeug aus, um es zu löschen.')
       return
     }
 
@@ -554,7 +554,7 @@ function FahrzeuginfosPage() {
     }
 
     const shouldDelete = window.confirm(
-      `Sind Sie sicher, dass Sie das Fahrzeug ${selectedVehicle.id} loeschen moechten?`,
+      `Sind Sie sicher, dass Sie das Fahrzeug ${selectedVehicle.id} löschen möchten?`,
     )
 
     if (!shouldDelete) {
@@ -566,9 +566,9 @@ function FahrzeuginfosPage() {
       const refreshedVehicles = await getFahrzeuge()
       setVehicles(refreshedVehicles)
       setSelectedVehicleId(null)
-      setSuccessMessage('Fahrzeug wurde geloescht.')
+      setSuccessMessage('Fahrzeug wurde gelöscht.')
     } catch {
-      alert('Das Fahrzeug konnte nicht geloescht werden.')
+      alert('Das Fahrzeug konnte nicht gelöscht werden.')
     }
   }
 
@@ -658,7 +658,7 @@ function FahrzeuginfosPage() {
     setWartungSuccessMessage('')
 
     if (!selectedVehicle || !currentUser?.id) {
-      setWartungFormError('Kein Fahrzeug oder Benutzerkontext verfuegbar.')
+      setWartungFormError('Kein Fahrzeug oder Benutzerkontext verfügbar.')
       return
     }
 
@@ -675,7 +675,7 @@ function FahrzeuginfosPage() {
     const kostenValue = wartungFormData.kosten.trim()
     const kosten = kostenValue ? Number(kostenValue) : null
     if (kostenValue && Number.isNaN(kosten)) {
-      setWartungFormError('Kosten muessen eine Zahl sein.')
+      setWartungFormError('Kosten müssen eine Zahl sein.')
       return
     }
 
@@ -722,7 +722,7 @@ function FahrzeuginfosPage() {
     setSchadenSuccessMessage('')
 
     if (!selectedVehicle || !currentUser?.id) {
-      setSchadenFormError('Kein Fahrzeug oder Benutzerkontext verfuegbar.')
+      setSchadenFormError('Kein Fahrzeug oder Benutzerkontext verfügbar.')
       return
     }
 
@@ -1577,11 +1577,11 @@ function FahrzeuginfosPage() {
       ) : null}
 
       {isModalOpen && modalMode === 'create'
-        ? renderVehicleModal('create', 'Fahrzeug hinzufuegen', 'Fahrzeug hinzufuegen')
+        ? renderVehicleModal('create', 'Fahrzeug hinzufügen', 'Fahrzeug hinzufügen')
         : null}
 
       {isModalOpen && modalMode === 'edit'
-        ? renderVehicleModal('edit', 'Fahrzeugdaten bearbeiten', 'Aenderungen speichern')
+        ? renderVehicleModal('edit', 'Fahrzeugdaten bearbeiten', 'Änderungen speichern')
         : null}
     </main>
   )
