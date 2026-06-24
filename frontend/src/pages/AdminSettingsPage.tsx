@@ -1,4 +1,4 @@
-import { Settings, FileText, Link2, ChevronLeft } from 'lucide-react'
+import { FileText, Link2, ChevronLeft } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 function AdminSettingsPage() {

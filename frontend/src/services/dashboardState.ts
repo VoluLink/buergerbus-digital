@@ -1,5 +1,4 @@
 import { API_BASE_URL } from './api'
-import { apiFetch } from './httpClient'
 import type { CalendarRide, PassengerForm, RideStatus, RideType } from '../types/DashboardRide'
 import type { FahrerListItem } from '../types/FahrerListItem'
 
@@ -7,6 +6,22 @@ type DashboardStateSnapshot = {
   rides: CalendarRide[]
   completedPassengerKeys: string[]
   nextRideId: number
+}
+
+export type BackendFahrtDto = {
+  id: number
+  titel: string
+  datum: string
+  datumBis: string | null
+  fahrttyp: string
+  startzeit: string
+  endzeit?: string | null
+  bemerkung?: string | null
+  status: string
+  angelegtVonUserName?: string | null
+  fahrerId?: number | null
+  fahrzeugId?: number | null
+  teilnehmer?: BackendFahrtTeilnehmerDto[] | null
 }
 
 type BackendFahrgastDto = {
@@ -40,22 +55,6 @@ type BackendFahrtTeilnehmerDto = {
   istTemporaer: boolean
   alsStammgastGespeichert: boolean
   teilstrecken?: BackendTeilstreckeDto[] | null
-}
-
-type BackendFahrtDto = {
-  id: number
-  titel: string
-  datum: string
-  datumBis: string | null
-  fahrttyp: string
-  startzeit: string
-  endzeit?: string | null
-  bemerkung?: string | null
-  status: string
-  angelegtVonUserName?: string | null
-  fahrerId?: number | null
-  fahrzeugId?: number | null
-  teilnehmer?: BackendFahrtTeilnehmerDto[] | null
 }
 
 type BackendFahrtWriteDto = {
@@ -153,26 +152,10 @@ function mapRideStatusToBackendStatus(status: RideStatus): string {
   return mapping[status]
 }
 
-function mapTeilstreckenToPassengers(teilstrecken?: BackendTeilstreckeDto[] | null): PassengerForm[] {
-  if (!teilstrecken) return []
-
-  return teilstrecken.map((item, index) => ({
-    id: index + 1,
-    sourceGuestId: item.fahrgastId > 0 ? item.fahrgastId : null,
-    name: item.fahrgast
-      ? `${safeText(item.fahrgast.vorname)} ${safeText(item.fahrgast.nachname)}`.trim()
-      : `Fahrgast ${index + 1}`,
-    phone: safeText(item.fahrgast?.telefonnummer),
-    pickupAddress: safeText(item.abholadresse),
-    destinationAddress: safeText(item.zieladresse),
-    time: extractHourMinute(item.startzeit),
-  }))
-}
-
 function mapTeilnehmerToPassengers(teilnehmer?: BackendFahrtTeilnehmerDto[] | null): PassengerForm[] {
   if (!teilnehmer) return []
 
-  return teilnehmer.map((item, index) => {
+  return teilnehmer.map((item) => {
     const firstSegment = item.teilstrecken?.[0]
     const fullName = `${safeText(item.vorname)} ${safeText(item.nachname)}`.trim()
 
@@ -340,28 +323,6 @@ function serializeState(state: DashboardStateSnapshot) {
   })
 }
 
-/* =========================
-   BACKEND API
-========================= */
-
-/*async function tryLoadFromBackend(): Promise<CalendarRide[] | null> {
-  try {
-    const response = await apiFetch(endpoint, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-    const res = await fetch(`${API_BASE_URL}/api/v1/fahrten`)
-    if (!res.ok) return null
-
-    const data: BackendFahrtDto[] = await res.json()
-    return data.map(mapBackendRideToCalendarRide)
-  } catch {
-    return null
-  }
-}*/
-
 async function tryLoadFromBackend(
   fahrerListe: FahrerListItem[],
   initiativeId?: number | null,
@@ -378,41 +339,6 @@ async function tryLoadFromBackend(
     )
   } catch {
     return null
-  }
-}
-
-/*async function trySaveToBackend(rides: CalendarRide[]) {
-  try {
-    await apiFetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(rides.map(mapCalendarRideToBackendWriteDto)),
-    })
-    for (const ride of rides) {
-      await fetch(`${API_BASE_URL}/api/v1/fahrten`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(mapCalendarRideToBackendWriteDto(ride)),
-      })
-    }
-  } catch {
-    // ignore
-  }
-}*/
-
-async function trySaveToBackend(rides: CalendarRide[]) {
-  try {
-    for (const ride of rides) {
-      await fetch(`${API_BASE_URL}/api/v1/fahrten`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(mapCalendarRideToBackendWriteDto(ride)),
-      })
-    }
-  } catch {
-    // ignore
   }
 }
 
@@ -439,5 +365,4 @@ export async function loadDashboardState(
 
 export async function saveDashboardState(state: DashboardStateSnapshot): Promise<void> {
   localStorage.setItem(DASHBOARD_STORAGE_KEY, serializeState(state))
-  //await trySaveToBackend(state.rides)
 }

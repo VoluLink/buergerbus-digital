@@ -80,7 +80,7 @@ function toFahrgastUpsertRequest(form: FahrgastFormData, options: { isAdmin: boo
 function FahrgastinfosPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
-  const { canManageDataCrud, canManageInitiatives, isAdmin, isDisponent, isFahrer } = useRoleVisibility()
+  const { canManageDataCrud, canManageInitiatives, isAdmin, isFahrer } = useRoleVisibility()
   const isCrudRestricted = !canManageDataCrud
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, Plus, Save, Trash2 } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useRoleVisibility } from '../../../hooks/useRoleVisibility'
 import { createPage, deletePage, getAdminPages, updatePage } from '../api/pagesApi'
 import type { AdminPage, CreatePageRequest } from '../types'
@@ -19,7 +19,6 @@ function emptyForm(): PageFormState {
 }
 
 function AdminPagesPage() {
-  const navigate = useNavigate()
   const { isAdmin } = useRoleVisibility()
   const [pages, setPages] = useState<AdminPage[]>([])
   const [isLoading, setIsLoading] = useState(true)
