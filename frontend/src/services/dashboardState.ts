@@ -283,7 +283,9 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide, initiativeI
       startzeit: earliestTime
         ? `${toLocalDateString(ride.date)}T${earliestTime}:00`
         : `${toLocalDateString(ride.date)}T00:00:00`,
-      endzeit: null,
+      endzeit: ride.endTime
+        ? `${toLocalDateString(ride.date)}T${ride.endTime}:00`
+        : null,
       bemerkung: safeText(ride.remarks).trim() || null,
       status: mapRideStatusToBackendStatus(ride.status),
       fahrerId: ride.fahrerId,
