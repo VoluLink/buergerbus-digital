@@ -46,6 +46,7 @@ builder.Services.AddSingleton(new EmailSettings
 });
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<TripEmailNotificationService>();
 builder.Services.AddScoped<ITemporaryParticipantCleanupService, TemporaryParticipantCleanupService>();
 builder.Services.AddScoped<PageService>();
 builder.Services.AddScoped<FooterService>();

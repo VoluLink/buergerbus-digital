@@ -558,7 +558,8 @@ public static class FahrtenEndpoints
         app.MapPost("/api/v1/fahrten", async (
             CreateFahrtRequest request,
             AppDbContext db,
-            HttpContext httpContext
+            HttpContext httpContext,
+            TripEmailNotificationService tripEmailService
         ) =>
         {
             var validation = await ValidateRideWriteAsync(db, httpContext.User, request.Fahrt, request.Teilnehmer);
@@ -584,6 +585,26 @@ public static class FahrtenEndpoints
                         .ThenInclude(t => t.Fahrgast)
                     .FirstAsync(f => f.Id == ride.Id);
 
+                // If a driver was assigned during creation, notify them
+                if (request.Fahrt.FahrerId.HasValue)
+                {
+                    var assignedDriver = await db.Fahrer
+                        .Include(f => f.Benutzer)
+                        .FirstOrDefaultAsync(f => f.Id == request.Fahrt.FahrerId.Value);
+
+                    if (assignedDriver is not null)
+                    {
+                        try
+                        {
+                            await tripEmailService.SendTripDriverAssignedEmailAsync(loaded, assignedDriver, httpContext.User);
+                        }
+                        catch (Exception)
+                        {
+                            // Swallow to avoid breaking the primary operation
+                        }
+                    }
+                }
+
                 return Results.Ok(FahrtenMapper.ToDto(loaded));
             }
             catch (Exception ex)
@@ -598,7 +619,8 @@ public static class FahrtenEndpoints
             int id,
             UpdateFahrtRequest request,
             AppDbContext db,
-            HttpContext httpContext
+            HttpContext httpContext,
+            TripEmailNotificationService tripEmailService
         ) =>
         {
             var existing = await db.Fahrten
@@ -624,6 +646,20 @@ public static class FahrtenEndpoints
                 return writeValidation;
             }
 
+            // Capture old relevant values to decide whether to send change notifications
+            var oldSnapshot = new
+            {
+                Fahrttyp = existing.Fahrttyp,
+                Datum = existing.Datum,
+                Startzeit = existing.Startzeit,
+                Endzeit = existing.Endzeit,
+                Zielort = existing.Zielort,
+                FahrzeugId = existing.FahrzeugId,
+                Status = existing.Status,
+                Bemerkung = existing.Bemerkung,
+                FahrerId = existing.FahrerId
+            };
+
             await using var transaction = await db.Database.BeginTransactionAsync();
             try
             {
@@ -644,6 +680,41 @@ public static class FahrtenEndpoints
                     .Include(f => f.Teilstrecken)
                         .ThenInclude(t => t.Fahrgast)
                     .FirstAsync(f => f.Id == updatedRide.Id);
+
+                // Determine relevant changes
+                bool relevantChanged = !string.Equals(oldSnapshot.Fahrttyp, loaded.Fahrttyp, StringComparison.OrdinalIgnoreCase)
+                    || oldSnapshot.Datum != loaded.Datum
+                    || oldSnapshot.Startzeit != loaded.Startzeit
+                    || oldSnapshot.Endzeit != loaded.Endzeit
+                    || !string.Equals(oldSnapshot.Zielort, loaded.Zielort, StringComparison.OrdinalIgnoreCase)
+                    || oldSnapshot.FahrzeugId != loaded.FahrzeugId
+                    || !string.Equals(oldSnapshot.Status, loaded.Status, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(oldSnapshot.Bemerkung, loaded.Bemerkung, StringComparison.OrdinalIgnoreCase);
+
+                try
+                {
+                    // If driver changed and new driver assigned -> send assigned email
+                    if (oldSnapshot.FahrerId != loaded.FahrerId && loaded.FahrerId.HasValue)
+                    {
+                        var newDriver = await db.Fahrer.Include(f => f.Benutzer).FirstOrDefaultAsync(f => f.Id == loaded.FahrerId.Value);
+                        if (newDriver is not null)
+                        {
+                            await tripEmailService.SendTripDriverAssignedEmailAsync(loaded, newDriver, httpContext.User);
+                        }
+                    }
+                    else if (loaded.FahrerId.HasValue && relevantChanged)
+                    {
+                        var driver = await db.Fahrer.Include(f => f.Benutzer).FirstOrDefaultAsync(f => f.Id == loaded.FahrerId.Value);
+                        if (driver is not null)
+                        {
+                            await tripEmailService.SendTripChangedEmailAsync(loaded, driver);
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    // Do not fail the request if email notification fails
+                }
 
                 return Results.Ok(FahrtenMapper.ToDto(loaded));
             }
@@ -684,7 +755,7 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPatch("/api/v1/fahrten/{id:int}/fahrer/{fahrerId:int}", async (int id, int fahrerId, AppDbContext db) =>
+        app.MapPatch("/api/v1/fahrten/{id:int}/fahrer/{fahrerId:int}", async (int id, int fahrerId, AppDbContext db, HttpContext httpContext, TripEmailNotificationService tripEmailService) =>
         {
             var fahrt = await db.Fahrten.FirstOrDefaultAsync(f => f.Id == id);
             if (fahrt is null)
@@ -694,9 +765,27 @@ public static class FahrtenEndpoints
             if (!fahrerExists)
                 return Results.NotFound("Fahrer wurde nicht gefunden.");
 
+            var previous = fahrt.FahrerId;
             fahrt.FahrerId = fahrerId;
 
             await db.SaveChangesAsync();
+
+            // If assignment changed, notify new driver
+            if (previous != fahrerId)
+            {
+                try
+                {
+                    var assignedDriver = await db.Fahrer.Include(f => f.Benutzer).FirstOrDefaultAsync(f => f.Id == fahrerId);
+                    if (assignedDriver is not null)
+                    {
+                        await tripEmailService.SendTripDriverAssignedEmailAsync(fahrt, assignedDriver, httpContext.User);
+                    }
+                }
+                catch (Exception)
+                {
+                    // swallow errors to keep behavior consistent
+                }
+            }
 
             return Results.Ok("Fahrer wurde zugewiesen.");
         })
@@ -705,7 +794,8 @@ public static class FahrtenEndpoints
         app.MapPatch("/api/v1/fahrten/{fahrtId:int}/fahrer/anmelden", async (
             int fahrtId,
             AppDbContext db,
-            HttpContext httpContext) =>
+            HttpContext httpContext,
+            TripEmailNotificationService tripEmailService) =>
         {
             var user = httpContext.User;
             var userId = AuthUtils.GetUserId(user);
@@ -749,6 +839,13 @@ public static class FahrtenEndpoints
                 return Results.Forbid();
             }
 
+            if (fahrt.FahrerId.HasValue)
+            {
+                return Results.BadRequest("Fahrt ist bereits einem Fahrer zugewiesen.");
+            }
+
+            var previousFahrerId = fahrt.FahrerId;
+
             fahrt.FahrerId = fahrer.Id;
 
             if (!string.Equals(fahrt.Status, "Abgeschlossen", StringComparison.OrdinalIgnoreCase)
@@ -758,6 +855,18 @@ public static class FahrtenEndpoints
             }
 
             await db.SaveChangesAsync();
+
+            if (previousFahrerId != fahrer.Id)
+            {
+                try
+                {
+                    await tripEmailService.SendTripSelfRegistrationEmailAsync(fahrt, fahrer);
+                }
+                catch (Exception)
+                {
+                    // do not fail operation on email errors
+                }
+            }
 
             return Results.Ok(new
             {
