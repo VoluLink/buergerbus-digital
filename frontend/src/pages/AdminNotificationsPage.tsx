@@ -221,10 +221,14 @@ function AdminNotificationsPage() {
   }, [])
 
   useEffect(() => {
-    if (!selectedNotificationId) {
+    const notificationId = selectedNotificationId
+
+    if (notificationId == null) {
       setSelectedNotification(null)
       return
     }
+
+    const selectedNotificationIdValue: string = notificationId
 
     let isCancelled = false
 
@@ -232,7 +236,7 @@ function AdminNotificationsPage() {
       setIsLoadingDetails(true)
 
       try {
-        const result = await getNotificationDetails(selectedNotificationId)
+        const result = await getNotificationDetails(selectedNotificationIdValue)
         if (!isCancelled) {
           setSelectedNotification(result)
         }

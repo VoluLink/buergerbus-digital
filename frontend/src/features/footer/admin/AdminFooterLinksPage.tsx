@@ -5,7 +5,7 @@ import { useRoleVisibility } from '../../../hooks/useRoleVisibility'
 import { getAdminPages } from '../../pages/api/pagesApi'
 import { createFooterLink, deleteFooterLink, getAdminFooterLinks, updateFooterLink } from '../api/footerApi'
 import type { AdminFooterLink, FooterLinkType } from '../types'
-import type { AdminPage } from '../../../pages/types'
+import type { AdminPage } from '../../pages/types'
 
 type FooterFormState = {
   label: string

@@ -1,7 +1,6 @@
 import {
   createFahrt,
   getFahrten,
-  getFahrt,
   updateFahrt,
   deleteFahrt,
   updateFahrtteilnehmerAbgehakt,
@@ -51,6 +50,10 @@ import { getAllFahrer } from '../services/fahrerList'
 type RideFormType = 'standard' | 'theme'
 type DayRole = 'dispo' | 'fahrer'
 type CalendarView = 'Monat' | 'Woche' | 'Tag'
+
+function isRideFormType(value: RideType): value is RideFormType {
+  return value === 'standard' || value === 'theme'
+}
 
 type RideFormState = {
   fahrerId: number | null
@@ -394,19 +397,6 @@ function getRideCalendarDisplayTime(ride: Pick<CalendarRide, 'type' | 'time' | '
   return getRideDisplayTime(ride)
 }
 
-function isSameRentalSeriesRide(
-  left: Pick<CalendarRide, 'id' | 'type' | 'title' | 'time' | 'remarks' | 'fahrzeugId'>,
-  right: Pick<CalendarRide, 'id' | 'type' | 'title' | 'time' | 'remarks' | 'fahrzeugId'>,
-) {
-  return left.id !== right.id
-    && left.type === 'rental'
-    && right.type === 'rental'
-    && normalizePassengerText(left.title).trim() === normalizePassengerText(right.title).trim()
-    && normalizePassengerText(left.time).trim() === normalizePassengerText(right.time).trim()
-    && normalizePassengerText(left.remarks).trim() === normalizePassengerText(right.remarks).trim()
-    && left.fahrzeugId === right.fahrzeugId
-}
-
 function getRideTimelineRange(
   ride: Pick<CalendarRide, 'id' | 'date' | 'dateBis' | 'type' | 'time' | 'endTime' | 'passengers' | 'title' | 'remarks' | 'fahrzeugId'>,
   activeDay?: Date,
@@ -629,22 +619,6 @@ function getRideStatusByType(rideType: RideType, driverName: string): RideStatus
   return normalizePassengerText(driverName).trim() ? 'assigned' : 'open'
 }
 
-function getDefaultRideStatusForOpenRide(ride: CalendarRide): RideStatus {
-  if (ride.type === 'theme') {
-    return 'theme'
-  }
-
-  if (ride.type === 'rental') {
-    return 'rental'
-  }
-
-  if (ride.status === 'saved') {
-    return 'saved'
-  }
-
-  return getRideStatusByType(ride.type, ride.driverName)
-}
-
 function rideTypeButtonClassName(currentType: RideType, rideType: RideType) {
   if (currentType === rideType) {
     if (rideType === 'theme') {
@@ -753,8 +727,6 @@ function DashboardPage() {
   const [fahrerListe, setFahrerListe] = useState<any[]>([])
   const [fahrzeugListe, setFahrzeugListe] = useState<any[]>([])
   const [initiativeListe, setInitiativeListe] = useState<Initiative[]>([])
-  const [fahrerSuche, setFahrerSuche] = useState('')
-  const [selectedFahrerId, setSelectedFahrerId] = useState<number | null>(null)
   const [selectedInitiativeId, setSelectedInitiativeId] = useState<number | null>(currentUser?.initiative?.id ?? null)
   const [rideSaveError, setRideSaveError] = useState<string | null>(null)
   const [rideCapacityWarning, setRideCapacityWarning] = useState<string | null>(null)
@@ -1001,8 +973,15 @@ function DashboardPage() {
       return
     }
 
+    const completedPassengerKeys = calendarRides.flatMap((ride) =>
+      ride.passengers
+        .filter((passenger) => passenger.istAbgehakt)
+        .map((passenger) => `${ride.id}:${passenger.id}`),
+    )
+
     void saveDashboardState({
       rides: calendarRides,
+      completedPassengerKeys,
       nextRideId,
     })
   }, [calendarRides, isDashboardHydrated, nextRideId])
@@ -1114,7 +1093,7 @@ function DashboardPage() {
     return isAdmin || isDisponent || isAssignedToCurrentDriver
   }
 
-  async function togglePassengerCompleted(rideId: number, passengerId: number, checked: boolean) {
+  async function togglePassengerCompleted(passengerId: number, checked: boolean) {
     await updateFahrtteilnehmerAbgehakt(passengerId, checked)
     await reloadFahrten()
   }
@@ -1223,8 +1202,9 @@ async function confirmDeleteRide() {
 
     setRideFormsByType((currentState) => ({
       ...currentState,
-      [rideType]: (() => {
-        const currentRideForm = currentState[rideType]
+      [rideType === 'theme' ? 'theme' : 'standard']: (() => {
+        const rideFormKey: RideFormType = rideType === 'theme' ? 'theme' : 'standard'
+        const currentRideForm = currentState[rideFormKey]
         const selectedFahrzeug = visibleFahrzeuge.find((vehicle) => vehicle.id === currentRideForm.fahrzeugId)
 
         if (!selectedFahrzeug || currentRideForm.passengers.length >= selectedFahrzeug.kapazitaet) {
@@ -1257,11 +1237,13 @@ async function confirmDeleteRide() {
       return
     }
 
+    const rideFormKey: RideFormType = rideType === 'theme' ? 'theme' : 'standard'
+
     setRideFormsByType((currentState) => ({
       ...currentState,
-      [rideType]: {
-        ...currentState[rideType],
-        passengers: currentState[rideType].passengers.filter((passenger) => passenger.id !== passengerId),
+      [rideFormKey]: {
+        ...currentState[rideFormKey],
+        passengers: currentState[rideFormKey].passengers.filter((passenger) => passenger.id !== passengerId),
       },
     }))
   }
@@ -1271,12 +1253,14 @@ async function confirmDeleteRide() {
       return
     }
 
+    const rideFormKey: RideFormType = rideType === 'theme' ? 'theme' : 'standard'
+
     setRideFormsByType((currentState) => ({
       ...currentState,
-      [rideType]: {
-        ...currentState[rideType],
+      [rideFormKey]: {
+        ...currentState[rideFormKey],
         [field]: value,
-        ...(rideType === 'theme' && field === 'themeDestination'
+        ...(rideFormKey === 'theme' && field === 'themeDestination'
           ? {
               passengers: applyThemeDestinationToPassengers(currentState.theme.passengers, value),
             }
@@ -1294,11 +1278,13 @@ async function confirmDeleteRide() {
       return
     }
 
+    const rideFormKey: RideFormType = rideType === 'theme' ? 'theme' : 'standard'
+
     setRideFormsByType((currentState) => ({
       ...currentState,
-      [rideType]: {
-        ...currentState[rideType],
-        passengers: currentState[rideType].passengers.map((passenger) =>
+      [rideFormKey]: {
+        ...currentState[rideFormKey],
+        passengers: currentState[rideFormKey].passengers.map((passenger) =>
           passenger.id === passengerId
             ? {
                 ...passenger,
@@ -1319,12 +1305,13 @@ async function confirmDeleteRide() {
     }
 
     const selectedGuest = knownGuests.find((guest) => guest.id === selectedGuestId)
+    const rideFormKey: RideFormType = rideType === 'theme' ? 'theme' : 'standard'
 
     setRideFormsByType((currentState) => ({
       ...currentState,
-      [rideType]: {
-        ...currentState[rideType],
-        passengers: currentState[rideType].passengers.map((passenger) => {
+      [rideFormKey]: {
+        ...currentState[rideFormKey],
+        passengers: currentState[rideFormKey].passengers.map((passenger) => {
           if (passenger.id !== passengerId) {
             return passenger
           }
@@ -1351,11 +1338,17 @@ async function confirmDeleteRide() {
   }
 
   function updatePassengerSaveAsGuest(passengerId: number, value: boolean) {
+    if (rideType === 'rental') {
+      return
+    }
+
+    const rideFormKey: RideFormType = rideType === 'theme' ? 'theme' : 'standard'
+
     setRideFormsByType((currentState) => ({
       ...currentState,
-      [rideType]: {
-        ...currentState[rideType],
-        passengers: currentState[rideType].passengers.map((passenger) =>
+      [rideFormKey]: {
+        ...currentState[rideFormKey],
+        passengers: currentState[rideFormKey].passengers.map((passenger) =>
           passenger.id === passengerId
             ? {
                 ...passenger,
@@ -1376,12 +1369,10 @@ async function confirmDeleteRide() {
       return
     }
 
-    setSelectedFahrerId(selectedFahrer.fahrerId)
-
     setRideFormsByType((currentState) => ({
       ...currentState,
-      [rideType]: {
-        ...currentState[rideType],
+      [rideType === 'theme' ? 'theme' : 'standard']: {
+        ...currentState[rideType === 'theme' ? 'theme' : 'standard'],
 
         fahrerId: selectedFahrer.fahrerId,
         driverName: selectedFahrer.name,
@@ -1401,7 +1392,9 @@ async function confirmDeleteRide() {
       return
     }
 
-    const currentPassengerCount = rideFormsByType[rideType].passengers.length
+    const rideFormKey: RideFormType = rideType === 'theme' ? 'theme' : 'standard'
+
+    const currentPassengerCount = rideFormsByType[rideFormKey].passengers.length
     const removedPassengerCount = Math.max(0, currentPassengerCount - selectedFahrzeug.kapazitaet)
 
     if (removedPassengerCount > 0) {
@@ -1412,10 +1405,10 @@ async function confirmDeleteRide() {
 
     setRideFormsByType((currentState) => ({
       ...currentState,
-      [rideType]: {
-        ...currentState[rideType],
+      [rideType === 'theme' ? 'theme' : 'standard']: {
+        ...currentState[rideType === 'theme' ? 'theme' : 'standard'],
         fahrzeugId: selectedFahrzeug.id,
-        passengers: currentState[rideType].passengers.slice(0, selectedFahrzeug.kapazitaet),
+        passengers: currentState[rideType === 'theme' ? 'theme' : 'standard'].passengers.slice(0, selectedFahrzeug.kapazitaet),
       },
     }))
   }
@@ -1585,7 +1578,9 @@ async function confirmDeleteRide() {
       return
     }
 
-    const activeForm = rideFormsByType[rideType]
+    const activeForm: RideFormState = rideType === 'theme'
+      ? rideFormsByType.theme
+      : rideFormsByType.standard
     const driverName = normalizePassengerText(activeForm.driverName).trim()
     const endTime = normalizePassengerText(activeForm.endTime).trim()
     const passengers = (rideType === 'theme'
@@ -1764,7 +1759,7 @@ setCalendarRides((currentRides) =>
   const dialogHeading = formatDialogHeading(selectedDate)
   const dayHeaderLabel = weekdayFormatter.format(selectedDate)
   const dayHeaderDateLabel = dayHeaderDateFormatter.format(selectedDate)
-  const activeRideForm = rideType === 'rental' ? null : rideFormsByType[rideType]
+  const activeRideForm = isRideFormType(rideType) ? rideFormsByType[rideType] : null
   const selectedRideVehicle = activeRideForm == null
     ? null
     : visibleFahrzeuge.find((vehicle) => vehicle.id === activeRideForm.fahrzeugId) ?? null
@@ -2413,7 +2408,7 @@ setCalendarRides((currentRides) =>
                                             type="checkbox"
                                             checked={Boolean(passenger.istAbgehakt)}
                                             disabled={!canEditChecks}
-                                            onChange={(event) => void togglePassengerCompleted(ride.id, passenger.id, event.target.checked)}
+                                            onChange={(event) => void togglePassengerCompleted(passenger.id, event.target.checked)}
                                             className={`h-6 w-6 rounded-md border-slate-300 ${canEditChecks ? '' : 'cursor-not-allowed opacity-50'}`}
                                           />
                                           <span className={passenger.istAbgehakt ? 'line-through text-slate-400' : ''}>
@@ -2820,7 +2815,7 @@ setCalendarRides((currentRides) =>
                       <div className="mt-1 max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm">
                         {fahrerListe
                           .filter((driver) => {
-                            const query = activeRideForm.driverName.trim().toLowerCase()
+                            const query = (activeRideForm?.driverName ?? '').trim().toLowerCase()
 
                             const searchable =
                               `${driver.name} ${driver.telefonnummer ?? ''}`.toLowerCase()

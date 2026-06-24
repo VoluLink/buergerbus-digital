@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Bus, ChevronLeft, LockKeyhole } from 'lucide-react'
+import { ChevronLeft, LockKeyhole } from 'lucide-react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { resetPassword } from '../services/passwordReset'
 import { isPasswordLongEnough } from '../utils/password'
