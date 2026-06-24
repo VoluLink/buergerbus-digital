@@ -1752,6 +1752,7 @@ setCalendarRides((currentRides) =>
   const isPassengerLimitReached = activeRideForm != null
     && activeRideForm.passengers.length >= maxPassengersForActiveRide
   const selectedDayRides = ridesByDay.get(toDateKey(selectedDate)) ?? []
+  const hasDriverDayView = selectedDayRides.some((ride) => ride.type !== 'rental')
   const dayTimelineRides = useMemo(() => {
     const scheduledRides = selectedDayRides
       .map((ride) => {
@@ -1775,6 +1776,17 @@ setCalendarRides((currentRides) =>
   const dayTimelineUnscheduledRides = useMemo(() => {
     return selectedDayRides.filter((ride) => getRideTimelineRange(ride, selectedDate) === null)
   }, [selectedDate, selectedDayRides])
+
+  useEffect(() => {
+    if (!hasDriverDayView && dayRole === 'fahrer') {
+      setDayRole('dispo')
+      return
+    }
+
+    if (isFahrer && hasDriverDayView && dayRole !== 'fahrer') {
+      setDayRole('fahrer')
+    }
+  }, [dayRole, hasDriverDayView, isFahrer])
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
@@ -1978,7 +1990,9 @@ setCalendarRides((currentRides) =>
                               </span>
                               <div className="min-w-0">
                                 <div className="truncate text-sm font-semibold text-slate-800">{ride.title}</div>
-                                <div className="mt-1 text-xs text-slate-500">{ride.passengers.length} Fahrgäste</div>
+                                {ride.type !== 'rental' ? (
+                                  <div className="mt-1 text-xs text-slate-500">{ride.passengers.length} Fahrgäste</div>
+                                ) : null}
                               </div>
                             </div>
                           </button>
@@ -2231,7 +2245,17 @@ setCalendarRides((currentRides) =>
                 </div>
 
                 <div className="flex items-center gap-4">
-                  {isFahrer ? (
+                  {!hasDriverDayView ? (
+                    <div className="inline-flex rounded-2xl bg-white/20 p-1">
+                      <button
+                        type="button"
+                        className="rounded-xl bg-white px-4 py-1.5 text-sm font-semibold text-slate-700"
+                        disabled
+                      >
+                        Übersicht
+                      </button>
+                    </div>
+                  ) : isFahrer ? (
                     <div className="inline-flex rounded-2xl bg-white/20 p-1">
                       <button
                         type="button"
@@ -2291,7 +2315,7 @@ setCalendarRides((currentRides) =>
                 <div className="space-y-3">
                   {selectedDayRides.map((ride) => (
                     <article key={ride.id} className="rounded-2xl border border-slate-200 bg-white p-4">
-                      {dayRole === 'fahrer' ? (
+                      {dayRole === 'fahrer' && ride.type !== 'rental' ? (
                         <>
                           <div className="flex items-start justify-between gap-3">
                             <div>
@@ -2426,12 +2450,16 @@ setCalendarRides((currentRides) =>
                             <div>
                               <span className="font-semibold text-slate-700">Fahrtart:</span> {ride.type === 'theme' ? 'Themenfahrt' : ride.type === 'rental' ? 'Vermietung' : 'Standardfahrt'}
                             </div>
-                            <div>
-                              <span className="font-semibold text-slate-700">Fahrgäste:</span> {ride.passengers.length}
-                            </div>
-                            <div>
-                              <span className="font-semibold text-slate-700">Fahrer:</span> {ride.driverName || '-'}
-                            </div>
+                            {ride.type !== 'rental' ? (
+                              <>
+                                <div>
+                                  <span className="font-semibold text-slate-700">Fahrgäste:</span> {ride.passengers.length}
+                                </div>
+                                <div>
+                                  <span className="font-semibold text-slate-700">Fahrer:</span> {ride.driverName || '-'}
+                                </div>
+                              </>
+                            ) : null}
                             <div>
                               <span className="font-semibold text-slate-700">Erstellt von:</span> {ride.createdByName || '-'}
                             </div>
@@ -2443,57 +2471,61 @@ setCalendarRides((currentRides) =>
                             </div>
                           </div>
 
-                          <div className="mt-3 border-t border-slate-200 pt-3">
-                            <button
-                              type="button"
-                              onClick={() => toggleRideExpanded(ride.id)}
-                              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                            >
-                              {expandedRideIds.includes(ride.id) ? (
-                                <ChevronUp className="h-4 w-4" aria-hidden="true" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                              )}
-                              {expandedRideIds.includes(ride.id) ? 'Gäste ausblenden' : 'Alle Gäste anzeigen'}
-                            </button>
-
-                            {expandedRideIds.includes(ride.id) ? (
-                              <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                <h4 className="text-sm font-semibold text-slate-700">Fahrgäste</h4>
-                                {ride.passengers.length > 0 ? (
-                                  <ul className="mt-2 space-y-2">
-                                    {ride.passengers.map((passenger, passengerIndex) => (
-                                      <li key={passenger.id} className="rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700">
-                                        <div className="font-semibold text-slate-800">{passenger.name || `Fahrgast ${passengerIndex + 1}`}</div>
-                                        <div className="mt-1 text-xs text-slate-500">
-                                          Telefon: {passenger.phone || '-'} | Abholung: {passenger.pickupAddress || '-'} | Ziel: {passenger.destinationAddress || '-'} | Zeit: {passenger.time || '-'}
-                                        </div>
-                                      </li>
-                                    ))}
-                                  </ul>
+                          {ride.type !== 'rental' ? (
+                            <div className="mt-3 border-t border-slate-200 pt-3">
+                              <button
+                                type="button"
+                                onClick={() => toggleRideExpanded(ride.id)}
+                                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                              >
+                                {expandedRideIds.includes(ride.id) ? (
+                                  <ChevronUp className="h-4 w-4" aria-hidden="true" />
                                 ) : (
-                                  <p className="mt-2 text-sm text-slate-500">Keine Fahrgäste hinterlegt.</p>
+                                  <ChevronDown className="h-4 w-4" aria-hidden="true" />
                                 )}
-                              </div>
-                            ) : null}
-                          </div>
+                                {expandedRideIds.includes(ride.id) ? 'Gäste ausblenden' : 'Alle Gäste anzeigen'}
+                              </button>
 
-                          <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-3">
-                            <button
-                              type="button"
-                              onClick={() => requestDeleteRide(ride)}
-                              className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
-                            >
-                              Löschen
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openEditRideDialog(ride)}
-                              className="rounded-xl bg-[#0053a0] px-3 py-2 text-sm font-semibold text-white transition hover:brightness-105"
-                            >
-                              Bearbeiten
-                            </button>
-                          </div>
+                              {expandedRideIds.includes(ride.id) ? (
+                                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                  <h4 className="text-sm font-semibold text-slate-700">Fahrgäste</h4>
+                                  {ride.passengers.length > 0 ? (
+                                    <ul className="mt-2 space-y-2">
+                                      {ride.passengers.map((passenger, passengerIndex) => (
+                                        <li key={passenger.id} className="rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700">
+                                          <div className="font-semibold text-slate-800">{passenger.name || `Fahrgast ${passengerIndex + 1}`}</div>
+                                          <div className="mt-1 text-xs text-slate-500">
+                                            Telefon: {passenger.phone || '-'} | Abholung: {passenger.pickupAddress || '-'} | Ziel: {passenger.destinationAddress || '-'} | Zeit: {passenger.time || '-'}
+                                          </div>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : (
+                                    <p className="mt-2 text-sm text-slate-500">Keine Fahrgäste hinterlegt.</p>
+                                  )}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+
+                          {!(isFahrer && ride.type === 'rental') ? (
+                            <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-3">
+                              <button
+                                type="button"
+                                onClick={() => requestDeleteRide(ride)}
+                                className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+                              >
+                                Löschen
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openEditRideDialog(ride)}
+                                className="rounded-xl bg-[#0053a0] px-3 py-2 text-sm font-semibold text-white transition hover:brightness-105"
+                              >
+                                Bearbeiten
+                              </button>
+                            </div>
+                          ) : null}
                         </>
                       )}
                     </article>
