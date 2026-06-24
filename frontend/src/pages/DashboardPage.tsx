@@ -1596,11 +1596,6 @@ async function confirmDeleteRide() {
       id: index + 1,
     }))
 
-    if (!endTime) {
-      setRideSaveError('Bitte geben Sie eine geschätzte Endzeit an.')
-      return
-    }
-
 if (rideInEditId !== null) {
   const baseStatus =
     statusOverride ??
