@@ -1081,7 +1081,21 @@ function DashboardPage() {
       && ride.status === 'assigned'
       && normalizeName(ride.driverName) === normalizeName(driverIdentity)
 
-    return ride.status === 'open' || isAssignedToCurrentDriver
+    const canSelfRegister = !ride.fahrerId
+      && ride.status !== 'completed'
+      && ride.status !== 'saved'
+      && (ride.type === 'theme' || ride.status === 'open')
+
+    return canSelfRegister || isAssignedToCurrentDriver
+  }
+
+  function canManagePassengerChecks(ride: CalendarRide) {
+    const driverIdentity = currentDriverDisplayName || currentUser?.username || currentUser?.email || ''
+    const isAssignedToCurrentDriver = Boolean(driverIdentity)
+      && ride.status === 'assigned'
+      && normalizeName(ride.driverName) === normalizeName(driverIdentity)
+
+    return isAdmin || isDisponent || isAssignedToCurrentDriver
   }
 
   async function togglePassengerCompleted(rideId: number, passengerId: number, checked: boolean) {
@@ -2344,45 +2358,50 @@ setCalendarRides((currentRides) =>
                                 <div className="mt-2 whitespace-pre-line text-base leading-7 text-slate-700">{ride.remarks || '-'}</div>
                               </div>
                               {ride.passengers.length > 0 ? (
-                                ride.passengers.map((passenger, passengerIndex) => (
-                                  <div key={passenger.id} className={`rounded-2xl border border-slate-200 bg-white p-3 transition ${passenger.istAbgehakt ? 'opacity-70' : ''}`}>
-                                    <div className="flex flex-wrap items-start justify-between gap-2">
-                                      <label className="inline-flex items-center gap-2 text-2xl font-semibold text-slate-800">
-                                        <input
-                                          type="checkbox"
-                                          checked={Boolean(passenger.istAbgehakt)}
-                                          onChange={(event) => void togglePassengerCompleted(ride.id, passenger.id, event.target.checked)}
-                                          className="h-6 w-6 rounded-md border-slate-300"
-                                        />
-                                        <span className={passenger.istAbgehakt ? 'line-through text-slate-400' : ''}>
-                                          {passenger.name || `Fahrgast ${passengerIndex + 1}`}
-                                        </span>
-                                      </label>
-                                      <span className="inline-flex items-center gap-1 rounded-xl bg-[#0053a0]/12 px-3 py-1 text-sm font-semibold text-[#0053a0]">
-                                        <Clock3 className="h-4 w-4" aria-hidden="true" />
-                                        {passenger.time || '-'} Uhr
-                                      </span>
-                                    </div>
+                                ride.passengers.map((passenger, passengerIndex) => {
+                                  const canEditChecks = canManagePassengerChecks(ride)
 
-                                    <div className="mt-3 grid gap-2 md:grid-cols-3">
-                                      <div className="rounded-xl bg-slate-50 px-3 py-2">
-                                        <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Abholung</div>
-                                        <div className="mt-1 text-lg font-medium text-slate-800">{passenger.pickupAddress || '-'}</div>
+                                  return (
+                                    <div key={passenger.id} className={`rounded-2xl border border-slate-200 bg-white p-3 transition ${passenger.istAbgehakt ? 'opacity-70' : ''}`}>
+                                      <div className="flex flex-wrap items-start justify-between gap-2">
+                                        <label className="inline-flex items-center gap-2 text-2xl font-semibold text-slate-800">
+                                          <input
+                                            type="checkbox"
+                                            checked={Boolean(passenger.istAbgehakt)}
+                                            disabled={!canEditChecks}
+                                            onChange={(event) => void togglePassengerCompleted(ride.id, passenger.id, event.target.checked)}
+                                            className={`h-6 w-6 rounded-md border-slate-300 ${canEditChecks ? '' : 'cursor-not-allowed opacity-50'}`}
+                                          />
+                                          <span className={passenger.istAbgehakt ? 'line-through text-slate-400' : ''}>
+                                            {passenger.name || `Fahrgast ${passengerIndex + 1}`}
+                                          </span>
+                                        </label>
+                                        <span className="inline-flex items-center gap-1 rounded-xl bg-[#0053a0]/12 px-3 py-1 text-sm font-semibold text-[#0053a0]">
+                                          <Clock3 className="h-4 w-4" aria-hidden="true" />
+                                          {passenger.time || '-'} Uhr
+                                        </span>
                                       </div>
-                                      <div className="rounded-xl bg-slate-50 px-3 py-2">
-                                        <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Ziel</div>
-                                        <div className="mt-1 text-lg font-medium text-slate-800">{passenger.destinationAddress || '-'}</div>
-                                      </div>
-                                      <div className="rounded-xl bg-slate-50 px-3 py-2">
-                                        <div className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                                          <Phone className="h-3.5 w-3.5" aria-hidden="true" />
-                                          Telefon
+
+                                      <div className="mt-3 grid gap-2 md:grid-cols-3">
+                                        <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Abholung</div>
+                                          <div className="mt-1 text-lg font-medium text-slate-800">{passenger.pickupAddress || '-'}</div>
                                         </div>
-                                        <div className="mt-1 text-lg font-medium text-slate-800">{passenger.phone || '-'}</div>
+                                        <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Ziel</div>
+                                          <div className="mt-1 text-lg font-medium text-slate-800">{passenger.destinationAddress || '-'}</div>
+                                        </div>
+                                        <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                          <div className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                                            <Phone className="h-3.5 w-3.5" aria-hidden="true" />
+                                            Telefon
+                                          </div>
+                                          <div className="mt-1 text-lg font-medium text-slate-800">{passenger.phone || '-'}</div>
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                ))
+                                  )
+                                })
                               ) : (
                                 <p className="text-sm text-slate-500">Keine Fahrgäste hinterlegt.</p>
                               )}

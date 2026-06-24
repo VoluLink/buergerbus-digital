@@ -31,6 +31,23 @@ public static class FahrtenEndpoints
         => string.Equals(rideType, "Vermietung", StringComparison.OrdinalIgnoreCase)
            || string.Equals(rideType, "rental", StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsStandardRide(string? rideType)
+        => !string.IsNullOrWhiteSpace(rideType)
+           && rideType.Contains("standard", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsCancelledRideStatus(string? status)
+        => !string.IsNullOrWhiteSpace(status)
+           && (
+               status.Contains("storniert", StringComparison.OrdinalIgnoreCase)
+               || status.Contains("cancelled", StringComparison.OrdinalIgnoreCase)
+               || status.Contains("canceled", StringComparison.OrdinalIgnoreCase)
+               || status.Contains("gelöscht", StringComparison.OrdinalIgnoreCase)
+               || status.Contains("deleted", StringComparison.OrdinalIgnoreCase)
+           );
+
+    private static bool IsDriverSelfAssignableRide(Fahrten ride)
+        => IsThemeRide(ride.Fahrttyp) || IsStandardRide(ride.Fahrttyp);
+
     private static bool IsDriverVisibleRide(Fahrten ride, int? fahrerId)
           => IsPublished(ride.Status)
               || IsOpenRideStatus(ride.Status)
@@ -825,6 +842,18 @@ public static class FahrtenEndpoints
                 }
             }
 
+            if (!IsDriverSelfAssignableRide(fahrt))
+            {
+                return Results.BadRequest("Fahrtart erlaubt keine Selbstanmeldung.");
+            }
+
+            if (string.Equals(fahrt.Status, "Abgeschlossen", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(fahrt.Status, "Completed", StringComparison.OrdinalIgnoreCase)
+                || IsCancelledRideStatus(fahrt.Status))
+            {
+                return Results.BadRequest("Fahrt ist nicht mehr für Fahrerregistrierungen verfügbar.");
+            }
+
             var fahrer = await db.Fahrer
                 .Include(f => f.Benutzer)
                 .FirstOrDefaultAsync(f => f.BenutzerId == userId.Value);
@@ -847,12 +876,7 @@ public static class FahrtenEndpoints
             var previousFahrerId = fahrt.FahrerId;
 
             fahrt.FahrerId = fahrer.Id;
-
-            if (!string.Equals(fahrt.Status, "Abgeschlossen", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(fahrt.Status, "Completed", StringComparison.OrdinalIgnoreCase))
-            {
-                fahrt.Status = "Zugewiesen";
-            }
+            fahrt.Status = "Zugewiesen";
 
             await db.SaveChangesAsync();
 
@@ -921,17 +945,16 @@ public static class FahrtenEndpoints
                 }
             }
 
+            if (string.Equals(fahrt.Status, "Abgeschlossen", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(fahrt.Status, "Completed", StringComparison.OrdinalIgnoreCase)
+                || IsCancelledRideStatus(fahrt.Status))
+            {
+                return Results.BadRequest("Fahrt kann nicht mehr abgemeldet werden.");
+            }
+
             fahrt.FahrerId = null;
 
-            if (!string.Equals(fahrt.Status, "Abgeschlossen", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(fahrt.Status, "Completed", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(fahrt.Fahrttyp, "Themenfahrt", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(fahrt.Fahrttyp, "theme", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(fahrt.Fahrttyp, "Vermietung", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(fahrt.Fahrttyp, "rental", StringComparison.OrdinalIgnoreCase))
-            {
-                fahrt.Status = "Offen";
-            }
+            fahrt.Status = IsThemeRide(fahrt.Fahrttyp) ? "Themenfahrt" : "Offen";
 
             await db.SaveChangesAsync();
 
@@ -978,10 +1001,30 @@ public static class FahrtenEndpoints
                 return Results.NotFound("Fahrtteilnehmer wurde nicht gefunden.");
             }
 
-            var access = await ValidateRideAccessAsync(httpContext.User, db, teilnehmer.Fahrt);
+            var user = httpContext.User;
+            var userId = AuthUtils.GetUserId(user);
+            var isAdmin = AuthUtils.IsAdmin(user);
+            var isDisponent = user.IsInRole("Disponent");
+            var isDriver = user.IsInRole("Fahrer");
+
+            if (!isAdmin && !isDisponent && !isDriver)
+            {
+                return Results.Forbid();
+            }
+
+            var access = await ValidateRideAccessAsync(user, db, teilnehmer.Fahrt);
             if (access is not null)
             {
                 return access;
+            }
+
+            if (isDriver)
+            {
+                var currentFahrerId = await ResolveFahrerIdAsync(db, userId);
+                if (!currentFahrerId.HasValue || teilnehmer.Fahrt.FahrerId != currentFahrerId.Value)
+                {
+                    return Results.Forbid();
+                }
             }
 
             teilnehmer.IstAbgehakt = dto.IstAbgehakt;
@@ -1001,7 +1044,11 @@ public static class FahrtenEndpoints
             }
             else
             {
-                teilnehmer.Fahrt.Status = "Offen";
+                teilnehmer.Fahrt.Status = teilnehmer.Fahrt.FahrerId.HasValue
+                    ? "Zugewiesen"
+                    : IsThemeRide(teilnehmer.Fahrt.Fahrttyp)
+                        ? "Themenfahrt"
+                        : "Offen";
                 teilnehmer.Fahrt.Endzeit = null;
             }
 
