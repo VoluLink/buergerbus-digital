@@ -46,6 +46,10 @@ namespace BuergerbusAPI.Data
         // Kommunikation
         public DbSet<Benachrichtigungen> Benachrichtigungen { get; set; }
 
+        // Öffentliche Seiten und Footer
+        public DbSet<SitePage> SitePages { get; set; }
+        public DbSet<FooterLink> FooterLinks { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -203,6 +207,22 @@ namespace BuergerbusAPI.Data
             modelBuilder.Entity<NotificationRecipient>()
                 .HasIndex(r => new { r.NotificationId, r.UserId })
                 .IsUnique();
+
+            modelBuilder.Entity<SitePage>()
+                .HasIndex(page => page.Slug)
+                .IsUnique();
+
+            modelBuilder.Entity<FooterLink>()
+                .HasOne(link => link.SitePage)
+                .WithMany()
+                .HasForeignKey(link => link.SitePageId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<FooterLink>()
+                .HasIndex(link => link.SitePageId);
+
+            modelBuilder.Entity<FooterLink>()
+                .HasIndex(link => new { link.IsActive, link.SortOrder });
 
             // Initiative -> Fahrten (1:n)
 

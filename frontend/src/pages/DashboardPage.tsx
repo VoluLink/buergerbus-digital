@@ -1777,6 +1777,17 @@ setCalendarRides((currentRides) =>
                 </button>
               ) : null}
 
+              {isAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => navigate('/admin/einstellungen')}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-[#0053a0]/20 bg-[#0053a0]/5 px-4 py-2.5 text-sm font-semibold text-[#0053a0] transition hover:bg-[#0053a0]/10"
+                >
+                  <Settings className="h-4 w-4" aria-hidden="true" />
+                  Einstellungen
+                </button>
+              ) : null}
+
               {!isRideCrudRestricted ? (
                 <button
                   type="button"
