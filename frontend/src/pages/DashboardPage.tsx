@@ -12,6 +12,7 @@ import {
 import { mapCalendarRideToBackendWriteDto, mapBackendRideToCalendarRide } from '../services/dashboardState'
 import { useEffect, useMemo, useState } from 'react'
 import {
+  AlertTriangle,
   Bus,
   Clock3,
   ChevronDown,
@@ -730,7 +731,6 @@ function DashboardPage() {
   const [expandedRideIds, setExpandedRideIds] = useState<number[]>([])
   const [collapsedDriverRideIds, setCollapsedDriverRideIds] = useState<number[]>([])
   const [nextRideId, setNextRideId] = useState(1)
-  const [nextPassengerId, setNextPassengerId] = useState(2)
   const [isDashboardHydrated, setIsDashboardHydrated] = useState(false)
   const [knownGuests, setKnownGuests] = useState<Fahrgast[]>([])
   const [knownGuestsLoaded, setKnownGuestsLoaded] = useState(false)
@@ -741,6 +741,7 @@ function DashboardPage() {
   const [selectedFahrerId, setSelectedFahrerId] = useState<number | null>(null)
   const [selectedInitiativeId, setSelectedInitiativeId] = useState<number | null>(currentUser?.initiative?.id ?? null)
   const [rideSaveError, setRideSaveError] = useState<string | null>(null)
+  const [rideCapacityWarning, setRideCapacityWarning] = useState<string | null>(null)
 
   const remarksPlaceholder = useMemo(() => {
     if (rideType === 'theme') {
@@ -1012,6 +1013,7 @@ function DashboardPage() {
     }
 
     setRideSaveError(null)
+    setRideCapacityWarning(null)
     setIsDayDialogOpen(false)
     setRideInEditId(null)
     setRideFormsByType(createInitialRideForms())
@@ -1022,7 +1024,6 @@ function DashboardPage() {
     setRentalDateTo(selectedDateValue)
     setRentalTimeFrom('')
     setRentalTimeTo('')
-    setNextPassengerId(2)
 
     const initialVehicleId = visibleFahrzeuge.length === 1 ? visibleFahrzeuge[0].id : null
     setRentalVehicleId(initialVehicleId)
@@ -1035,6 +1036,7 @@ function DashboardPage() {
 
   function closeRideDialog() {
     setRideSaveError(null)
+    setRideCapacityWarning(null)
     setIsRideDialogOpen(false)
   }
 
@@ -1118,7 +1120,6 @@ function DashboardPage() {
       )
       setRentalVehicleId(ride.fahrzeugId ?? null)
       setRideFormsByType(createInitialRideForms())
-      setNextPassengerId(2)
       setIsRideDialogOpen(true)
 
       return
@@ -1147,7 +1148,6 @@ function DashboardPage() {
     setRentalTimeTo('')
     setRentalDateFrom(toDateInputValue(ride.date))
     setRentalDateTo(toDateInputValue(ride.date))
-    setNextPassengerId(passengersForEdit.reduce((maxId, passenger) => Math.max(maxId, passenger.id), 0) + 1)
     setIsRideDialogOpen(true)
   }
 
@@ -1190,28 +1190,35 @@ async function confirmDeleteRide() {
       return
     }
 
-    const currentPassengers = rideFormsByType[rideType].passengers
-
-    if (currentPassengers.length >= 8) {
-      return
-    }
-
     setRideFormsByType((currentState) => ({
       ...currentState,
-      [rideType]: {
-        ...currentState[rideType],
-        passengers: [
-          ...currentState[rideType].passengers,
-          rideType === 'theme'
-            ? {
-                ...createEmptyPassenger(nextPassengerId),
-                destinationAddress: currentState.theme.themeDestination,
-              }
-            : createEmptyPassenger(nextPassengerId),
-        ],
-      },
+      [rideType]: (() => {
+        const currentRideForm = currentState[rideType]
+        const selectedFahrzeug = visibleFahrzeuge.find((vehicle) => vehicle.id === currentRideForm.fahrzeugId)
+
+        if (!selectedFahrzeug || currentRideForm.passengers.length >= selectedFahrzeug.kapazitaet) {
+          return currentRideForm
+        }
+
+        const nextAvailablePassengerId = currentRideForm.passengers.reduce(
+          (maxId, passenger) => Math.max(maxId, passenger.id),
+          0,
+        ) + 1
+
+        return {
+          ...currentRideForm,
+          passengers: [
+            ...currentRideForm.passengers,
+            rideType === 'theme'
+              ? {
+                  ...createEmptyPassenger(nextAvailablePassengerId),
+                  destinationAddress: currentState.theme.themeDestination,
+                }
+              : createEmptyPassenger(nextAvailablePassengerId),
+          ],
+        }
+      })(),
     }))
-    setNextPassengerId((currentNextPassengerId) => currentNextPassengerId + 1)
   }
 
   function removePassengerField(passengerId: number) {
@@ -1363,11 +1370,21 @@ async function confirmDeleteRide() {
       return
     }
 
+    const currentPassengerCount = rideFormsByType[rideType].passengers.length
+    const removedPassengerCount = Math.max(0, currentPassengerCount - selectedFahrzeug.kapazitaet)
+
+    if (removedPassengerCount > 0) {
+      setRideCapacityWarning(`Das neue Fahrzeug hat nur ${selectedFahrzeug.kapazitaet} Plätze. ${removedPassengerCount} Fahrgast${removedPassengerCount === 1 ? '' : 'e'} wurde${removedPassengerCount === 1 ? '' : 'n'} aus der Fahrt entfernt.`)
+    } else {
+      setRideCapacityWarning(null)
+    }
+
     setRideFormsByType((currentState) => ({
       ...currentState,
       [rideType]: {
         ...currentState[rideType],
         fahrzeugId: selectedFahrzeug.id,
+        passengers: currentState[rideType].passengers.slice(0, selectedFahrzeug.kapazitaet),
       },
     }))
   }
@@ -1714,6 +1731,12 @@ setCalendarRides((currentRides) =>
   const dayHeaderLabel = weekdayFormatter.format(selectedDate)
   const dayHeaderDateLabel = dayHeaderDateFormatter.format(selectedDate)
   const activeRideForm = rideType === 'rental' ? null : rideFormsByType[rideType]
+  const selectedRideVehicle = activeRideForm == null
+    ? null
+    : visibleFahrzeuge.find((vehicle) => vehicle.id === activeRideForm.fahrzeugId) ?? null
+  const maxPassengersForActiveRide = selectedRideVehicle?.kapazitaet ?? 0
+  const isPassengerLimitReached = activeRideForm != null
+    && activeRideForm.passengers.length >= maxPassengersForActiveRide
   const selectedDayRides = ridesByDay.get(toDateKey(selectedDate)) ?? []
   const dayTimelineRides = useMemo(() => {
     const scheduledRides = selectedDayRides
@@ -2321,7 +2344,7 @@ setCalendarRides((currentRides) =>
                                 <div className="mt-2 whitespace-pre-line text-base leading-7 text-slate-700">{ride.remarks || '-'}</div>
                               </div>
                               {ride.passengers.length > 0 ? (
-                                ride.passengers.map((passenger) => (
+                                ride.passengers.map((passenger, passengerIndex) => (
                                   <div key={passenger.id} className={`rounded-2xl border border-slate-200 bg-white p-3 transition ${passenger.istAbgehakt ? 'opacity-70' : ''}`}>
                                     <div className="flex flex-wrap items-start justify-between gap-2">
                                       <label className="inline-flex items-center gap-2 text-2xl font-semibold text-slate-800">
@@ -2332,7 +2355,7 @@ setCalendarRides((currentRides) =>
                                           className="h-6 w-6 rounded-md border-slate-300"
                                         />
                                         <span className={passenger.istAbgehakt ? 'line-through text-slate-400' : ''}>
-                                          {passenger.name || `Fahrgast ${passenger.id}`}
+                                          {passenger.name || `Fahrgast ${passengerIndex + 1}`}
                                         </span>
                                       </label>
                                       <span className="inline-flex items-center gap-1 rounded-xl bg-[#0053a0]/12 px-3 py-1 text-sm font-semibold text-[#0053a0]">
@@ -2420,9 +2443,9 @@ setCalendarRides((currentRides) =>
                                 <h4 className="text-sm font-semibold text-slate-700">Fahrgäste</h4>
                                 {ride.passengers.length > 0 ? (
                                   <ul className="mt-2 space-y-2">
-                                    {ride.passengers.map((passenger) => (
+                                    {ride.passengers.map((passenger, passengerIndex) => (
                                       <li key={passenger.id} className="rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700">
-                                        <div className="font-semibold text-slate-800">{passenger.name || `Fahrgast ${passenger.id}`}</div>
+                                        <div className="font-semibold text-slate-800">{passenger.name || `Fahrgast ${passengerIndex + 1}`}</div>
                                         <div className="mt-1 text-xs text-slate-500">
                                           Telefon: {passenger.phone || '-'} | Abholung: {passenger.pickupAddress || '-'} | Ziel: {passenger.destinationAddress || '-'} | Zeit: {passenger.time || '-'}
                                         </div>
@@ -2535,6 +2558,13 @@ setCalendarRides((currentRides) =>
               {rideSaveError ? (
                 <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
                   {rideSaveError}
+                </div>
+              ) : null}
+
+              {rideCapacityWarning ? (
+                <div className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>{rideCapacityWarning}</span>
                 </div>
               ) : null}
 
@@ -2748,24 +2778,18 @@ setCalendarRides((currentRides) =>
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                       <p className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
                         <Users className="h-4 w-4 text-[#0053a0]" aria-hidden="true" />
-                        {rideType === 'theme' ? 'Fahrgäste Themenfahrt (max. 8)' : 'Fahrgäste (max. 8)'}
+                        {rideType === 'theme'
+                          ? `Fahrgäste Themenfahrt (max. ${maxPassengersForActiveRide || 'Fahrzeugkapazität'})`
+                          : `Fahrgäste (max. ${maxPassengersForActiveRide || 'Fahrzeugkapazität'})`}
                       </p>
-                      <button
-                        type="button"
-                        onClick={addPassengerField}
-                        disabled={(activeRideForm?.passengers.length ?? 0) >= 8}
-                        className="rounded-xl bg-[#0053a0]/12 px-3 py-1.5 text-sm font-semibold text-[#0053a0] transition hover:bg-[#0053a0]/20 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        + Fahrgast hinzufügen
-                      </button>
                     </div>
 
                     <div className="space-y-3">
-                      {activeRideForm?.passengers.map((passenger) => (
+                      {activeRideForm?.passengers.map((passenger, passengerIndex) => (
                         <div key={passenger.id} className="rounded-xl border border-slate-200 bg-white p-3">
                           <div className="mb-2 flex items-center justify-between gap-2">
                             <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                              Fahrgast {passenger.id}
+                              Fahrgast {passengerIndex + 1}
                             </div>
                             <button
                               type="button"
@@ -2871,6 +2895,17 @@ setCalendarRides((currentRides) =>
                           Noch keine Fahrgäste hinzugefügt.
                         </div>
                       ) : null}
+                    </div>
+
+                    <div className="mt-3 flex justify-start">
+                      <button
+                        type="button"
+                        onClick={addPassengerField}
+                        disabled={selectedRideVehicle == null || isPassengerLimitReached}
+                        className="rounded-xl bg-[#0053a0]/12 px-3 py-1.5 text-sm font-semibold text-[#0053a0] transition hover:bg-[#0053a0]/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        + Fahrgast hinzufügen
+                      </button>
                     </div>
                   </div>
                 </>
