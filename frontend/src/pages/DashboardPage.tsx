@@ -56,6 +56,7 @@ type RideFormState = {
   fahrerId: number | null
   fahrzeugId: number | null
   driverName: string
+  endTime: string
   themeTitle: string
   themeDestination: string
   remarks: string
@@ -407,7 +408,7 @@ function isSameRentalSeriesRide(
 }
 
 function getRideTimelineRange(
-  ride: Pick<CalendarRide, 'id' | 'date' | 'dateBis' | 'type' | 'time' | 'passengers' | 'title' | 'remarks' | 'fahrzeugId'>,
+  ride: Pick<CalendarRide, 'id' | 'date' | 'dateBis' | 'type' | 'time' | 'endTime' | 'passengers' | 'title' | 'remarks' | 'fahrzeugId'>,
   activeDay?: Date,
 ) {
   if (ride.type === 'rental') {
@@ -456,9 +457,14 @@ function getRideTimelineRange(
     return null
   }
 
+  const parsedEndMinutes = parseTimeToMinutes(ride.endTime)
+  const endMinutes = parsedEndMinutes !== null && parsedEndMinutes > startMinutes
+    ? parsedEndMinutes
+    : Math.min(startMinutes + 60, 24 * 60)
+
   return {
     startMinutes,
-    endMinutes: Math.min(startMinutes + 60, 24 * 60),
+    endMinutes,
   }
 }
 
@@ -527,7 +533,7 @@ function buildDayTimelineRideLayout(
 }
 
 function getDayTimelineRideDisplayTime(
-  ride: Pick<CalendarRide, 'type' | 'time' | 'passengers' | 'date' | 'dateBis'>,
+  ride: Pick<CalendarRide, 'type' | 'time' | 'endTime' | 'passengers' | 'date' | 'dateBis'>,
   startMinutes: number,
   endMinutes: number,
 ) {
@@ -538,6 +544,10 @@ function getDayTimelineRideDisplayTime(
       return `${rentalRangeDateFormatter.format(ride.date)} ${getRentalStartTime(ride.time)} - ${rentalRangeDateFormatter.format(ride.dateBis)} ${rentalEndTime}`
     }
 
+    return `${formatMinutesAsTime(startMinutes)}-${formatMinutesAsTime(endMinutes)}`
+  }
+
+  if (normalizePassengerText(ride.endTime).trim()) {
     return `${formatMinutesAsTime(startMinutes)}-${formatMinutesAsTime(endMinutes)}`
   }
 
@@ -557,6 +567,10 @@ function getDayTimelineRideTitle(
 
   if (ride.type === 'rental') {
     return `${ride.title} • Vermietet ${displayTime} Uhr (${statusMetadata[ride.status].label})`
+  }
+
+  if (normalizePassengerText(ride.endTime).trim()) {
+    return `${ride.title} • ${displayTime} Uhr (${statusMetadata[ride.status].label})`
   }
 
   return getRideCalendarTitle(ride)
@@ -675,6 +689,7 @@ function createInitialRideForms() {
       fahrerId: null,
       fahrzeugId: null,
       driverName: '',
+      endTime: '',
       themeTitle: '',
       themeDestination: '',
       remarks: '',
@@ -684,6 +699,7 @@ function createInitialRideForms() {
       fahrerId: null,
       fahrzeugId: null,
       driverName: '',
+      endTime: '',
       themeTitle: '',
       themeDestination: '',
       remarks: '',
@@ -1149,6 +1165,7 @@ function DashboardPage() {
       driverName: ride.driverName,
       fahrerId: ride.fahrerId,
       fahrzeugId: ride.fahrzeugId,
+      endTime: normalizePassengerText(ride.endTime).trim(),
       themeTitle: rideFormKey === 'theme' ? ride.title : '',
       themeDestination: rideFormKey === 'theme' ? ride.passengers[0]?.destinationAddress ?? '' : '',
       remarks: ride.remarks,
@@ -1570,6 +1587,7 @@ async function confirmDeleteRide() {
 
     const activeForm = rideFormsByType[rideType]
     const driverName = normalizePassengerText(activeForm.driverName).trim()
+    const endTime = normalizePassengerText(activeForm.endTime).trim()
     const passengers = (rideType === 'theme'
       ? applyThemeDestinationToPassengers(activeForm.passengers, activeForm.themeDestination)
       : activeForm.passengers
@@ -1600,6 +1618,7 @@ const tempRide: CalendarRide = {
       ? normalizePassengerText(activeForm.themeTitle).trim() || 'Themenfahrt'
       : 'Standardfahrt',
   time: rideTime,
+  endTime,
   driverName,
   createdByName: existingRide?.createdByName ?? currentCreatorDisplayName,
   fahrerId: activeForm.fahrerId,
@@ -1640,6 +1659,7 @@ setCalendarRides((currentRides) =>
           ? normalizePassengerText(activeForm.themeTitle).trim() || 'Themenfahrt'
           : 'Standardfahrt',
       time: rideTime,
+      endTime,
       driverName,
           createdByName: currentCreatorDisplayName,
       fahrerId: activeForm.fahrerId,
@@ -2458,6 +2478,9 @@ setCalendarRides((currentRides) =>
                                 <div>
                                   <span className="font-semibold text-slate-700">Fahrer:</span> {ride.driverName || '-'}
                                 </div>
+                                <div>
+                                  <span className="font-semibold text-slate-700">Geschätzte Endzeit:</span> {ride.endTime || '-'}
+                                </div>
                               </>
                             ) : null}
                             <div>
@@ -2823,6 +2846,16 @@ setCalendarRides((currentRides) =>
                           ))}
                       </div>
                     ) : null}
+                  </div>
+
+                  <div className="mt-6">
+                    <label className="block text-sm font-semibold text-slate-700">
+                      Geschätzte Endzeit
+                    </label>
+                    <FiveMinuteTimeField
+                      value={activeRideForm?.endTime ?? ''}
+                      onChange={(nextValue) => updateRideField('endTime', nextValue)}
+                    />
                   </div>
 
                   <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/50 p-3">
