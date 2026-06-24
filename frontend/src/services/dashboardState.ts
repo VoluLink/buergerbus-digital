@@ -101,6 +101,17 @@ function extractHourMinute(value?: string | null) {
   return match ? match[1] : ''
 }
 
+function buildRentalTimeRange(startTime?: string | null, endTime?: string | null) {
+  const rentalStart = extractHourMinute(startTime)
+  const rentalEnd = extractHourMinute(endTime)
+
+  if (rentalStart && rentalEnd) {
+    return `${rentalStart}-${rentalEnd}`
+  }
+
+  return rentalStart || rentalEnd
+}
+
 function mapBackendTypeToRideType(fahrttyp: string): RideType {
   const normalized = safeText(fahrttyp).trim().toLowerCase()
 
@@ -190,6 +201,7 @@ function toLocalDateString(date: Date) {
 export function mapBackendRideToCalendarRide(dto: BackendFahrtDto, fahrerListe: FahrerListItem[] = []): CalendarRide {
   const type = mapBackendTypeToRideType(dto.fahrttyp)
   const safeFahrerListe = Array.isArray(fahrerListe) ? fahrerListe : []
+  const normalizedEndTime = extractHourMinute(dto.endzeit)
 
   const fahrer = safeFahrerListe.find(
     (f) => f.fahrerId === dto.fahrerId,
@@ -202,8 +214,10 @@ export function mapBackendRideToCalendarRide(dto: BackendFahrtDto, fahrerListe: 
     type,
     status: mapBackendStatusToRideStatus(dto.status, type),
     title: dto.titel,
-    time: extractHourMinute(dto.startzeit),
-    endTime: dto.endzeit,
+    time: type === 'rental'
+      ? buildRentalTimeRange(dto.startzeit, dto.endzeit)
+      : extractHourMinute(dto.startzeit),
+    endTime: normalizedEndTime || null,
     driverName: fahrer?.name ?? '',
     createdByName: safeText(dto.angelegtVonUserName),
     fahrerId: dto.fahrerId ?? null,
