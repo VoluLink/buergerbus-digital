@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext'
 import { changePassword, updateUserProfile } from '../services/profile'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
 import { isPasswordLongEnough } from '../utils/password'
+import { Eye, EyeOff } from 'lucide-react'
 
 function formatDateInput(value?: string | null) {
   if (!value) {
@@ -56,6 +57,9 @@ function ProfilePage() {
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [changePasswordError, setChangePasswordError] = useState<string | null>(null)
   const [changePasswordSuccess, setChangePasswordSuccess] = useState<string | null>(null)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const [formData, setFormData] = useState({
     username: '',
@@ -582,16 +586,19 @@ function ProfilePage() {
           </div>
 
           <form className="grid gap-4 lg:grid-cols-2" onSubmit={handleChangePassword} noValidate>
-            <div className="lg:col-span-2">
+
+            {/* Aktuelles Passwort */}
+            <div className="relative lg:col-span-2">
               <label
                 htmlFor="currentPassword"
                 className="block text-xs font-semibold text-slate-700"
               >
                 Aktuelles Passwort
               </label>
+
               <input
                 id="currentPassword"
-                type="password"
+                type={showCurrentPassword ? 'text' : 'password'}
                 autoComplete="current-password"
                 value={passwordForm.currentPassword}
                 onChange={(event) => {
@@ -599,17 +606,31 @@ function ProfilePage() {
                   setChangePasswordError(null)
                   setChangePasswordSuccess(null)
                 }}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
               />
+
+              <button
+                type="button"
+                onClick={() => setShowCurrentPassword((v) => !v)}
+                className="absolute right-3 top-9 text-slate-500 hover:text-slate-700"
+              >
+                {showCurrentPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
             </div>
 
-            <div>
+            {/* Neues Passwort */}
+            <div className="relative">
               <label htmlFor="newPassword" className="block text-xs font-semibold text-slate-700">
                 Neues Passwort
               </label>
+
               <input
                 id="newPassword"
-                type="password"
+                type={showNewPassword ? 'text' : 'password'}
                 autoComplete="new-password"
                 value={passwordForm.newPassword}
                 onChange={(event) => {
@@ -617,20 +638,34 @@ function ProfilePage() {
                   setChangePasswordError(null)
                   setChangePasswordSuccess(null)
                 }}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
               />
+
+              <button
+                type="button"
+                onClick={() => setShowNewPassword((v) => !v)}
+                className="absolute right-3 top-9 text-slate-500 hover:text-slate-700"
+              >
+                {showNewPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
             </div>
 
-            <div>
+            {/* Passwort bestätigen */}
+            <div className="relative">
               <label
                 htmlFor="confirmNewPassword"
                 className="block text-xs font-semibold text-slate-700"
               >
                 Neues Passwort bestätigen
               </label>
+
               <input
                 id="confirmNewPassword"
-                type="password"
+                type={showConfirmPassword ? 'text' : 'password'}
                 autoComplete="new-password"
                 value={passwordForm.confirmNewPassword}
                 onChange={(event) => {
@@ -638,8 +673,20 @@ function ProfilePage() {
                   setChangePasswordError(null)
                   setChangePasswordSuccess(null)
                 }}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
               />
+
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                className="absolute right-3 top-9 text-slate-500 hover:text-slate-700"
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
             </div>
 
             {changePasswordSuccess ? (
