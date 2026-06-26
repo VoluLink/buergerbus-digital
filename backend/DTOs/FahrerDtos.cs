@@ -8,7 +8,6 @@ public record FahrerListItemDto(
     int BenutzerId,
     string Name,
     string? Telefonnummer,
-    string? Fahrzeug,
     string Status,
     bool Aktiv,
     string? Bemerkung

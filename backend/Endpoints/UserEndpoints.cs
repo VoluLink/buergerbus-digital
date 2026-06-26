@@ -599,15 +599,6 @@ public static class UserEndpoints
                     .Where(f => f.FahrerId == user.Fahrer.Id)
                     .ExecuteUpdateAsync(setters => setters
                         .SetProperty(f => f.FahrerId, (int?)null));
-
-                var fahrerFahrzeuge = await db.FahrerFahrzeuge
-                    .Where(link => link.FahrerId == user.Fahrer.Id)
-                    .ToListAsync();
-
-                if (fahrerFahrzeuge.Count > 0)
-                {
-                    db.FahrerFahrzeuge.RemoveRange(fahrerFahrzeuge);
-                }
             }
 
             await db.Fahrten
