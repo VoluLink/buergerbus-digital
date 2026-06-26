@@ -857,9 +857,6 @@ function InitiativenPage() {
                         <li>{deletePreview.affected.rides} Fahrten</li>
                         <li>{deletePreview.affected.rideSegments} Teilstrecken</li>
                         <li>{deletePreview.affected.passengers} Fahrgäste</li>
-                        <li>{deletePreview.affected.deletionDeadlines} Löschfristen</li>
-                        <li>{deletePreview.affected.notifications} Benachrichtigungen</li>
-                        <li>{deletePreview.affected.driverVehicleAssignments} Fahrer-Fahrzeug-Zuordnungen</li>
                       </ul>
 
                       <p className="pt-1 text-xs text-slate-600">
