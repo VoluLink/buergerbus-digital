@@ -1,0 +1,243 @@
+import { useMemo } from "react";
+
+import { rideStatusMetadata } from "../../../config/rideStatusConfig";
+import type { CalendarRide } from "../../../types/DashboardRide";
+import { isSameDay } from "../utils/dateUtils";
+import { formatHourLabel } from "../utils/calendarViewUtils";
+import { buildDayTimelineRideLayout } from "../utils/rideTimelineLayout";
+import { getRideTimelineRange } from "../utils/rideTimelineUtils";
+import {
+  getDayTimelineRideDisplayTime,
+  getDayTimelineRideTitle,
+  getRideCalendarTitle,
+} from "../utils/rideDisplayUtils";
+
+type DayTimelineCalendarProps = {
+  selectedDate: Date;
+  selectedDayRides: CalendarRide[];
+  openDayDialog: (date: Date) => void;
+};
+
+const statusMetadata = rideStatusMetadata;
+
+const weekdayFormatter = new Intl.DateTimeFormat("de-DE", {
+  weekday: "long",
+});
+
+const dayHeaderDateFormatter = new Intl.DateTimeFormat("de-DE", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+
+const DAY_TIMELINE_HOUR_HEIGHT = 48;
+const DAY_TIMELINE_VERTICAL_PADDING = 18;
+const DAY_TIMELINE_TOTAL_HEIGHT =
+  DAY_TIMELINE_HOUR_HEIGHT * 24 + DAY_TIMELINE_VERTICAL_PADDING * 2;
+const dayTimelineHourMarkers = Array.from({ length: 25 }, (_, index) => index);
+
+export function DayTimelineCalendar({
+  selectedDate,
+  selectedDayRides,
+  openDayDialog,
+}: DayTimelineCalendarProps) {
+  const dayHeaderLabel = weekdayFormatter.format(selectedDate);
+  const dayHeaderDateLabel = dayHeaderDateFormatter.format(selectedDate);
+
+  const dayTimelineRides = useMemo(() => {
+    const scheduledRides = selectedDayRides
+      .map((ride) => {
+        const timelineRange = getRideTimelineRange(ride, selectedDate);
+
+        if (!timelineRange) {
+          return null;
+        }
+
+        return {
+          ride,
+          startMinutes: timelineRange.startMinutes,
+          endMinutes: timelineRange.endMinutes,
+        };
+      })
+      .filter(
+        (
+          entry,
+        ): entry is {
+          ride: CalendarRide;
+          startMinutes: number;
+          endMinutes: number;
+        } => entry !== null,
+      )
+      .sort(
+        (left, right) =>
+          left.startMinutes - right.startMinutes ||
+          left.ride.title.localeCompare(right.ride.title, "de-DE"),
+      );
+
+    return buildDayTimelineRideLayout(scheduledRides);
+  }, [selectedDate, selectedDayRides]);
+
+  const dayTimelineUnscheduledRides = useMemo(() => {
+    return selectedDayRides.filter(
+      (ride) => getRideTimelineRange(ride, selectedDate) === null,
+    );
+  }, [selectedDate, selectedDayRides]);
+
+  return (
+    <div className="mt-5">
+      <div className="mb-4 text-center text-sm font-semibold capitalize text-slate-500">
+        {dayHeaderLabel}, {dayHeaderDateLabel}
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="max-h-[70vh] overflow-y-auto">
+          <div className="grid grid-cols-[4.5rem_1fr]">
+            <div
+              className="relative bg-white"
+              style={{ height: `${DAY_TIMELINE_TOTAL_HEIGHT}px` }}
+            >
+              {dayTimelineHourMarkers.map((hour) => (
+                <div
+                  key={hour}
+                  className="absolute right-3 -translate-y-1/2 text-xs font-semibold text-slate-400"
+                  style={{
+                    top: `${
+                      hour * DAY_TIMELINE_HOUR_HEIGHT +
+                      DAY_TIMELINE_VERTICAL_PADDING
+                    }px`,
+                  }}
+                >
+                  {formatHourLabel(hour)}
+                </div>
+              ))}
+            </div>
+
+            <div
+              className="relative border-l border-slate-200 bg-slate-50/50"
+              style={{ height: `${DAY_TIMELINE_TOTAL_HEIGHT}px` }}
+            >
+              {dayTimelineHourMarkers.map((hour) => (
+                <div
+                  key={hour}
+                  className="absolute inset-x-0 border-t border-dashed border-slate-200"
+                  style={{
+                    top: `${
+                      hour * DAY_TIMELINE_HOUR_HEIGHT +
+                      DAY_TIMELINE_VERTICAL_PADDING
+                    }px`,
+                  }}
+                />
+              ))}
+
+              {dayTimelineRides.map(
+                ({ ride, startMinutes, endMinutes, column, columnCount }) => {
+                  const top =
+                    (startMinutes / 60) * DAY_TIMELINE_HOUR_HEIGHT +
+                    DAY_TIMELINE_VERTICAL_PADDING;
+                  const durationMinutes = Math.max(
+                    endMinutes - startMinutes,
+                    45,
+                  );
+                  const height = Math.max(
+                    (durationMinutes / 60) * DAY_TIMELINE_HOUR_HEIGHT,
+                    44,
+                  );
+                  const columnGapPercent = columnCount > 1 ? 1.5 : 0;
+                  const widthPercent =
+                    (100 - columnGapPercent * (columnCount - 1)) / columnCount;
+                  const leftPercent =
+                    column * (widthPercent + columnGapPercent);
+                  const displayTime = getDayTimelineRideDisplayTime(
+                    ride,
+                    startMinutes,
+                    endMinutes,
+                  );
+                  const showFullRentalPeriod =
+                    ride.type === "rental" &&
+                    !!ride.dateBis &&
+                    !isSameDay(ride.date, ride.dateBis);
+
+                  return (
+                    <button
+                      key={ride.id}
+                      type="button"
+                      onClick={() => openDayDialog(ride.date)}
+                      className="absolute overflow-hidden rounded-2xl border border-slate-200 bg-white/95 p-3 text-left shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:border-[#0053a0]/40 hover:bg-white"
+                      style={{
+                        top: `${top}px`,
+                        left: `calc(${leftPercent}% + 0.5rem)`,
+                        width: `calc(${widthPercent}% - 0.5rem)`,
+                        height: `${height}px`,
+                      }}
+                      title={getDayTimelineRideTitle(
+                        ride,
+                        startMinutes,
+                        endMinutes,
+                      )}
+                    >
+                      <div className="space-y-2">
+                        <span
+                          className={`block rounded-full text-center font-semibold text-white ${
+                            statusMetadata[ride.status].color
+                          } ${
+                            showFullRentalPeriod
+                              ? "whitespace-normal break-words px-2 py-1 text-[9px] leading-tight"
+                              : "truncate px-1.5 py-0.5 text-[9px] leading-none"
+                          }`}
+                        >
+                          {displayTime || "---"}
+                        </span>
+
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold text-slate-800">
+                            {ride.title}
+                          </div>
+
+                          {ride.type !== "rental" ? (
+                            <div className="mt-1 text-xs text-slate-500">
+                              {ride.passengers.length} Fahrgäste
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                },
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {dayTimelineUnscheduledRides.length > 0 ? (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="text-sm font-semibold text-slate-700">
+            Ohne Uhrzeit
+          </div>
+
+          <div className="mt-3 space-y-2">
+            {dayTimelineUnscheduledRides.map((ride) => (
+              <button
+                key={ride.id}
+                type="button"
+                onClick={() => openDayDialog(ride.date)}
+                className="w-full rounded-xl bg-white px-3 py-2 text-left text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-100"
+                title={getRideCalendarTitle(ride)}
+              >
+                <span
+                  className={`block truncate rounded-full px-1.5 py-0.5 text-center text-[9px] font-semibold leading-none text-white ${statusMetadata[ride.status].color}`}
+                >
+                  Ohne Uhrzeit
+                </span>
+
+                <span className="mt-2 block min-w-0 truncate">
+                  {ride.title}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

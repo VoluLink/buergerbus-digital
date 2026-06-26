@@ -1,4 +1,5 @@
-import { API_BASE_URL } from './api'
+import { API_BASE_URL } from '../config/apiConfig'
+import { apiFetch } from './httpClient'
 import type { CalendarRide, PassengerForm, RideStatus, RideType } from '../types/DashboardRide'
 import type { FahrerListItem } from '../types/FahrerListItem'
 
@@ -359,7 +360,7 @@ async function tryLoadFromBackend(
 ): Promise<CalendarRide[] | null> {
   try {
     const query = initiativeId ? `?initiativeId=${initiativeId}` : ''
-    const res = await fetch(`${API_BASE_URL}/api/v1/fahrten${query}`)
+    const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten${query}`)
     if (!res.ok) return null
 
     const data: BackendFahrtDto[] = await res.json()
