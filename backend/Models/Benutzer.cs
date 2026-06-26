@@ -29,9 +29,6 @@ namespace BuergerbusAPI.Models
         public int InitiativeId { get; set; }
         public Initiativen Initiative { get; set; }
 
-        // Liste für Benachrichtigungen
-        public List<Benachrichtigungen> Benachrichtigungen { get; set; } = new();
-
         //Liste für BenutzerRollen
         public List<BenutzerRolle> BenutzerRollen { get; set; } = new();
 

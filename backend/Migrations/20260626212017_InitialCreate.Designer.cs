@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BuergerbusAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260606212203_AddAngelegtVonUserToFahrten")]
-    partial class AddAngelegtVonUserToFahrten
+    [Migration("20260626212017_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,50 +24,6 @@ namespace BuergerbusAPI.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
-
-            modelBuilder.Entity("BuergerbusAPI.Models.Benachrichtigungen", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("BenutzerId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("ErstelltAm")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<bool>("Gelesen")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<int>("InitiativeId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Nachricht")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<int?>("ReferenzId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Titel")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Typ")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BenutzerId");
-
-                    b.HasIndex("InitiativeId");
-
-                    b.ToTable("Benachrichtigungen");
-                });
 
             modelBuilder.Entity("BuergerbusAPI.Models.Benutzer", b =>
                 {
@@ -187,21 +143,6 @@ namespace BuergerbusAPI.Migrations
                     b.ToTable("Fahrer");
                 });
 
-            modelBuilder.Entity("BuergerbusAPI.Models.FahrerFahrzeug", b =>
-                {
-                    b.Property<int>("FahrerId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("FahrzeugId")
-                        .HasColumnType("int");
-
-                    b.HasKey("FahrerId", "FahrzeugId");
-
-                    b.HasIndex("FahrzeugId");
-
-                    b.ToTable("FahrerFahrzeuge");
-                });
-
             modelBuilder.Entity("BuergerbusAPI.Models.Fahrgast", b =>
                 {
                     b.Property<int>("Id")
@@ -253,6 +194,58 @@ namespace BuergerbusAPI.Migrations
                     b.ToTable("Fahrgaeste");
                 });
 
+            modelBuilder.Entity("BuergerbusAPI.Models.FahrtTeilnehmer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AbgehaktAm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Adresse")
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("AlsStammgastGespeichert")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("AnonymisiertAm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("FahrgastId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FahrtId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IstAbgehakt")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IstTemporaer")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Nachname")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Telefonnummer")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Vorname")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FahrgastId");
+
+                    b.HasIndex("FahrtId");
+
+                    b.ToTable("FahrtTeilnehmer");
+                });
+
             modelBuilder.Entity("BuergerbusAPI.Models.Fahrten", b =>
                 {
                     b.Property<int>("Id")
@@ -271,6 +264,9 @@ namespace BuergerbusAPI.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<DateTime>("Datum")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DatumBis")
                         .HasColumnType("datetime(6)");
 
                     b.Property<DateTime?>("Endzeit")
@@ -362,6 +358,52 @@ namespace BuergerbusAPI.Migrations
                     b.ToTable("Fahrzeuge");
                 });
 
+            modelBuilder.Entity("BuergerbusAPI.Models.FooterLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ExternalUrl")
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("LinkType")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("OpenInNewTab")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<Guid?>("SitePageId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SitePageId");
+
+                    b.HasIndex("IsActive", "SortOrder");
+
+                    b.ToTable("FooterLinks");
+                });
+
             modelBuilder.Entity("BuergerbusAPI.Models.Initiativen", b =>
                 {
                     b.Property<int>("Id")
@@ -388,7 +430,88 @@ namespace BuergerbusAPI.Migrations
                     b.ToTable("Initiativen");
                 });
 
-            modelBuilder.Entity("BuergerbusAPI.Models.Loeschfristen", b =>
+            modelBuilder.Entity("BuergerbusAPI.Models.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("RecipientGroup")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("BuergerbusAPI.Models.NotificationRecipient", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("NotificationId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NotificationId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("NotificationRecipients");
+                });
+
+            modelBuilder.Entity("BuergerbusAPI.Models.PasswordResetToken", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -396,29 +519,30 @@ namespace BuergerbusAPI.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("FahrgastId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("GeloeschtAm")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("Grund")
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("InitiativeId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("LoeschenAm")
+                    b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("FahrgastId")
+                    b.HasIndex("TokenHash")
                         .IsUnique();
 
-                    b.HasIndex("InitiativeId");
+                    b.HasIndex("UserId");
 
-                    b.ToTable("Loeschfristen");
+                    b.ToTable("PasswordResetTokens");
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.Rollen", b =>
@@ -475,6 +599,50 @@ namespace BuergerbusAPI.Migrations
                     b.ToTable("Schaeden");
                 });
 
+            modelBuilder.Entity("BuergerbusAPI.Models.SitePage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("FooterSortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("ShowInFooter")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.ToTable("SitePages");
+                });
+
             modelBuilder.Entity("BuergerbusAPI.Models.Teilstrecke", b =>
                 {
                     b.Property<int>("Id")
@@ -490,10 +658,13 @@ namespace BuergerbusAPI.Migrations
                     b.Property<DateTime?>("Endzeit")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<int>("FahrgastId")
+                    b.Property<int?>("FahrgastId")
                         .HasColumnType("int");
 
                     b.Property<int>("FahrtId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("FahrtTeilnehmerId")
                         .HasColumnType("int");
 
                     b.Property<int?>("Reihenfolge")
@@ -512,6 +683,8 @@ namespace BuergerbusAPI.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("FahrgastId");
+
+                    b.HasIndex("FahrtTeilnehmerId");
 
                     b.HasIndex("FahrtId", "FahrgastId")
                         .IsUnique();
@@ -558,25 +731,6 @@ namespace BuergerbusAPI.Migrations
                     b.ToTable("Wartungen");
                 });
 
-            modelBuilder.Entity("BuergerbusAPI.Models.Benachrichtigungen", b =>
-                {
-                    b.HasOne("BuergerbusAPI.Models.Benutzer", "Benutzer")
-                        .WithMany("Benachrichtigungen")
-                        .HasForeignKey("BenutzerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("BuergerbusAPI.Models.Initiativen", "Initiative")
-                        .WithMany("Benachrichtigungen")
-                        .HasForeignKey("InitiativeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Benutzer");
-
-                    b.Navigation("Initiative");
-                });
-
             modelBuilder.Entity("BuergerbusAPI.Models.Benutzer", b =>
                 {
                     b.HasOne("BuergerbusAPI.Models.Initiativen", "Initiative")
@@ -618,25 +772,6 @@ namespace BuergerbusAPI.Migrations
                     b.Navigation("Benutzer");
                 });
 
-            modelBuilder.Entity("BuergerbusAPI.Models.FahrerFahrzeug", b =>
-                {
-                    b.HasOne("BuergerbusAPI.Models.Fahrer", "Fahrer")
-                        .WithMany("FahrerFahrzeuge")
-                        .HasForeignKey("FahrerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("BuergerbusAPI.Models.Fahrzeug", "Fahrzeug")
-                        .WithMany("FahrerFahrzeuge")
-                        .HasForeignKey("FahrzeugId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Fahrer");
-
-                    b.Navigation("Fahrzeug");
-                });
-
             modelBuilder.Entity("BuergerbusAPI.Models.Fahrgast", b =>
                 {
                     b.HasOne("BuergerbusAPI.Models.Initiativen", "Initiative")
@@ -646,6 +781,23 @@ namespace BuergerbusAPI.Migrations
                         .IsRequired();
 
                     b.Navigation("Initiative");
+                });
+
+            modelBuilder.Entity("BuergerbusAPI.Models.FahrtTeilnehmer", b =>
+                {
+                    b.HasOne("BuergerbusAPI.Models.Fahrgast", "Fahrgast")
+                        .WithMany()
+                        .HasForeignKey("FahrgastId");
+
+                    b.HasOne("BuergerbusAPI.Models.Fahrten", "Fahrt")
+                        .WithMany("Teilnehmer")
+                        .HasForeignKey("FahrtId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Fahrgast");
+
+                    b.Navigation("Fahrt");
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.Fahrten", b =>
@@ -692,23 +844,36 @@ namespace BuergerbusAPI.Migrations
                     b.Navigation("Initiative");
                 });
 
-            modelBuilder.Entity("BuergerbusAPI.Models.Loeschfristen", b =>
+            modelBuilder.Entity("BuergerbusAPI.Models.FooterLink", b =>
                 {
-                    b.HasOne("BuergerbusAPI.Models.Fahrgast", "Fahrgast")
-                        .WithOne("Loeschfrist")
-                        .HasForeignKey("BuergerbusAPI.Models.Loeschfristen", "FahrgastId")
+                    b.HasOne("BuergerbusAPI.Models.SitePage", "SitePage")
+                        .WithMany()
+                        .HasForeignKey("SitePageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("SitePage");
+                });
+
+            modelBuilder.Entity("BuergerbusAPI.Models.NotificationRecipient", b =>
+                {
+                    b.HasOne("BuergerbusAPI.Models.Notification", "Notification")
+                        .WithMany("Recipients")
+                        .HasForeignKey("NotificationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("BuergerbusAPI.Models.Initiativen", "Initiative")
-                        .WithMany("Loeschfristen")
-                        .HasForeignKey("InitiativeId")
+                    b.Navigation("Notification");
+                });
+
+            modelBuilder.Entity("BuergerbusAPI.Models.PasswordResetToken", b =>
+                {
+                    b.HasOne("BuergerbusAPI.Models.Benutzer", "Benutzer")
+                        .WithMany("PasswordResetTokens")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Fahrgast");
-
-                    b.Navigation("Initiative");
+                    b.Navigation("Benutzer");
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.Schaden", b =>
@@ -735,8 +900,7 @@ namespace BuergerbusAPI.Migrations
                     b.HasOne("BuergerbusAPI.Models.Fahrgast", "Fahrgast")
                         .WithMany("Teilstrecken")
                         .HasForeignKey("FahrgastId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("BuergerbusAPI.Models.Fahrten", "Fahrt")
                         .WithMany("Teilstrecken")
@@ -744,9 +908,16 @@ namespace BuergerbusAPI.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("BuergerbusAPI.Models.FahrtTeilnehmer", "FahrtTeilnehmer")
+                        .WithMany("Teilstrecken")
+                        .HasForeignKey("FahrtTeilnehmerId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.Navigation("Fahrgast");
 
                     b.Navigation("Fahrt");
+
+                    b.Navigation("FahrtTeilnehmer");
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.Wartungen", b =>
@@ -772,36 +943,37 @@ namespace BuergerbusAPI.Migrations
                 {
                     b.Navigation("AngelegteFahrten");
 
-                    b.Navigation("Benachrichtigungen");
-
                     b.Navigation("BenutzerRollen");
 
                     b.Navigation("Fahrer");
+
+                    b.Navigation("PasswordResetTokens");
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.Fahrer", b =>
                 {
-                    b.Navigation("FahrerFahrzeuge");
-
                     b.Navigation("Fahrten");
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.Fahrgast", b =>
                 {
-                    b.Navigation("Loeschfrist");
+                    b.Navigation("Teilstrecken");
+                });
 
+            modelBuilder.Entity("BuergerbusAPI.Models.FahrtTeilnehmer", b =>
+                {
                     b.Navigation("Teilstrecken");
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.Fahrten", b =>
                 {
+                    b.Navigation("Teilnehmer");
+
                     b.Navigation("Teilstrecken");
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.Fahrzeug", b =>
                 {
-                    b.Navigation("FahrerFahrzeuge");
-
                     b.Navigation("Fahrten");
 
                     b.Navigation("Schaeden");
@@ -811,8 +983,6 @@ namespace BuergerbusAPI.Migrations
 
             modelBuilder.Entity("BuergerbusAPI.Models.Initiativen", b =>
                 {
-                    b.Navigation("Benachrichtigungen");
-
                     b.Navigation("Benutzer");
 
                     b.Navigation("Fahrgaeste");
@@ -821,11 +991,14 @@ namespace BuergerbusAPI.Migrations
 
                     b.Navigation("Fahrzeuge");
 
-                    b.Navigation("Loeschfristen");
-
                     b.Navigation("Schaeden");
 
                     b.Navigation("Wartungen");
+                });
+
+            modelBuilder.Entity("BuergerbusAPI.Models.Notification", b =>
+                {
+                    b.Navigation("Recipients");
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.Rollen", b =>

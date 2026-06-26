@@ -178,7 +178,7 @@ app.MapFahrgastEndpoints();
 app.MapFahrerEndpoints();
 
 app.MapFahrtenEndpoints();
-app.MapControllers();
+app.MapControllers(); 
 
 try
 {
@@ -197,7 +197,7 @@ try
 catch (Exception ex)
 {
     app.Logger.LogError(ex, "Fehler beim Seeding des initialen Admin-Benutzers.");
-}
+} 
 
 app.Run();
 

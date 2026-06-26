@@ -39,12 +39,8 @@ public class InitiativeDeletionService
             .Where(item => item.InitiativeId == id)
             .SelectMany(item => item.Teilstrecken)
             .CountAsync(cancellationToken);
-        var notifications = await db.Benachrichtigungen.AsNoTracking().CountAsync(item => item.InitiativeId == id, cancellationToken);
-        var deletionDeadlines = await db.Loeschfristen.AsNoTracking().CountAsync(item => item.InitiativeId == id, cancellationToken);
 
-        var driverVehicleAssignments = await db.FahrerFahrzeuge
-            .AsNoTracking()
-            .CountAsync(item => item.Fahrzeug.InitiativeId == id, cancellationToken);
+
 
         var affected = new InitiativeDeletePreviewAffectedDto(
             users,
@@ -53,10 +49,7 @@ public class InitiativeDeletionService
             damageReports,
             rides,
             passengers,
-            rideSegments,
-            notifications,
-            deletionDeadlines,
-            driverVehicleAssignments
+            rideSegments
         );
 
         var reason = isDefault
@@ -110,23 +103,11 @@ public class InitiativeDeletionService
                     cancellationToken
                 );
 
-            await db.FahrerFahrzeuge
-                .Where(item => item.Fahrzeug.InitiativeId == initiativeId)
-                .ExecuteDeleteAsync(cancellationToken);
-
-            await db.Benachrichtigungen
-                .Where(item => item.InitiativeId == initiativeId)
-                .ExecuteDeleteAsync(cancellationToken);
-
             await db.Wartungen
                 .Where(item => item.InitiativeId == initiativeId)
                 .ExecuteDeleteAsync(cancellationToken);
 
             await db.Schaeden
-                .Where(item => item.InitiativeId == initiativeId)
-                .ExecuteDeleteAsync(cancellationToken);
-
-            await db.Loeschfristen
                 .Where(item => item.InitiativeId == initiativeId)
                 .ExecuteDeleteAsync(cancellationToken);
 
