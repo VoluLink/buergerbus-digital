@@ -15,10 +15,7 @@
         // Initiative muss in jeder Tabelle sein (Multi-Tenant System) => Landkreis als Datengrenze
         public int InitiativeId { get; set; }
         public Initiativen Initiative { get; set; }
-
-        //Liste für FahrerFahrzeug
-        public List<FahrerFahrzeug> FahrerFahrzeuge { get; set; } = new();
-
+        
         //Liste für Wartungen
         public List<Wartungen> Wartungen { get; set; } = new();
 

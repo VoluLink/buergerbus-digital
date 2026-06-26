@@ -19,8 +19,5 @@ namespace BuergerbusAPI.Models
         //Liste für Fahrten
         public List<Fahrten> Fahrten { get; set; } = new();
 
-        // Liste für FahrerFahrzeug
-        public List<FahrerFahrzeug> FahrerFahrzeuge { get; set; } = new();
-
     }
 }

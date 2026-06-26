@@ -13,10 +13,8 @@
         public List<Fahrgast> Fahrgaeste { get; set; } = new();
         public List<Fahrzeug> Fahrzeuge { get; set; } = new();
         public List<Fahrten> Fahrten { get; set; } = new();
-        public List<Benachrichtigungen> Benachrichtigungen { get; set; } = new();
         public List<Wartungen> Wartungen { get; set; } = new();
         public List<Schaden> Schaeden { get; set; } = new();
-        public List<Loeschfristen> Loeschfristen { get; set; } = new();
        // public List<Teilstrecke> Teilstrecken { get; set; } = new();
 
     }

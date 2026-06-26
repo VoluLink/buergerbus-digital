@@ -29,7 +29,6 @@ namespace BuergerbusAPI.Data
 
         // Fahrer
         public DbSet<Fahrer> Fahrer { get; set; }
-        public DbSet<FahrerFahrzeug> FahrerFahrzeuge { get; set; }
 
         // Fahrzeuge
         public DbSet<Fahrzeug> Fahrzeuge { get; set; }
@@ -38,13 +37,9 @@ namespace BuergerbusAPI.Data
 
         // Fahrgäste
         public DbSet<Fahrgast> Fahrgaeste { get; set; }
-        public DbSet<Loeschfristen> Loeschfristen { get; set; }
 
         // Initiative (Mandanten / Landkreise)
         public DbSet<Initiativen> Initiativen { get; set; }
-
-        // Kommunikation
-        public DbSet<Benachrichtigungen> Benachrichtigungen { get; set; }
 
         // Öffentliche Seiten und Footer
         public DbSet<SitePage> SitePages { get; set; }
@@ -68,13 +63,6 @@ namespace BuergerbusAPI.Data
                 .HasOne(br => br.Rolle)
                 .WithMany(r => r.BenutzerRollen)
                 .HasForeignKey(br => br.RolleId);
-
-            // Benutzer -> Benachrichtigungen (1:n)
-
-            modelBuilder.Entity<Benachrichtigungen>()
-                .HasOne(b => b.Benutzer)
-                .WithMany(b => b.Benachrichtigungen)
-                .HasForeignKey(b => b.BenutzerId);
 
             // Benutzer <-> Fahrer (1:1)
 
@@ -106,21 +94,6 @@ namespace BuergerbusAPI.Data
                 .WithMany(b => b.AngelegteFahrten)
                 .HasForeignKey(f => f.AngelegtVonUserId);
                  
-
-            // Fahrer <-> Fahrzeug (n:m)
-
-            modelBuilder.Entity<FahrerFahrzeug>()
-                .HasKey(ff => new { ff.FahrerId, ff.FahrzeugId });
-
-            modelBuilder.Entity<FahrerFahrzeug>()
-                .HasOne(ff => ff.Fahrer)
-                .WithMany(f => f.FahrerFahrzeuge)
-                .HasForeignKey(ff => ff.FahrerId);
-
-            modelBuilder.Entity<FahrerFahrzeug>()
-                .HasOne(ff => ff.Fahrzeug)
-                .WithMany(f => f.FahrerFahrzeuge)
-                .HasForeignKey(ff => ff.FahrzeugId);
 
             // Fahrzeug -> Wartungen (1:n)
 
@@ -166,20 +139,6 @@ namespace BuergerbusAPI.Data
                 .WithMany(f => f.Teilstrecken)
                 .HasForeignKey(t => t.FahrgastId)
                 .OnDelete(DeleteBehavior.SetNull);
-
-            // Initiative -> Teilstrecke (1:n)
-
-            //modelBuilder.Entity<Teilstrecke>()
-            //    .HasOne(t => t.Initiative)
-            //    .WithMany(i => i.Teilstrecken)
-            //    .HasForeignKey(t => t.InitiativeId);
-
-            // Fahrgast <-> Löschfristen (1:1)
-
-            modelBuilder.Entity<Loeschfristen>()
-                .HasOne(l => l.Fahrgast)
-                .WithOne(f => f.Loeschfrist)
-                .HasForeignKey<Loeschfristen>(l => l.FahrgastId);
 
             // Initiative -> Benutzer (1:n)
 
@@ -245,13 +204,6 @@ namespace BuergerbusAPI.Data
                 .WithMany(i => i.Fahrgaeste)
                 .HasForeignKey(f => f.InitiativeId);
 
-            // Initiative -> Benachrichtigungen (1:n)
-
-            modelBuilder.Entity<Benachrichtigungen>()
-                .HasOne(b => b.Initiative)
-                .WithMany(i => i.Benachrichtigungen)
-                .HasForeignKey(b => b.InitiativeId);
-
             // Initiative -> Wartungen (1:n)
 
             modelBuilder.Entity<Wartungen>()
@@ -265,13 +217,6 @@ namespace BuergerbusAPI.Data
                 .HasOne(s => s.Initiative)
                 .WithMany(i => i.Schaeden)
                 .HasForeignKey(s => s.InitiativeId);
-
-            // Initiative -> Löschfristen (1:n)
-
-            modelBuilder.Entity<Loeschfristen>()
-                .HasOne(l => l.Initiative)
-                .WithMany(i => i.Loeschfristen)
-                .HasForeignKey(l => l.InitiativeId);
 
             // Legacy: Fahrgast darf pro Fahrt nur einmal vorkommen.
 
