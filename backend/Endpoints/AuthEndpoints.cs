@@ -77,6 +77,36 @@ public static class AuthEndpoints
                 UserMapper.CreateUserProfile(user)));
         });
 
+        app.MapPost("/api/v1/auth/refresh", async (
+            HttpContext httpContext,
+            AppDbContext db,
+            JwtService jwtService) =>
+        {
+            var currentUserId = AuthUtils.GetUserId(httpContext.User);
+            if (!currentUserId.HasValue)
+            {
+                return Results.Unauthorized();
+            }
+
+            var user = await db.Benutzer
+                .Include(u => u.Initiative)
+                .Include(u => u.BenutzerRollen)
+                    .ThenInclude(br => br.Rolle)
+                .Include(u => u.Fahrer)
+                .FirstOrDefaultAsync(u => u.Id == currentUserId.Value);
+
+            if (user is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            var token = jwtService.CreateToken(user);
+            return Results.Ok(new RefreshTokenResponseDto(token));
+        })
+        .Produces<RefreshTokenResponseDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status401Unauthorized)
+        .RequireAuthorization();
+
         app.MapPost("/api/auth/forgot-password", async (
             ForgotPasswordRequest request,
             AppDbContext db,

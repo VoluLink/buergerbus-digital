@@ -13,3 +13,7 @@ export interface LoginResponse {
   user: UserProfile
   token?: string
 }
+
+export interface RefreshTokenResponse {
+  token: string
+}

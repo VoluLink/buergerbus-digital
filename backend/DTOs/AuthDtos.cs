@@ -14,3 +14,5 @@ public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public record ChangePasswordResponse(string Message);
 
 public record LoginResponseDto(bool Success, string Message, string Token, UserProfileDto User);
+
+public record RefreshTokenResponseDto(string Token);
