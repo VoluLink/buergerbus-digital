@@ -244,7 +244,7 @@ export function RideDialog({
           </div>
         </div>
 
-        <footer className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 sm:px-8">
+        <footer className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-2 sm:px-8">
           <button
             type="button"
             onClick={closeRideDialog}
