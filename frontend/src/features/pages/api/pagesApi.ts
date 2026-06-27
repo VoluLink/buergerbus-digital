@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../../../services/api'
+import { API_BASE_URL } from '../../../config/apiConfig'
 import { apiFetch } from '../../../services/httpClient'
 import type { AdminPage, CreatePageRequest, PublicPage, UpdatePageRequest } from '../types'
 
