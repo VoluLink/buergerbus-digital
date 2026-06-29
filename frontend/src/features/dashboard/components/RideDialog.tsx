@@ -128,24 +128,26 @@ export function RideDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/65 p-3 backdrop-blur-sm sm:p-4">
       <section
-        className="max-h-[96vh] w-full max-w-4xl overflow-hidden rounded-[1.75rem] bg-white shadow-[0_40px_100px_rgba(15,23,42,0.45)]"
+        className="flex max-h-[calc(100vh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[1.75rem] bg-white shadow-[0_40px_100px_rgba(15,23,42,0.45)] sm:max-h-[calc(100vh-2rem)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="bg-[#0053a0] px-6 py-5 text-white sm:px-8">
+        <header className="shrink-0 bg-[#0053a0] px-5 py-4 text-white sm:px-8 sm:py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-4xl font-semibold tracking-tight">
+              <h2 className="text-2xl font-semibold tracking-tight sm:text-4xl">
                 {rideInEditId !== null
                   ? "Fahrt bearbeiten"
                   : "Neue Fahrt erstellen"}
               </h2>
-              <p className="mt-2 text-base text-white/80">{dialogHeading}</p>
+              <p className="mt-1 text-sm text-white/80 sm:mt-2 sm:text-base">
+                {dialogHeading}
+              </p>
             </div>
 
             <button
               type="button"
               onClick={closeRideDialog}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-white transition hover:bg-white/15"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white transition hover:bg-white/15"
               aria-label="Dialog schliessen"
             >
               <X className="h-7 w-7" aria-hidden="true" />
@@ -153,7 +155,7 @@ export function RideDialog({
           </div>
         </header>
 
-        <div className="max-h-[calc(96vh-170px)] overflow-y-auto px-6 py-6 sm:px-8">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-8 sm:py-6">
           {rideSaveError ? (
             <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
               {rideSaveError}
@@ -244,11 +246,12 @@ export function RideDialog({
           </div>
         </div>
 
-        <footer className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-2 sm:px-8">
+        <footer className="shrink-0 border-t border-slate-200 bg-white px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:bg-slate-50 sm:px-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           <button
             type="button"
             onClick={closeRideDialog}
-            className="rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-100"
+            className="min-h-11 w-full rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-100 sm:w-auto"
           >
             Abbrechen
           </button>
@@ -256,7 +259,7 @@ export function RideDialog({
             type="button"
             onClick={() => saveRide("saved")}
             disabled={isRideCrudRestricted}
-            className="rounded-2xl border border-[#0053a0]/30 bg-[#0053a0]/8 px-5 py-2.5 text-sm font-semibold text-[#0053a0] transition hover:bg-[#0053a0]/15"
+            className="min-h-11 w-full rounded-2xl border border-[#0053a0]/30 bg-[#0053a0]/8 px-5 py-2.5 text-sm font-semibold text-[#0053a0] transition hover:bg-[#0053a0]/15 sm:w-auto"
           >
             {rideInEditId !== null ? "Änderung speichern" : "Fahrt Speichern"}
           </button>
@@ -264,12 +267,13 @@ export function RideDialog({
             type="button"
             onClick={() => saveRide()}
             disabled={isRideCrudRestricted}
-            className="rounded-2xl bg-[#0053a0] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-105"
+            className="min-h-11 w-full rounded-2xl bg-[#0053a0] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-105 sm:w-auto"
           >
             {rideInEditId !== null
               ? "Änderungen übernehmen"
               : "Fahrt erstellen"}
           </button>
+          </div>
         </footer>
       </section>
     </div>
