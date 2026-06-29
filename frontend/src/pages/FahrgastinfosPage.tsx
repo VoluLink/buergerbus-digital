@@ -272,9 +272,9 @@ function FahrgastinfosPage() {
       />
 
       <div className="p-3 sm:p-4 lg:p-6">
-        <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 p-5 sm:p-6">
-            <h1 className="text-4xl font-bold tracking-tight text-slate-800">Fahrgastinfos</h1>
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl">
+          <div className="border-b border-slate-200 p-4 sm:p-6">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-800 sm:text-4xl">Fahrgastinfos</h1>
 
             <PassengerSearchBar searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} />
           </div>
@@ -294,11 +294,11 @@ function FahrgastinfosPage() {
           />
 
           {!isCrudRestricted ? (
-            <div className="flex w-full items-center justify-end gap-3 p-4">
+            <div className="flex w-full flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center sm:justify-end">
               <button
                 type="button"
                 onClick={handleOpenCreateModal}
-                className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 sm:py-2.5"
               >
                 Fahrgast hinzufügen
               </button>
@@ -306,7 +306,7 @@ function FahrgastinfosPage() {
                 type="button"
                 onClick={handleOpenEditModal}
                 disabled={!selectedGuestId}
-                className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition ${
+                className={`rounded-xl px-5 py-3 text-sm font-semibold transition sm:py-2.5 ${
                   selectedGuestId
                     ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
                     : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
@@ -318,7 +318,7 @@ function FahrgastinfosPage() {
                 type="button"
                 onClick={handleDeleteGuest}
                 disabled={!selectedGuestId}
-                className={`rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition ${
+                className={`rounded-xl px-5 py-3 text-sm font-semibold text-white transition sm:py-2.5 ${
                   selectedGuestId ? 'bg-rose-500 hover:bg-rose-600' : 'cursor-not-allowed bg-rose-200'
                 }`}
               >
@@ -337,7 +337,7 @@ function FahrgastinfosPage() {
           initiatives={initiatives}
           isAdmin={isAdmin}
           nonAdminInitiativeName={selectedGuest?.initiativeName ?? currentUser?.initiative?.name ?? '-'}
-          submitClassName="rounded-xl bg-[#0053a0] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-110"
+          submitClassName="rounded-xl bg-[#0053a0] px-5 py-3 text-sm font-semibold text-white hover:brightness-110 sm:py-2.5"
           submitLabel="Änderungen speichern"
           title="Fahrgast bearbeiten"
           onClose={handleCloseEditModal}
@@ -357,7 +357,7 @@ function FahrgastinfosPage() {
           initiativesError={initiativesError}
           isAdmin={isAdmin}
           nonAdminInitiativeName={currentUser?.initiative?.name ?? '-'}
-          submitClassName="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+          submitClassName="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700 sm:py-2.5"
           submitLabel="Gast anlegen"
           title="Fahrgast hinzufügen"
           onClose={handleCloseCreateModal}

@@ -23,7 +23,7 @@ export function PassengerHeader({
   return (
     <>
       <header className="border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -49,8 +49,8 @@ export function PassengerHeader({
             onClick={(event) => event.stopPropagation()}
             aria-label="Seitliche Navigation"
           >
-            <div className="flex items-center justify-between bg-[#0053a0] px-6 py-5 text-white">
-              <h2 className="text-4xl font-semibold tracking-tight">Navigation</h2>
+            <div className="flex items-center justify-between bg-[#0053a0] px-5 py-4 text-white sm:px-6 sm:py-5">
+              <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Navigation</h2>
               <button
                 type="button"
                 onClick={onCloseSideMenu}
@@ -61,7 +61,7 @@ export function PassengerHeader({
               </button>
             </div>
 
-            <div className="space-y-3 p-4">
+            <div className="space-y-3 p-3 sm:p-4">
               <button
                 type="button"
                 onClick={() => onGoToPage('/dashboard')}
