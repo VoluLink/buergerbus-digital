@@ -1,6 +1,8 @@
 using BuergerbusAPI.Models;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 /// <summary>
 /// Initialisiert die Datenbank beim Anwendungsstart.
@@ -60,6 +62,9 @@ public static class SeedData
 
         var initiativeName = Environment.GetEnvironmentVariable("SEED_INITIATIVE_NAME")
                              ?? "Default";
+
+        var env = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
+        ValidateProductionSeedConfiguration(env, email, password, initiativeName);
 
         var now = DateTime.UtcNow;
 
@@ -234,5 +239,42 @@ public static class SeedData
         }
 
         await db.SaveChangesAsync();
+    }
+
+    private static void ValidateProductionSeedConfiguration(
+        IWebHostEnvironment env,
+        string seedAdminEmail,
+        string seedAdminPassword,
+        string seedInitiativeName)
+    {
+        if (!env.IsProduction())
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(seedAdminEmail)
+            || string.IsNullOrWhiteSpace(seedAdminPassword)
+            || string.Equals(seedAdminPassword, "Admin123!", StringComparison.Ordinal)
+            || ContainsChangeMe(seedAdminEmail)
+            || ContainsChangeMe(seedAdminPassword)
+            || ContainsChangeMe(seedInitiativeName))
+        {
+            throw new SeedConfigurationException(
+                "Production requires real SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD and SEED_INITIATIVE_NAME values."
+            );
+        }
+    }
+
+    private static bool ContainsChangeMe(string? value)
+    {
+        return value?.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase) == true;
+    }
+}
+
+public sealed class SeedConfigurationException : InvalidOperationException
+{
+    public SeedConfigurationException(string message)
+        : base(message)
+    {
     }
 }
