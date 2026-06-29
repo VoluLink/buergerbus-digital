@@ -143,7 +143,7 @@ export function buildDriverDisplayName(
 
 export function getRideStatusByType(rideType: RideType, driverName: string): RideStatus {
   if (rideType === 'theme') {
-    return 'theme'
+    return normalizePassengerText(driverName).trim() ? 'theme' : 'open'
   }
 
   if (rideType === 'rental') {

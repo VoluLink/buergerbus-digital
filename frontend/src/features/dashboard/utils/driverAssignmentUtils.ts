@@ -7,7 +7,7 @@ export function isRideAssignedToDriver(
 ) {
   return (
     Boolean(driverIdentity.trim()) &&
-    ride.status === "assigned" &&
+    (ride.status === "assigned" || ride.status === "theme") &&
     normalizeName(ride.driverName) === normalizeName(driverIdentity)
   );
 }

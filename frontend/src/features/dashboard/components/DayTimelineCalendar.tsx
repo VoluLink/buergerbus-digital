@@ -162,7 +162,7 @@ export function DayTimelineCalendar({
                       key={ride.id}
                       type="button"
                       onClick={() => openDayDialog(ride.date)}
-                      className="absolute overflow-hidden rounded-2xl border border-slate-200 bg-white/95 p-3 text-left shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:border-[#0053a0]/40 hover:bg-white"
+                      className={`absolute overflow-hidden rounded-2xl border border-black/5 p-3 text-left text-white shadow-[0_10px_24px_rgba(15,23,42,0.14)] transition hover:brightness-95 ${statusMetadata[ride.status].color}`}
                       style={{
                         top: `${top}px`,
                         left: `calc(${leftPercent}% + 0.5rem)`,
@@ -177,9 +177,7 @@ export function DayTimelineCalendar({
                     >
                       <div className="space-y-2">
                         <span
-                          className={`block rounded-full text-center font-semibold text-white ${
-                            statusMetadata[ride.status].color
-                          } ${
+                          className={`block rounded-full border border-white/30 bg-white/15 text-center font-semibold text-white backdrop-blur-[1px] ${
                             showFullRentalPeriod
                               ? "whitespace-normal break-words px-2 py-1 text-[9px] leading-tight"
                               : "truncate px-1.5 py-0.5 text-[9px] leading-none"
@@ -189,12 +187,12 @@ export function DayTimelineCalendar({
                         </span>
 
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold text-slate-800">
+                          <div className="truncate text-sm font-semibold text-white">
                             {ride.title}
                           </div>
 
                           {ride.type !== "rental" ? (
-                            <div className="mt-1 text-xs text-slate-500">
+                            <div className="mt-1 text-xs text-white/80">
                               {ride.passengers.length} Fahrgäste
                             </div>
                           ) : null}
@@ -221,16 +219,16 @@ export function DayTimelineCalendar({
                 key={ride.id}
                 type="button"
                 onClick={() => openDayDialog(ride.date)}
-                className="w-full rounded-xl bg-white px-3 py-2 text-left text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-100"
+                className={`w-full rounded-xl border border-black/5 px-3 py-2 text-left text-sm font-semibold text-white shadow-sm transition hover:brightness-95 ${statusMetadata[ride.status].color}`}
                 title={getRideCalendarTitle(ride)}
               >
                 <span
-                  className={`block truncate rounded-full px-1.5 py-0.5 text-center text-[9px] font-semibold leading-none text-white ${statusMetadata[ride.status].color}`}
+                  className="block truncate rounded-full border border-white/30 bg-white/15 px-1.5 py-0.5 text-center text-[9px] font-semibold leading-none text-white backdrop-blur-[1px]"
                 >
                   Ohne Uhrzeit
                 </span>
 
-                <span className="mt-2 block min-w-0 truncate">
+                <span className="mt-2 block min-w-0 truncate text-white">
                   {ride.title}
                 </span>
               </button>

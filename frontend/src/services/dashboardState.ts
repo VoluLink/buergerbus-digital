@@ -127,14 +127,18 @@ function mapBackendTypeToRideType(fahrttyp: string): RideType {
   return 'standard'
 }
 
-function mapBackendStatusToRideStatus(status: string, type: RideType): RideStatus {
+function mapBackendStatusToRideStatus(
+  status: string,
+  type: RideType,
+  fahrerId?: number | null,
+): RideStatus {
   const normalized = safeText(status).trim().toLowerCase()
 
   if (normalized.includes('abgeschlossen') || normalized.includes('completed')) return 'completed'
-  if (normalized.includes('zugewiesen') || normalized.includes('assigned')) return 'assigned'
   if (normalized.includes('gespeichert') || normalized.includes('saved')) return 'saved'
 
-  if (type === 'theme') return 'theme'
+  if (type === 'theme') return fahrerId ? 'theme' : 'open'
+  if (normalized.includes('zugewiesen') || normalized.includes('assigned')) return 'assigned'
   if (type === 'rental') return 'rental'
 
   return 'open'
@@ -218,7 +222,7 @@ export function mapBackendRideToCalendarRide(dto: BackendFahrtDto, fahrerListe: 
     date: new Date(dto.datum),
     dateBis: dto.datumBis ? new Date(dto.datumBis) : null,
     type,
-    status: mapBackendStatusToRideStatus(dto.status, type),
+    status: mapBackendStatusToRideStatus(dto.status, type, dto.fahrerId),
     title: dto.titel,
     time: type === 'rental'
       ? buildRentalTimeRange(dto.startzeit, dto.endzeit)
