@@ -8,9 +8,9 @@ type RollenverteilungHeaderProps = {
 
 function RollenverteilungHeader({ onOpenSideMenu, onOpenProfile }: RollenverteilungHeaderProps) {
   return (
-    <header className="border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+    <header className="border-b border-slate-200 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <button
             type="button"
             onClick={onOpenSideMenu}
@@ -20,7 +20,7 @@ function RollenverteilungHeader({ onOpenSideMenu, onOpenProfile }: Rollenverteil
             <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
 
-          <h1 className="text-2xl font-bold text-slate-800">Nutzer & Rollenverteilung</h1>
+          <h1 className="min-w-0 break-words text-xl font-bold leading-tight text-slate-800 sm:text-2xl">Nutzer & Rollenverteilung</h1>
         </div>
 
         <UserMenuButton
