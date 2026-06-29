@@ -1,17 +1,14 @@
 import { LogOut } from 'lucide-react'
-import { AccountDeleteSection } from './AccountDeleteSection'
 
 type ProfileActionsProps = {
   isSaving: boolean
   onLogout: () => void
-  onDeleteProfile: () => void
   onSaveProfile: () => void
 }
 
 export function ProfileActions({
   isSaving,
   onLogout,
-  onDeleteProfile,
   onSaveProfile,
 }: ProfileActionsProps) {
   return (
@@ -24,8 +21,6 @@ export function ProfileActions({
         <LogOut className="h-3 w-3" aria-hidden="true" />
         Abmelden
       </button>
-
-      <AccountDeleteSection onDeleteProfile={onDeleteProfile} />
 
       <button
         type="button"

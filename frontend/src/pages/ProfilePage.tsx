@@ -239,10 +239,6 @@ function ProfilePage() {
     }
   }
 
-  function handleDeleteProfile() {
-    window.confirm('Möchten Sie dieses Profil wirklich löschen?')
-  }
-
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
       <ProfileHeader
@@ -291,7 +287,6 @@ function ProfilePage() {
           <ProfileActions
             isSaving={isSaving}
             onLogout={handleLogout}
-            onDeleteProfile={handleDeleteProfile}
             onSaveProfile={handleSaveProfile}
           />
         </section>
