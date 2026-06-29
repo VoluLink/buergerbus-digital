@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Bus, Menu, Search, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -93,30 +93,10 @@ function FahrzeuginfosPage() {
   const [editingWartungId, setEditingWartungId] = useState<number | null>(null)
   const [editingSchadenId, setEditingSchadenId] = useState<number | null>(null)
 
-  const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? null
-
-  useEffect(() => {
-    let isActive = true
-
-    async function loadInitiativen() {
-      try {
-        const loadedInitiativen = await fetchInitiatives()
-        if (isActive) {
-          setInitiativen(loadedInitiativen)
-        }
-      } catch {
-        if (isActive) {
-          setInitiativen([])
-        }
-      }
-    }
-
-    void loadInitiativen()
-
-    return () => {
-      isActive = false
-    }
-  }, [])
+  const selectedVehicle = useMemo(
+    () => vehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? null,
+    [selectedVehicleId, vehicles],
+  )
 
   useEffect(() => {
     let isActive = true
@@ -448,21 +428,30 @@ function FahrzeuginfosPage() {
     setSchadenFormError('')
   }
 
-  const filteredVehicles = vehicles.filter((vehicle) => {
-    const haystack = `${vehicle.id} ${vehicle.kennzeichen} ${vehicle.bezeichnung} ${vehicle.initiativeName ?? ''} ${vehicle.status} ${vehicle.bemerkung ?? ''}`.toLowerCase()
-    return haystack.includes(searchQuery.trim().toLowerCase())
-  })
-  const sortedVehicles = [...filteredVehicles].sort((a, b) =>
-    a.kennzeichen.localeCompare(b.kennzeichen, 'de'),
+  const sortedVehicles = useMemo(
+    () => {
+      const normalizedSearch = searchQuery.trim().toLowerCase()
+      return vehicles
+        .filter((vehicle) => {
+          const haystack = `${vehicle.id} ${vehicle.kennzeichen} ${vehicle.bezeichnung} ${vehicle.initiativeName ?? ''} ${vehicle.status} ${vehicle.bemerkung ?? ''}`.toLowerCase()
+          return haystack.includes(normalizedSearch)
+        })
+        .sort((a, b) => a.kennzeichen.localeCompare(b.kennzeichen, 'de'))
+    },
+    [searchQuery, vehicles],
   )
-  const sortedSchaeden = [...schaeden].sort((first, second) => {
-    const firstDate = new Date(first.entstandenAm)
-    const secondDate = new Date(second.entstandenAm)
-    const firstValue = Number.isNaN(firstDate.getTime()) ? 0 : firstDate.getTime()
-    const secondValue = Number.isNaN(secondDate.getTime()) ? 0 : secondDate.getTime()
+  const sortedSchaeden = useMemo(
+    () =>
+      [...schaeden].sort((first, second) => {
+        const firstDate = new Date(first.entstandenAm)
+        const secondDate = new Date(second.entstandenAm)
+        const firstValue = Number.isNaN(firstDate.getTime()) ? 0 : firstDate.getTime()
+        const secondValue = Number.isNaN(secondDate.getTime()) ? 0 : secondDate.getTime()
 
-    return secondValue - firstValue
-  })
+        return secondValue - firstValue
+      }),
+    [schaeden],
+  )
 
   async function handleSaveWartung(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()

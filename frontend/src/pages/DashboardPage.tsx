@@ -379,12 +379,15 @@ function DashboardPage() {
   });
 
   // Aktuelles Fahrzeug und Kapazitätsgrenze für den Fahrt-Dialog
-  const selectedRideVehicle =
-    activeRideForm == null
-      ? null
-      : (visibleFahrzeuge.find(
-          (vehicle) => vehicle.id === activeRideForm.fahrzeugId,
-        ) ?? null);
+  const selectedRideVehicle = useMemo(
+    () =>
+      activeRideForm == null
+        ? null
+        : (visibleFahrzeuge.find(
+            (vehicle) => vehicle.id === activeRideForm.fahrzeugId,
+          ) ?? null),
+    [activeRideForm, visibleFahrzeuge],
+  );
 
   const maxPassengersForActiveRide = selectedRideVehicle?.kapazitaet ?? 0;
 

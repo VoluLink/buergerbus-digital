@@ -83,18 +83,31 @@ export function useDashboardCalendarModel({
     [selectedDate],
   );
 
-  const activeCalendarDays =
-    selectedView === "Monat"
-      ? monthDays
-      : selectedView === "Woche"
-        ? weekDaysData
-        : [{ date: selectedDate, isCurrentMonth: true }];
+  const activeCalendarDays = useMemo(
+    () =>
+      selectedView === "Monat"
+        ? monthDays
+        : selectedView === "Woche"
+          ? weekDaysData
+          : [{ date: selectedDate, isCurrentMonth: true }],
+    [monthDays, selectedDate, selectedView, weekDaysData],
+  );
 
-  const monthHeading = formatMonthHeading(currentMonth);
-  const dialogHeading = formatDialogHeading(selectedDate);
-  const selectedDayRides = ridesByDay.get(toDateKey(selectedDate)) ?? [];
-  const hasDriverDayView = selectedDayRides.some(
-    (ride) => ride.type !== "rental",
+  const monthHeading = useMemo(
+    () => formatMonthHeading(currentMonth),
+    [currentMonth],
+  );
+  const dialogHeading = useMemo(
+    () => formatDialogHeading(selectedDate),
+    [selectedDate],
+  );
+  const selectedDayRides = useMemo(
+    () => ridesByDay.get(toDateKey(selectedDate)) ?? [],
+    [ridesByDay, selectedDate],
+  );
+  const hasDriverDayView = useMemo(
+    () => selectedDayRides.some((ride) => ride.type !== "rental"),
+    [selectedDayRides],
   );
 
   return {
