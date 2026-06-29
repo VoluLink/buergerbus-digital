@@ -31,9 +31,7 @@ export function useDashboardCalendarModel({
 }: UseDashboardCalendarModelParams) {
   const filteredCalendarRides = useMemo(() => {
     if (selectedFilter === "Offene Fahrten") {
-      return calendarRides.filter(
-        (ride) => ride.status !== "assigned" && ride.status !== "completed",
-      );
+      return calendarRides.filter((ride) => ride.status === "open");
     }
 
     if (selectedFilter === "Meine Fahrten") {

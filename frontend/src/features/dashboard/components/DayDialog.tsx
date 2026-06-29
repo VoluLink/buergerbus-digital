@@ -206,14 +206,16 @@ export function DayDialog({
                                 void toggleDriverSelfAssignment(ride)
                               }
                               className={`rounded-xl px-3 py-1 text-sm font-semibold transition ${
-                                ride.status === "assigned" &&
+                                (ride.status === "assigned" ||
+                                  ride.status === "theme") &&
                                 normalizeName(ride.driverName) ===
                                   normalizeName(currentDriverDisplayName)
                                   ? "bg-rose-50 text-rose-700 hover:bg-rose-100"
                                   : "bg-[#0053a0] text-white hover:brightness-105"
                               }`}
                             >
-                              {ride.status === "assigned" &&
+                              {(ride.status === "assigned" ||
+                                ride.status === "theme") &&
                               normalizeName(ride.driverName) ===
                                 normalizeName(currentDriverDisplayName)
                                 ? "Abmelden"
