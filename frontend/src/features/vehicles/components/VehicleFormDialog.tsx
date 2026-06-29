@@ -101,7 +101,7 @@ function VehicleFormDialog({
           onSetActiveTab(tab)
         }
       }}
-      className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+      className={`min-h-11 rounded-lg px-4 py-2 text-sm font-semibold transition ${
         activeTab === tab
           ? 'bg-[#0053a0] text-white'
           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -113,19 +113,24 @@ function VehicleFormDialog({
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/50 p-3 backdrop-blur-sm sm:items-center sm:p-4">
       <div
-        className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-lg"
+        className="flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-lg"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b pb-4">
+        <div className="flex items-center justify-between gap-3 border-b px-4 py-4 sm:px-6">
           <h2 className="text-xl font-bold text-slate-800">{title}</h2>
-          <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-700">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            aria-label="Dialog schließen"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="mt-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
           <div className="flex flex-wrap gap-2 border-b pb-3">
             {renderTabButton('stammdaten', 'Stammdaten')}
             {renderTabButton('wartungen', 'Wartungen')}
@@ -163,13 +168,13 @@ function VehicleFormDialog({
                           value={fieldValue}
                           onChange={(event) => onFieldChange(field.name, event.target.value)}
                           rows={4}
-                          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                          className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                         />
                       ) : isSelect ? (
                         <select
                           value={fieldValue}
                           onChange={(event) => onFieldChange(field.name, event.target.value)}
-                          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                          className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                         >
                           {field.name === 'initiativeId' ? (
                             <option value="">Keine Initiative ausgewählt</option>
@@ -211,7 +216,7 @@ function VehicleFormDialog({
 
                             onFieldChange(field.name, event.target.value)
                           }}
-                          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                          className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                         />
                       )}
                     </div>
@@ -224,18 +229,18 @@ function VehicleFormDialog({
                   </p>
                 ) : null}
 
-                <div className="col-span-1 mt-2 flex justify-end gap-2 sm:col-span-2 md:col-span-3">
+                <div className="sticky bottom-0 col-span-1 -mx-4 mt-2 grid grid-cols-1 gap-2 bg-white/95 px-4 py-3 sm:col-span-2 sm:mx-0 sm:flex sm:justify-end sm:px-0 md:col-span-3">
                   <button
                     type="button"
                     onClick={onClose}
-                    className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                    className="min-h-11 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
                   >
                     Abbrechen
                   </button>
                   <button
                     type="submit"
                     disabled={isCrudRestricted || isSaving}
-                    className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
+                    className={`min-h-11 rounded-lg px-4 py-2 text-sm font-semibold text-white ${
                       isCrudRestricted || isSaving
                         ? 'cursor-not-allowed bg-blue-400'
                         : 'bg-blue-500 hover:bg-blue-600'

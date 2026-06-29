@@ -629,7 +629,7 @@ function FahrzeuginfosPage() {
             </div>
           ) : null}
 
-          <div className="overflow-x-auto">
+          <div className="md:overflow-x-auto">
             <VehicleTable
               isLoading={isLoading}
               vehicles={sortedVehicles}
@@ -639,11 +639,11 @@ function FahrzeuginfosPage() {
             />
           </div>
           {!isCrudRestricted ? (
-            <div className="mt-4 flex w-full justify-end gap-2">
+            <div className="mt-4 grid w-full grid-cols-1 gap-2 sm:grid-cols-3 md:flex md:justify-end">
               <button
                 type="button"
                 onClick={openCreateVehicleModal}
-                className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
+                className="min-h-11 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
               >
                 Fahrzeug hinzufügen
               </button>
@@ -651,7 +651,7 @@ function FahrzeuginfosPage() {
                 type="button"
                 onClick={openEditVehicleModal}
                 disabled={!selectedVehicle}
-                className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
+                className={`min-h-11 rounded-lg px-4 py-2 text-sm font-semibold text-white ${
                   selectedVehicle
                     ? 'bg-blue-500 hover:bg-blue-600'
                     : 'cursor-not-allowed bg-gray-300'
@@ -663,7 +663,7 @@ function FahrzeuginfosPage() {
                 type="button"
                 onClick={handleDeleteVehicle}
                 disabled={!selectedVehicle}
-                className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
+                className={`min-h-11 rounded-lg px-4 py-2 text-sm font-semibold text-white ${
                   selectedVehicle ? 'bg-red-500 hover:bg-red-600' : 'cursor-not-allowed bg-red-300'
                 }`}
               >

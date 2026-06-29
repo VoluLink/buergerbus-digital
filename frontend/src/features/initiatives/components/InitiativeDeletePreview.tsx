@@ -15,18 +15,18 @@ export function InitiativeDeletePreview({
 }: InitiativeDeletePreviewProps) {
   if (isDefaultInitiative(initiative)) {
     return (
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+      <div className="break-words rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-700">
         Die Standard-Initiative kann nicht gelöscht werden.
       </div>
     )
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+    <div className="break-words rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
       {isDeletePreviewLoading ? (
         <p>Ermittle abhängige Daten ...</p>
       ) : deletePreview ? (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <p className="font-semibold text-rose-700">
             Diese Initiative wird gelöscht. Alle zugehörigen Fahrten, Fahrzeuge, Fahrgäste und
             weiteren Daten werden entfernt.
@@ -39,21 +39,21 @@ export function InitiativeDeletePreview({
           <p className="font-semibold text-slate-800">Betroffene Daten laut Vorschau:</p>
 
           <ul className="list-disc space-y-1 pl-5">
-            <li>{deletePreview.affected.users} Benutzer-Zuordnungen</li>
-            <li>{deletePreview.affected.vehicles} Fahrzeuge</li>
-            <li>{deletePreview.affected.maintenanceRecords} Wartungseinträge</li>
-            <li>{deletePreview.affected.damageReports} Schadensmeldungen</li>
-            <li>{deletePreview.affected.rides} Fahrten</li>
-            <li>{deletePreview.affected.rideSegments} Teilstrecken</li>
-            <li>{deletePreview.affected.passengers} Fahrgäste</li>
+            <li className="break-words">{deletePreview.affected.users} Benutzer-Zuordnungen</li>
+            <li className="break-words">{deletePreview.affected.vehicles} Fahrzeuge</li>
+            <li className="break-words">{deletePreview.affected.maintenanceRecords} Wartungseinträge</li>
+            <li className="break-words">{deletePreview.affected.damageReports} Schadensmeldungen</li>
+            <li className="break-words">{deletePreview.affected.rides} Fahrten</li>
+            <li className="break-words">{deletePreview.affected.rideSegments} Teilstrecken</li>
+            <li className="break-words">{deletePreview.affected.passengers} Fahrgäste</li>
           </ul>
 
-          <p className="pt-1 text-xs text-slate-600">
+          <p className="pt-1 text-xs leading-5 text-slate-600">
             Diese Aktion kann nicht rückgängig gemacht werden.
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <p className="font-semibold text-rose-700">
             Diese Initiative wird gelöscht. Alle zugehörigen Daten werden entfernt.
           </p>

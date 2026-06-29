@@ -24,11 +24,11 @@ export function InitiativeMembersSection({
 }: InitiativeMembersSectionProps) {
   return (
     <div className="p-3 sm:p-4 lg:p-6">
-      <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5 sm:p-6">
-          <div>
-            <h2 className="text-4xl font-bold tracking-tight text-slate-800">Initiativen</h2>
-            <p className="mt-2 text-sm text-slate-600">
+      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-slate-200 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:p-6">
+          <div className="min-w-0">
+            <h2 className="break-words text-2xl font-bold tracking-tight text-slate-800 sm:text-4xl">Initiativen</h2>
+            <p className="mt-2 break-words text-sm text-slate-600">
               Übersicht aller vorhandenen Initiativen.
             </p>
           </div>
@@ -37,14 +37,14 @@ export function InitiativeMembersSection({
             <button
               type="button"
               onClick={onCreate}
-              className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 sm:w-auto"
             >
               + Initiative hinzufügen
             </button>
           ) : null}
         </div>
 
-        <div className="p-5 sm:p-6">
+        <div className="p-4 sm:p-6">
           {successMessage ? (
             <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
               {successMessage}

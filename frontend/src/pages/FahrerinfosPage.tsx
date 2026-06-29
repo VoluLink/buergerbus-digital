@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { Bus, CircleUserRound, Menu, Search, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { FahrerListItem } from '../types/FahrerListItem'
@@ -47,6 +47,30 @@ function FahrerinfosPage() {
   function goToPage(path: string) {
     closeSideMenu()
     navigate(path)
+  }
+
+  function renderPhoneLink(phoneNumber?: string | null): ReactNode {
+    if (!phoneNumber) {
+      return '-'
+    }
+
+    return (
+      <a className="break-words font-medium text-[#0053a0] underline-offset-2 hover:underline" href={`tel:${phoneNumber}`}>
+        {phoneNumber}
+      </a>
+    )
+  }
+
+  function renderEmailLink(email?: string | null): ReactNode {
+    if (!email) {
+      return null
+    }
+
+    return (
+      <a className="break-all font-medium text-[#0053a0] underline-offset-2 hover:underline" href={`mailto:${email}`}>
+        {email}
+      </a>
+    )
   }
 
   const filteredDrivers = drivers.filter((driver) => {
@@ -109,30 +133,83 @@ function FahrerinfosPage() {
                 {searchQuery.trim() ? 'Keine passenden Fahrer gefunden.' : 'Keine Fahrer vorhanden.'}
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-slate-200">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50">
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Fahrer-ID</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Name</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Telefonnummer</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Bemerkung</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredDrivers.map((driver) => (
-                      <tr key={driver.fahrerId} className="border-b border-slate-100">
-                        <td className="px-4 py-3">{driver.fahrerId}</td>
-                        <td className="px-4 py-3">{driver.name}</td>
-                        <td className="px-4 py-3">{driver.telefonnummer || '—'}</td>
-                        <td className="px-4 py-3">{driver.status}</td>
-                        <td className="px-4 py-3">{driver.bemerkung || '—'}</td>
+              <>
+                <div className="space-y-3 md:hidden">
+                  {filteredDrivers.map((driver) => (
+                    <article
+                      key={driver.fahrerId}
+                      className={`rounded-2xl border p-4 shadow-sm ${
+                        driver.aktiv ? 'border-slate-200 bg-white' : 'border-red-200 bg-red-50'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h2 className="break-words text-lg font-semibold leading-6 text-slate-900">{driver.name}</h2>
+                          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Fahrer-ID {driver.fahrerId}
+                          </p>
+                        </div>
+                        <span
+                          className={`inline-flex min-h-11 items-center rounded-xl px-3 py-2 text-sm font-semibold ${
+                            driver.aktiv ? 'bg-emerald-50 text-emerald-700' : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          {driver.status}
+                        </span>
+                      </div>
+
+                      <dl className="mt-4 grid grid-cols-1 gap-3 text-sm">
+                        <div>
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Telefon</dt>
+                          <dd className="mt-1 break-words text-slate-800">{renderPhoneLink(driver.telefonnummer)}</dd>
+                        </div>
+
+                        {driver.email ? (
+                          <div>
+                            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">E-Mail</dt>
+                            <dd className="mt-1 text-slate-800">{renderEmailLink(driver.email)}</dd>
+                          </div>
+                        ) : null}
+
+                        <div>
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Fahrzeug</dt>
+                          <dd className="mt-1 break-words text-slate-800">{driver.fahrzeug || '-'}</dd>
+                        </div>
+
+                        <div>
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bemerkung</dt>
+                          <dd className="mt-1 break-words text-slate-800">{driver.bemerkung || '-'}</dd>
+                        </div>
+                      </dl>
+                    </article>
+                  ))}
+                </div>
+
+                <div className="hidden overflow-x-auto rounded-2xl border border-slate-200 md:block">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50">
+                        <th className="px-4 py-3 text-left font-semibold text-slate-700">Fahrer-ID</th>
+                        <th className="px-4 py-3 text-left font-semibold text-slate-700">Name</th>
+                        <th className="px-4 py-3 text-left font-semibold text-slate-700">Telefonnummer</th>
+                        <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
+                        <th className="px-4 py-3 text-left font-semibold text-slate-700">Bemerkung</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {filteredDrivers.map((driver) => (
+                        <tr key={driver.fahrerId} className="border-b border-slate-100">
+                          <td className="px-4 py-3">{driver.fahrerId}</td>
+                          <td className="px-4 py-3">{driver.name}</td>
+                          <td className="px-4 py-3">{renderPhoneLink(driver.telefonnummer)}</td>
+                          <td className="px-4 py-3">{driver.status}</td>
+                          <td className="px-4 py-3">{driver.bemerkung || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         </section>
@@ -164,57 +241,57 @@ function FahrerinfosPage() {
               <button
                 type="button"
                 onClick={() => goToPage('/dashboard')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                className="flex min-h-11 w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
               >
                 <Bus className="h-5 w-5" aria-hidden="true" />
-                Dashboard
+                <span className="min-w-0 break-words">Dashboard</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => goToPage('/fahrerinfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0] px-4 py-3 text-left text-lg font-medium text-white"
+                className="flex min-h-11 w-full items-center gap-3 rounded-2xl bg-[#0053a0] px-4 py-3 text-left text-lg font-medium text-white"
               >
                 <UserRound className="h-5 w-5" aria-hidden="true" />
-                Fahrerinfos
+                <span className="min-w-0 break-words">Fahrerinfos</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => goToPage('/fahrzeuginfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                className="flex min-h-11 w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
               >
                 <Bus className="h-5 w-5" aria-hidden="true" />
-                Fahrzeuginfos
+                <span className="min-w-0 break-words">Fahrzeuginfos</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => goToPage('/fahrgastinfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                className="flex min-h-11 w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
               >
                 <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
-                Fahrgastinfos
+                <span className="min-w-0 break-words">Fahrgastinfos</span>
               </button>
 
               {canManageInitiatives ? (
                 <button
                   type="button"
                   onClick={() => goToPage('/initiativen')}
-                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                  className="flex min-h-11 w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
                 >
                   <Bus className="h-5 w-5" aria-hidden="true" />
-                  Initiativen
+                  <span className="min-w-0 break-words">Initiativen</span>
                 </button>
               ) : null}
 
               <button
                 type="button"
                 onClick={() => goToPage('/rollenverteilung')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+                className="flex min-h-11 w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
               >
                 <Settings className="h-5 w-5" aria-hidden="true" />
-                Rollenverteilung
+                <span className="min-w-0 break-words">Rollenverteilung</span>
               </button>
             </div>
           </aside>

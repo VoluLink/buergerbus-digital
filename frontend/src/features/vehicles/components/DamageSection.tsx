@@ -55,8 +55,64 @@ function DamageSection({
         ) : schaeden.length === 0 ? (
           <div className="px-4 py-6 text-sm text-slate-500">Noch keine Schäden vorhanden.</div>
         ) : (
-          <div className="max-h-[350px] overflow-x-hidden overflow-y-auto">
-            <table className="w-full border-collapse text-sm">
+          <div className="max-h-[350px] overflow-y-auto">
+            <div className="space-y-3 p-3 md:hidden">
+              {schaeden.map((schaden) => (
+                <article
+                  key={schaden.id}
+                  className={`rounded-lg border bg-white p-4 ${
+                    editingSchadenId === schaden.id
+                      ? 'border-[#0053a0] ring-2 ring-[#0053a0]/15'
+                      : 'border-slate-200'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase text-slate-500">Status</p>
+                      <p className="mt-1 break-words text-base font-semibold text-slate-900">
+                        {schaden.status}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onStartEdit(schaden)}
+                      className="min-h-11 shrink-0 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                    >
+                      Bearbeiten
+                    </button>
+                  </div>
+
+                  <dl className="mt-4 grid grid-cols-1 gap-3 text-sm">
+                    <div>
+                      <dt className="text-xs font-semibold uppercase text-slate-500">
+                        Beschreibung
+                      </dt>
+                      <dd className="mt-1 break-words text-slate-800">{schaden.beschreibung}</dd>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <dt className="text-xs font-semibold uppercase text-slate-500">
+                          Entstanden am
+                        </dt>
+                        <dd className="mt-1 tabular-nums text-slate-800">
+                          {formatDisplayDate(schaden.entstandenAm)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs font-semibold uppercase text-slate-500">
+                          Behoben am
+                        </dt>
+                        <dd className="mt-1 tabular-nums text-slate-800">
+                          {formatDisplayDate(schaden.behobenAm ?? '')}
+                        </dd>
+                      </div>
+                    </div>
+                  </dl>
+                </article>
+              ))}
+            </div>
+
+            <table className="hidden w-full border-collapse text-sm md:table">
               <thead className="bg-slate-50">
                 <tr className="border-b border-slate-200">
                   <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 text-left font-semibold text-slate-700">
@@ -110,7 +166,7 @@ function DamageSection({
             value={formData.beschreibung}
             onChange={(event) => onFieldChange('beschreibung', event.target.value)}
             rows={3}
-            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
           />
         </div>
         <div>
@@ -119,7 +175,7 @@ function DamageSection({
             type="date"
             value={formData.entstandenAm}
             onChange={(event) => onFieldChange('entstandenAm', event.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
           />
         </div>
         <div>
@@ -128,7 +184,7 @@ function DamageSection({
             type="date"
             value={formData.behobenAm}
             onChange={(event) => onFieldChange('behobenAm', event.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
           />
         </div>
         <div>
@@ -136,7 +192,7 @@ function DamageSection({
           <select
             value={formData.status}
             onChange={(event) => onFieldChange('status', event.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
           >
             {schadenStatusOptions.map((option) => (
               <option key={option} value={option}>
@@ -148,12 +204,12 @@ function DamageSection({
 
         {formError ? <p className="text-sm text-red-600 sm:col-span-2">{formError}</p> : null}
 
-        <div className="flex flex-wrap justify-end gap-2 sm:col-span-2">
+        <div className="sticky bottom-0 -mx-4 grid grid-cols-1 gap-2 bg-slate-50/95 px-4 py-3 sm:col-span-2 sm:mx-0 sm:flex sm:justify-end sm:px-0">
           {editingSchadenId ? (
             <button
               type="button"
               onClick={onCancelEdit}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+              className="min-h-11 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
             >
               Neuer Schaden
             </button>
@@ -161,7 +217,7 @@ function DamageSection({
           <button
             type="submit"
             disabled={isCrudRestricted || isSaving}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
+            className={`min-h-11 rounded-lg px-4 py-2 text-sm font-semibold text-white ${
               isCrudRestricted || isSaving
                 ? 'cursor-not-allowed bg-blue-400'
                 : 'bg-blue-500 hover:bg-blue-600'

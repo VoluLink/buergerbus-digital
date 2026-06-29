@@ -26,7 +26,7 @@ export function InitiativeHeader({
     <>
       <header className="border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
               onClick={onOpenSideMenu}
@@ -36,7 +36,7 @@ export function InitiativeHeader({
               <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
 
-            <h1 className="text-2xl font-bold text-slate-800">Initiativen</h1>
+            <h1 className="min-w-0 break-words text-xl font-bold leading-tight text-slate-800 sm:text-2xl">Initiativen</h1>
           </div>
 
           <UserMenuButton
