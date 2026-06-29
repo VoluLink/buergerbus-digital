@@ -4,11 +4,9 @@ import {
   getRentalStartTime,
   getRentalEndTime,
   formatMinutesAsTime,
-  parseTimeToMinutes,
 } from './timeUtils'
 import {
   isSameDay,
-  normalizeDate,
 } from './dateUtils'
 
 // Formatters

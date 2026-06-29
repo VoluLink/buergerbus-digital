@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '../config/apiConfig'
 import { apiFetch } from './httpClient'
-import type { BackendFahrtDto } from './dashboardState'
+import type { BackendFahrtDto, BackendFahrtWriteDto } from './dashboardState'
 
 /* =========================
    CREATE
@@ -10,7 +10,7 @@ function buildInitiativeQuery(initiativeId?: number | null) {
   return initiativeId ? `?initiativeId=${initiativeId}` : ''
 }
 
-export async function createFahrt(data: any): Promise<BackendFahrtDto> {
+export async function createFahrt(data: BackendFahrtWriteDto): Promise<BackendFahrtDto> {
   const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten`, {
     method: 'POST',
     headers: {
@@ -61,7 +61,7 @@ export async function getFahrt(id: number): Promise<BackendFahrtDto> {
    UPDATE
 ========================= */
 
-export async function updateFahrt(id: number, data: any): Promise<BackendFahrtDto> {
+export async function updateFahrt(id: number, data: BackendFahrtWriteDto): Promise<BackendFahrtDto> {
   const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten/${id}`, {
     method: 'PUT',
     headers: {

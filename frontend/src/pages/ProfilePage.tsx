@@ -268,9 +268,7 @@ function ProfilePage() {
   }
 
   function handleDeleteProfile() {
-    if (window.confirm('Möchten Sie dieses Profil wirklich löschen?')) {
-      console.log('Profil löschen')
-    }
+    window.confirm('Möchten Sie dieses Profil wirklich löschen?')
   }
 
   return (

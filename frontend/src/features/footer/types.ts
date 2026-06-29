@@ -37,4 +37,4 @@ export interface CreateFooterLinkRequest {
   openInNewTab: boolean
 }
 
-export interface UpdateFooterLinkRequest extends CreateFooterLinkRequest {}
+export type UpdateFooterLinkRequest = CreateFooterLinkRequest

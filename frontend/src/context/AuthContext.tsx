@@ -148,7 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [resetIdleTimeout])
 
   useEffect(() => {
     void refreshProfile()
@@ -236,7 +236,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [resetIdleTimeout])
 
   const value = useMemo<AuthContextValue>(() => ({
     currentUser,

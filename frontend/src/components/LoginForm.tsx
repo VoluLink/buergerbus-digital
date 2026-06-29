@@ -77,7 +77,6 @@ function LoginForm({
       return
     }
 
-    console.log('Login submitted', { email: nextValues.email })
   }
 
   return (

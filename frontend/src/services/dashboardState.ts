@@ -9,6 +9,12 @@ type DashboardStateSnapshot = {
   nextRideId: number
 }
 
+type StoredCalendarRide = Omit<CalendarRide, 'date' | 'dateBis' | 'createdByName'> & {
+  date: string | Date
+  dateBis?: string | Date | null
+  createdByName?: string | null
+}
+
 export type BackendFahrtDto = {
   id: number
   titel: string
@@ -58,7 +64,7 @@ type BackendFahrtTeilnehmerDto = {
   teilstrecken?: BackendTeilstreckeDto[] | null
 }
 
-type BackendFahrtWriteDto = {
+export type BackendFahrtWriteDto = {
   fahrt: {
     titel: string
     datum: string
@@ -333,15 +339,23 @@ function parseStoredState(raw: string | null): DashboardStateSnapshot {
   }
 
   try {
-    const parsed = JSON.parse(raw)
+    const parsed = JSON.parse(raw) as {
+      rides?: StoredCalendarRide[]
+      completedPassengerKeys?: string[]
+      nextRideId?: number
+    }
+
     return {
-      rides: (parsed.rides ?? []).map((r: any) => ({
+      rides: (parsed.rides ?? []).map((r) => ({
         ...r,
         createdByName: r.createdByName ?? '',
-        date: new Date(r.date),
+        date: new Date(r.date ?? Date.now()),
+        dateBis: r.dateBis ? new Date(r.dateBis) : null,
       })),
-      completedPassengerKeys: parsed.completedPassengerKeys ?? [],
-      nextRideId: parsed.nextRideId ?? 1,
+      completedPassengerKeys: Array.isArray(parsed.completedPassengerKeys)
+        ? parsed.completedPassengerKeys
+        : [],
+      nextRideId: typeof parsed.nextRideId === 'number' ? parsed.nextRideId : 1,
     }
   } catch {
     return { rides: [], completedPassengerKeys: [], nextRideId: 1 }
@@ -354,6 +368,7 @@ function serializeState(state: DashboardStateSnapshot) {
     rides: state.rides.map((r) => ({
       ...r,
       date: r.date.toISOString(),
+      dateBis: r.dateBis ? r.dateBis.toISOString() : null,
     })),
   })
 }

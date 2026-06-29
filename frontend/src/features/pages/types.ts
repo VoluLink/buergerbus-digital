@@ -26,4 +26,4 @@ export interface CreatePageRequest {
   footerSortOrder: number | null
 }
 
-export interface UpdatePageRequest extends CreatePageRequest {}
+export type UpdatePageRequest = CreatePageRequest
