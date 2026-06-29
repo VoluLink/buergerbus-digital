@@ -163,9 +163,15 @@ namespace BuergerbusAPI.Data
                 .HasForeignKey(r => r.NotificationId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<Notification>()
+                .HasIndex(n => n.CreatedAt);
+
             modelBuilder.Entity<NotificationRecipient>()
                 .HasIndex(r => new { r.NotificationId, r.UserId })
                 .IsUnique();
+
+            modelBuilder.Entity<NotificationRecipient>()
+                .HasIndex(r => r.UserId);
 
             modelBuilder.Entity<SitePage>()
                 .HasIndex(page => page.Slug)
@@ -189,6 +195,9 @@ namespace BuergerbusAPI.Data
                 .HasOne(f => f.Initiative)
                 .WithMany(i => i.Fahrten)
                 .HasForeignKey(f => f.InitiativeId);
+
+            modelBuilder.Entity<Fahrten>()
+                .HasIndex(f => new { f.InitiativeId, f.Datum });
 
             // Initiative -> Fahrzeuge (1:n)
 

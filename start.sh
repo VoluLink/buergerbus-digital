@@ -851,6 +851,10 @@ assert_env_sane() {
       print_error "In ${env_name} darf CORS_ALLOWED_ORIGINS nicht leer sein."
       exit 1
     fi
+    if [[ "$cors" == "*" ]]; then
+      print_error "In ${env_name} darf CORS_ALLOWED_ORIGINS nicht '*' sein."
+      exit 1
+    fi
     if is_localhost_url "$vite"; then
       print_error "In ${env_name} darf VITE_API_BASE_URL nicht auf localhost zeigen."
       exit 1
@@ -1093,6 +1097,10 @@ if [[ "$should_write_env" == "true" ]]; then
     fi
     if [[ -z "${CORS_ALLOWED_ORIGINS// }" ]]; then
       print_error "In ${ASPNETCORE_ENVIRONMENT} darf CORS_ALLOWED_ORIGINS nicht leer sein."
+      exit 1
+    fi
+    if [[ "$CORS_ALLOWED_ORIGINS" == "*" ]]; then
+      print_error "In ${ASPNETCORE_ENVIRONMENT} darf CORS_ALLOWED_ORIGINS nicht '*' sein."
       exit 1
     fi
   fi

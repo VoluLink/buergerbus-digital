@@ -555,6 +555,7 @@ public static class FahrtenEndpoints
                         .ThenInclude(t => t.Fahrgast)
                 .Include(f => f.Teilstrecken)
                     .ThenInclude(t => t.Fahrgast)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(f => f.Id == id);
 
             if (ride is null)

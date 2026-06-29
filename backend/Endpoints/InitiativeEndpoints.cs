@@ -161,6 +161,7 @@ public static class InitiativeEndpoints
 
             var user = await db.Benutzer
                 .Include(u => u.Initiative)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == id);
 
             if (user is null)

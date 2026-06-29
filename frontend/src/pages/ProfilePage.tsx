@@ -1,49 +1,15 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import {
-  Bus,
-  LogOut,
-  Menu,
-  Settings,
-  Trash2,
-  UserRound,
-  UserRoundPlus,
-  X,
-} from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import UserMenuButton from '../components/UserMenuButton'
-import { useAuth } from '../context/AuthContext'
-import { changePassword, updateUserProfile } from '../services/profile'
+import { PasswordChangeForm } from '../features/profile/components/PasswordChangeForm'
+import { ProfileActions } from '../features/profile/components/ProfileActions'
+import { ProfileHeader } from '../features/profile/components/ProfileHeader'
+import { ProfileInfoCard } from '../features/profile/components/ProfileInfoCard'
+import type { PasswordFormData, ProfileFormData } from '../features/profile/types'
+import { formatDateInput } from '../features/profile/utils'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
+import { changePassword, updateUserProfile } from '../services/profile'
 import { isPasswordLongEnough } from '../utils/password'
-import { Eye, EyeOff } from 'lucide-react'
-
-function formatDateInput(value?: string | null) {
-  if (!value) {
-    return ''
-  }
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return ''
-  }
-
-  return parsed.toISOString().slice(0, 10)
-}
-
-function formatRoleLabel(role: string) {
-  const normalized = role.toLowerCase()
-  if (normalized === 'admin') {
-    return 'Admin'
-  }
-  if (normalized === 'disponent') {
-    return 'Disponent'
-  }
-  if (normalized === 'fahrer') {
-    return 'Fahrer'
-  }
-
-  return role
-}
+import { useAuth } from '../context/AuthContext'
 
 function ProfilePage() {
   const navigate = useNavigate()
@@ -61,7 +27,7 @@ function ProfilePage() {
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProfileFormData>({
     username: '',
     email: '',
     firstName: '',
@@ -76,7 +42,7 @@ function ProfilePage() {
     remarks: '',
   })
 
-  const [passwordForm, setPasswordForm] = useState({
+  const [passwordForm, setPasswordForm] = useState<PasswordFormData>({
     currentPassword: '',
     newPassword: '',
     confirmNewPassword: '',
@@ -136,7 +102,7 @@ function ProfilePage() {
     navigate('/', { replace: true })
   }
 
-  function handleInputChange(field: keyof typeof formData, value: string) {
+  function handleInputChange(field: keyof ProfileFormData, value: string) {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -146,6 +112,12 @@ function ProfilePage() {
       const phoneRegex = /^[\d\s+()/-]*$/
       setPhoneError(value && !phoneRegex.test(value) ? 'Ungültige Telefonnummer' : '')
     }
+  }
+
+  function handlePasswordInputChange(field: keyof PasswordFormData, value: string) {
+    setPasswordForm((prev) => ({ ...prev, [field]: value }))
+    setChangePasswordError(null)
+    setChangePasswordSuccess(null)
   }
 
   async function handleSaveProfile() {
@@ -267,572 +239,58 @@ function ProfilePage() {
     }
   }
 
-  function handleDeleteProfile() {
-    window.confirm('Möchten Sie dieses Profil wirklich löschen?')
-  }
-
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
-      <header className="border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setIsSideMenuOpen(true)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0053a0]/40"
-              aria-label="Navigation öffnen"
-            >
-              <Menu className="h-5 w-5" aria-hidden="true" />
-            </button>
-
-            <h1 className="text-2xl font-bold text-slate-800">Profil</h1>
-          </div>
-
-          <UserMenuButton
-            onClick={() => navigate('/profil')}
-            icon={<UserRound className="h-6 w-6" aria-hidden="true" />}
-          />
-        </div>
-      </header>
+      <ProfileHeader
+        isSideMenuOpen={isSideMenuOpen}
+        canManageInitiatives={canManageInitiatives}
+        isFahrer={isFahrer}
+        onOpenSideMenu={() => setIsSideMenuOpen(true)}
+        onCloseSideMenu={closeSideMenu}
+        onNavigateToProfile={() => navigate('/profil')}
+        onNavigateToPage={goToPage}
+      />
 
       <div className="p-2 sm:p-3 lg:p-4">
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          {error ? (
-            <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {error}
-            </p>
-          ) : null}
+          <ProfileInfoCard
+            error={error}
+            saveSuccess={saveSuccess}
+            saveError={saveError}
+            isLoading={isLoading}
+            hasCurrentUser={Boolean(currentUser)}
+            userRoles={userRoles}
+            userId={userId}
+            initiativeName={initiativeName}
+            formData={formData}
+            phoneError={phoneError}
+            isAccountActive={isAccountActive}
+            onInputChange={handleInputChange}
+            onAccountActiveChange={setIsAccountActive}
+          />
 
-          {saveSuccess ? (
-            <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-              {saveSuccess}
-            </p>
-          ) : null}
+          <PasswordChangeForm
+            passwordForm={passwordForm}
+            showCurrentPassword={showCurrentPassword}
+            showNewPassword={showNewPassword}
+            showConfirmPassword={showConfirmPassword}
+            changePasswordSuccess={changePasswordSuccess}
+            changePasswordError={changePasswordError}
+            isChangingPassword={isChangingPassword}
+            onSubmit={handleChangePassword}
+            onPasswordFormChange={handlePasswordInputChange}
+            onToggleCurrentPassword={() => setShowCurrentPassword((value) => !value)}
+            onToggleNewPassword={() => setShowNewPassword((value) => !value)}
+            onToggleConfirmPassword={() => setShowConfirmPassword((value) => !value)}
+          />
 
-          {saveError ? (
-            <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {saveError}
-            </p>
-          ) : null}
-
-          {isLoading && !currentUser ? (
-            <p className="mb-4 text-sm text-slate-500">Profil wird geladen...</p>
-          ) : null}
-          <div className="mb-4 border-b border-slate-200 pb-3">
-            <h2 className="text-lg font-bold text-slate-800 sm:text-xl">Profil</h2>
-          </div>
-
-          {/* Rollen */}
-          <div className="mb-6">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Rollen
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {userRoles.length > 0 ? (
-                userRoles.map((role) => (
-                  <span
-                    key={role}
-                    className="rounded-full bg-[#0053a0] px-3 py-1.5 text-xs font-semibold text-white"
-                  >
-                    {formatRoleLabel(role)}
-                  </span>
-                ))
-              ) : (
-                <span className="text-xs text-slate-400">Keine Rollen zugewiesen</span>
-              )}
-            </div>
-          </div>
-
-          {/* Two-column grid */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            {/* Benutzer-ID */}
-            <div>
-              <label htmlFor="userId" className="block text-xs font-semibold text-slate-700">
-                Benutzer-ID
-              </label>
-              <input
-                id="userId"
-                type="text"
-                value={userId}
-                disabled
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none cursor-not-allowed"
-              />
-            </div>
-
-            {/* Benutzername */}
-            <div>
-              <label htmlFor="username" className="block text-xs font-semibold text-slate-700">
-                Benutzername
-              </label>
-              <input
-                id="username"
-                type="text"
-                value={formData.username}
-                onChange={(e) => handleInputChange('username', e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-              />
-            </div>
-
-            {/* E-Mail-Adresse */}
-            <div>
-              <label htmlFor="email" className="block text-xs font-semibold text-slate-700">
-                E-Mail-Adresse
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={formData.email}
-                disabled
-                placeholder="email@example.de"
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none cursor-not-allowed"
-              />
-            </div>
-
-            {/* Initiative */}
-            <div>
-              <label htmlFor="initiative" className="block text-xs font-semibold text-slate-700">
-                Initiative
-              </label>
-              <input
-                id="initiative"
-                type="text"
-                value={initiativeName || 'Nicht gesetzt'}
-                disabled
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none cursor-not-allowed"
-              />
-            </div>
-
-            {/* Vorname */}
-            <div>
-              <label htmlFor="firstName" className="block text-xs font-semibold text-slate-700">
-                Vorname
-              </label>
-              <input
-                id="firstName"
-                type="text"
-                value={formData.firstName}
-                onChange={(e) => handleInputChange('firstName', e.target.value)}
-                placeholder="z. B. Max"
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-              />
-            </div>
-
-            {/* Nachname */}
-            <div>
-              <label htmlFor="lastName" className="block text-xs font-semibold text-slate-700">
-                Nachname
-              </label>
-              <input
-                id="lastName"
-                type="text"
-                value={formData.lastName}
-                onChange={(e) => handleInputChange('lastName', e.target.value)}
-                placeholder="z. B. Mustermann"
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-              />
-            </div>
-
-            {/* Telefonnummer */}
-            <div>
-              <label htmlFor="phone" className="block text-xs font-semibold text-slate-700">
-                Telefonnummer
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-                placeholder="+49 170 1002003"
-                className={`mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15 ${
-                  phoneError ? 'border-red-400' : 'border-slate-300'
-                }`}
-              />
-              {phoneError && <p className="mt-1 text-xs text-red-600">{phoneError}</p>}
-            </div>
-
-            {/* Führerscheinklasse */}
-            <div>
-              <label htmlFor="driverLicense" className="block text-xs font-semibold text-slate-700">
-                Führerscheinklasse
-              </label>
-              <input
-                id="driverLicense"
-                type="text"
-                value={formData.driverLicense}
-                onChange={(e) => handleInputChange('driverLicense', e.target.value)}
-                placeholder="z. B. B, BE, D1"
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-              />
-            </div>
-
-            {/* Letzte G2S */}
-            <div>
-              <label htmlFor="lastG2s" className="block text-xs font-semibold text-slate-700">
-                Letzte G2S
-              </label>
-              <input
-                id="lastG2s"
-                type="date"
-                value={formData.lastG2s}
-                onChange={(e) => handleInputChange('lastG2s', e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-              />
-            </div>
-
-            {/* Nächste G2S */}
-            <div>
-              <label htmlFor="nextG2s" className="block text-xs font-semibold text-slate-700">
-                Nächste G2S
-              </label>
-              <input
-                id="nextG2s"
-                type="date"
-                value={formData.nextG2s}
-                onChange={(e) => handleInputChange('nextG2s', e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-              />
-            </div>
-          </div>
-
-          {/* Adresse - Full width */}
-          <div className="mt-4">
-            <label htmlFor="street" className="block text-xs font-semibold text-slate-700">
-              Straße
-            </label>
-            <input
-              id="street"
-              type="text"
-              value={formData.street}
-              onChange={(e) => handleInputChange('street', e.target.value)}
-              placeholder="Musterstraße 123"
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-            />
-          </div>
-
-          {/* Postleitzahl und Stadt */}
-          <div className="grid gap-4 lg:grid-cols-2 mt-4">
-            <div>
-              <label htmlFor="postCode" className="block text-xs font-semibold text-slate-700">
-                Postleitzahl
-              </label>
-              <input
-                id="postCode"
-                type="text"
-                value={formData.postCode}
-                onChange={(e) => handleInputChange('postCode', e.target.value)}
-                placeholder="12345"
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="city" className="block text-xs font-semibold text-slate-700">
-                Ort
-              </label>
-              <input
-                id="city"
-                type="text"
-                value={formData.city}
-                onChange={(e) => handleInputChange('city', e.target.value)}
-                placeholder="Berlin"
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-              />
-            </div>
-          </div>
-
-          {/* Bemerkung - Full width textarea */}
-          <div className="mt-4">
-            <label htmlFor="remarks" className="block text-xs font-semibold text-slate-700">
-              Bemerkung
-            </label>
-            <textarea
-              id="remarks"
-              value={formData.remarks}
-              onChange={(e) => handleInputChange('remarks', e.target.value)}
-              placeholder="Bemerkungen..."
-              rows={3}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-            />
-          </div>
-
-
-        {/* Aktiver Account */}
-        <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 p-3">
-          <span className="text-xs font-semibold text-slate-700">Aktiver Account</span>
-          <button
-            type="button"
-            onClick={() => setIsAccountActive(!isAccountActive)}
-            className={`relative inline-flex h-8 w-14 items-center rounded-full transition ${
-              isAccountActive ? 'bg-emerald-500' : 'bg-slate-300'
-            }`}
-          >
-            <span
-              className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition ${
-                isAccountActive ? 'translate-x-7' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
-
-        {/* Passwort ändern */}
-        <div className="mt-6 border-t border-slate-200 pt-5">
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-slate-800 sm:text-xl">Passwort ändern</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Verwenden Sie ein neues Passwort mit mindestens 6 Zeichen.
-            </p>
-          </div>
-
-          <form className="grid gap-4 lg:grid-cols-2" onSubmit={handleChangePassword} noValidate>
-
-            {/* Aktuelles Passwort */}
-            <div className="relative lg:col-span-2">
-              <label
-                htmlFor="currentPassword"
-                className="block text-xs font-semibold text-slate-700"
-              >
-                Aktuelles Passwort
-              </label>
-
-              <input
-                id="currentPassword"
-                type={showCurrentPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                value={passwordForm.currentPassword}
-                onChange={(event) => {
-                  setPasswordForm((prev) => ({ ...prev, currentPassword: event.target.value }))
-                  setChangePasswordError(null)
-                  setChangePasswordSuccess(null)
-                }}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-              />
-
-              <button
-                type="button"
-                onClick={() => setShowCurrentPassword((v) => !v)}
-                className="absolute right-3 top-9 text-slate-500 hover:text-slate-700"
-              >
-                {showCurrentPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-
-            {/* Neues Passwort */}
-            <div className="relative">
-              <label htmlFor="newPassword" className="block text-xs font-semibold text-slate-700">
-                Neues Passwort
-              </label>
-
-              <input
-                id="newPassword"
-                type={showNewPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                value={passwordForm.newPassword}
-                onChange={(event) => {
-                  setPasswordForm((prev) => ({ ...prev, newPassword: event.target.value }))
-                  setChangePasswordError(null)
-                  setChangePasswordSuccess(null)
-                }}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-              />
-
-              <button
-                type="button"
-                onClick={() => setShowNewPassword((v) => !v)}
-                className="absolute right-3 top-9 text-slate-500 hover:text-slate-700"
-              >
-                {showNewPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-
-            {/* Passwort bestätigen */}
-            <div className="relative">
-              <label
-                htmlFor="confirmNewPassword"
-                className="block text-xs font-semibold text-slate-700"
-              >
-                Neues Passwort bestätigen
-              </label>
-
-              <input
-                id="confirmNewPassword"
-                type={showConfirmPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                value={passwordForm.confirmNewPassword}
-                onChange={(event) => {
-                  setPasswordForm((prev) => ({ ...prev, confirmNewPassword: event.target.value }))
-                  setChangePasswordError(null)
-                  setChangePasswordSuccess(null)
-                }}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-              />
-
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword((v) => !v)}
-                className="absolute right-3 top-9 text-slate-500 hover:text-slate-700"
-              >
-                {showConfirmPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-
-            {changePasswordSuccess ? (
-              <p className="lg:col-span-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                {changePasswordSuccess}
-              </p>
-            ) : null}
-
-            {changePasswordError ? (
-              <p className="lg:col-span-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {changePasswordError}
-              </p>
-            ) : null}
-
-            <div className="lg:col-span-2 flex justify-end">
-              <button
-                type="submit"
-                disabled={isChangingPassword}
-                className={`inline-flex items-center gap-2 rounded-lg bg-[#0053a0] px-4 py-2 text-xs font-semibold text-white shadow-md transition hover:brightness-105 ${
-                  isChangingPassword ? 'cursor-not-allowed opacity-60' : ''
-                }`}
-              >
-                {isChangingPassword ? 'Ändere...' : 'Passwort ändern'}
-              </button>
-            </div>
-          </form>
-        </div>
-
-          {/* Action Buttons */}
-          <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-4">
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
-            >
-              <LogOut className="h-3 w-3" aria-hidden="true" />
-              Abmelden
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDeleteProfile}
-              className="inline-flex items-center gap-2 rounded-lg border border-red-300 bg-white px-4 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
-            >
-              <Trash2 className="h-3 w-3" aria-hidden="true" />
-              Löschen
-            </button>
-
-            <button
-              type="button"
-              onClick={handleSaveProfile}
-              disabled={isSaving}
-              className={`ml-auto inline-flex items-center gap-2 rounded-lg bg-[#0053a0] px-4 py-2 text-xs font-semibold text-white shadow-md transition hover:brightness-105 ${
-                isSaving ? 'opacity-60 cursor-not-allowed' : ''
-              }`}
-            >
-              {isSaving ? 'Speichere...' : 'Speichern'}
-            </button>
-          </div>
+          <ProfileActions
+            isSaving={isSaving}
+            onLogout={handleLogout}
+            onSaveProfile={handleSaveProfile}
+          />
         </section>
       </div>
-
-      {/* Side Menu */}
-      {isSideMenuOpen ? (
-        <div className="fixed inset-0 z-30 bg-slate-900/45 backdrop-blur-[2px]" onClick={closeSideMenu}>
-          <aside
-            className="h-full w-full max-w-sm bg-white shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-            aria-label="Seitliche Navigation"
-          >
-            <div className="flex items-center justify-between bg-[#0053a0] px-6 py-5 text-white">
-              <h2 className="text-4xl font-semibold tracking-tight">Navigation</h2>
-              <button
-                type="button"
-                onClick={closeSideMenu}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-white transition hover:bg-white/10"
-                aria-label="Navigation schließen"
-              >
-                <X className="h-7 w-7" aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className="space-y-3 p-4">
-              <button
-                type="button"
-                onClick={() => goToPage('/dashboard')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <Bus className="h-5 w-5" aria-hidden="true" />
-                Dashboard
-              </button>
-
-              {!isFahrer ? (
-                <button
-                  type="button"
-                  onClick={() => goToPage('/fahrerinfos')}
-                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-                >
-                  <UserRound className="h-5 w-5" aria-hidden="true" />
-                  Fahrerinfos
-                </button>
-              ) : null}
-
-              <button
-                type="button"
-                onClick={() => goToPage('/fahrzeuginfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <Bus className="h-5 w-5" aria-hidden="true" />
-                Fahrzeuginfos
-              </button>
-
-              {!isFahrer ? (
-                <button
-                  type="button"
-                  onClick={() => goToPage('/fahrgastinfos')}
-                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-                >
-                  <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
-                  Fahrgastinfos
-                </button>
-              ) : null}
-
-              {canManageInitiatives ? (
-                <button
-                  type="button"
-                  onClick={() => goToPage('/initiativen')}
-                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-                >
-                  <Bus className="h-5 w-5" aria-hidden="true" />
-                  Initiativen
-                </button>
-              ) : null}
-
-              {!isFahrer ? (
-                <button
-                  type="button"
-                  onClick={() => goToPage('/rollenverteilung')}
-                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-                >
-                  <Settings className="h-5 w-5" aria-hidden="true" />
-                  Rollenverteilung
-                </button>
-              ) : null}
-            </div>
-          </aside>
-        </div>
-      ) : null}
     </main>
   )
 }

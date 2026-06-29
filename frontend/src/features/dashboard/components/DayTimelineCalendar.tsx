@@ -84,14 +84,14 @@ export function DayTimelineCalendar({
   }, [selectedDate, selectedDayRides]);
 
   return (
-    <div className="mt-5">
-      <div className="mb-4 text-center text-sm font-semibold capitalize text-slate-500">
+    <div className="mt-4 sm:mt-5">
+      <div className="mb-3 text-center text-xs font-semibold capitalize text-slate-500 sm:mb-4 sm:text-sm">
         {dayHeaderLabel}, {dayHeaderDateLabel}
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="max-h-[70vh] overflow-y-auto">
-          <div className="grid grid-cols-[4.5rem_1fr]">
+          <div className="grid grid-cols-[3.5rem_1fr] sm:grid-cols-[4.5rem_1fr]">
             <div
               className="relative bg-white"
               style={{ height: `${DAY_TIMELINE_TOTAL_HEIGHT}px` }}
@@ -99,7 +99,7 @@ export function DayTimelineCalendar({
               {dayTimelineHourMarkers.map((hour) => (
                 <div
                   key={hour}
-                  className="absolute right-3 -translate-y-1/2 text-xs font-semibold text-slate-400"
+                  className="absolute right-2 -translate-y-1/2 text-[10px] font-semibold text-slate-400 sm:right-3 sm:text-xs"
                   style={{
                     top: `${
                       hour * DAY_TIMELINE_HOUR_HEIGHT +
@@ -162,7 +162,7 @@ export function DayTimelineCalendar({
                       key={ride.id}
                       type="button"
                       onClick={() => openDayDialog(ride.date)}
-                      className={`absolute overflow-hidden rounded-2xl border border-black/5 p-3 text-left text-white shadow-[0_10px_24px_rgba(15,23,42,0.14)] transition hover:brightness-95 ${statusMetadata[ride.status].color}`}
+                      className={`absolute overflow-hidden rounded-xl border border-black/5 p-2 text-left text-white shadow-[0_10px_24px_rgba(15,23,42,0.14)] transition hover:brightness-95 sm:rounded-2xl sm:p-3 ${statusMetadata[ride.status].color}`}
                       style={{
                         top: `${top}px`,
                         left: `calc(${leftPercent}% + 0.5rem)`,
@@ -187,12 +187,12 @@ export function DayTimelineCalendar({
                         </span>
 
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold text-white">
+                          <div className="truncate text-xs font-semibold text-white sm:text-sm">
                             {ride.title}
                           </div>
 
                           {ride.type !== "rental" ? (
-                            <div className="mt-1 text-xs text-white/80">
+                            <div className="mt-1 text-[10px] text-white/80 sm:text-xs">
                               {ride.passengers.length} Fahrgäste
                             </div>
                           ) : null}

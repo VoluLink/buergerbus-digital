@@ -82,44 +82,44 @@ export function DayDialog({
         className="relative w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-[0_35px_80px_rgba(15,23,42,0.4)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="bg-[#0053a0] px-6 py-5 text-white sm:px-8">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+        <header className="bg-[#0053a0] px-4 py-4 text-white sm:px-8 sm:py-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div className="min-w-0">
+              <h2 className="text-2xl font-semibold tracking-tight leading-tight sm:text-4xl">
                 {dialogHeading}
               </h2>
-              <p className="mt-1 text-base text-white/80">
+              <p className="mt-1 text-sm text-white/80 sm:text-base">
                 {selectedDayRides.length} Fahrten
               </p>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-4">
               {!hasDriverDayView ? (
-                <div className="inline-flex rounded-2xl bg-white/20 p-1">
+                <div className="inline-flex w-full rounded-2xl bg-white/20 p-1 sm:w-auto">
                   <button
                     type="button"
-                    className="rounded-xl bg-white px-4 py-1.5 text-sm font-semibold text-slate-700"
+                    className="min-h-10 w-full rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-700 sm:w-auto"
                     disabled
                   >
                     Übersicht
                   </button>
                 </div>
               ) : isFahrer ? (
-                <div className="inline-flex rounded-2xl bg-white/20 p-1">
+                <div className="inline-flex w-full rounded-2xl bg-white/20 p-1 sm:w-auto">
                   <button
                     type="button"
-                    className="rounded-xl bg-white px-4 py-1.5 text-sm font-semibold text-slate-700"
+                    className="min-h-10 w-full rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-700 sm:w-auto"
                     disabled
                   >
                     Fahrer
                   </button>
                 </div>
               ) : (
-                <div className="inline-flex rounded-2xl bg-white/20 p-1">
+                <div className="inline-flex w-full flex-wrap gap-2 rounded-2xl bg-white/20 p-1 sm:w-auto sm:gap-0">
                   <button
                     type="button"
                     onClick={() => setDayRole("dispo")}
-                    className={`rounded-xl px-4 py-1.5 text-sm font-semibold transition ${
+                    className={`min-h-10 flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition sm:flex-none ${
                       dayRole === "dispo"
                         ? "bg-white text-slate-700"
                         : "text-white/75 hover:text-white"
@@ -130,7 +130,7 @@ export function DayDialog({
                   <button
                     type="button"
                     onClick={() => setDayRole("fahrer")}
-                    className={`rounded-xl px-4 py-1.5 text-sm font-semibold transition ${
+                    className={`min-h-10 flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition sm:flex-none ${
                       dayRole === "fahrer"
                         ? "bg-white text-slate-700"
                         : "text-white/75 hover:text-white"
@@ -144,7 +144,7 @@ export function DayDialog({
               <button
                 type="button"
                 onClick={closeDayDialog}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-white transition hover:bg-white/10"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center self-end rounded-xl text-white transition hover:bg-white/10 sm:self-auto"
                 aria-label="Dialog schliessen"
               >
                 <X className="h-6 w-6" aria-hidden="true" />
@@ -156,7 +156,7 @@ export function DayDialog({
         <div className="relative h-[460px] overflow-y-auto px-5 py-5 sm:px-8">
           {selectedDayRides.length === 0 ? (
             <div className="flex h-full items-center justify-center text-center text-slate-400">
-              <p className="text-4xl font-medium text-slate-400">
+              <p className="text-2xl font-medium text-slate-400 sm:text-4xl">
                 Keine Fahrten an diesem Tag
               </p>
             </div>
@@ -165,37 +165,45 @@ export function DayDialog({
               {selectedDayRides.map((ride) => (
                 <article
                   key={ride.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-4"
+                  className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4"
                 >
                   {dayRole === "fahrer" && ride.type !== "rental" ? (
                     <>
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-3xl font-semibold tracking-tight text-slate-800">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="break-words text-2xl font-semibold tracking-tight text-slate-800 sm:text-3xl">
                             {ride.title}
                           </h3>
-                          <p className="mt-1 text-lg text-slate-500">
-                            {getRideTimeSummary(ride)}
-                            <span className="mx-2 text-slate-300">•</span>
-                            {ride.passengers.length} Fahrgäste
+                          <p className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-sm leading-6 text-slate-500 sm:text-lg">
+                            <span className="break-words">
+                              {getRideTimeSummary(ride)}
+                            </span>
+                            <span className="text-slate-300">•</span>
+                            <span className="break-words">
+                              {ride.passengers.length} Fahrgäste
+                            </span>
                             {ride.driverName ? (
                               <>
-                                <span className="mx-2 text-slate-300">•</span>
-                                {ride.driverName}
+                                <span className="text-slate-300">•</span>
+                                <span className="break-all">
+                                  {ride.driverName}
+                                </span>
                               </>
                             ) : null}
                             {ride.createdByName ? (
                               <>
-                                <span className="mx-2 text-slate-300">•</span>
-                                Erstellt von {ride.createdByName}
+                                <span className="text-slate-300">•</span>
+                                <span className="break-all">
+                                  Erstellt von {ride.createdByName}
+                                </span>
                               </>
                             ) : null}
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                           <span
-                            className={`inline-flex items-center rounded-xl px-3 py-1 text-sm font-semibold text-white ${statusMetadata[ride.status].color}`}
+                            className={`inline-flex max-w-full items-center rounded-xl px-3 py-1 text-center text-sm font-semibold leading-tight text-white break-words ${statusMetadata[ride.status].color}`}
                           >
                             {statusMetadata[ride.status].label}
                           </span>
@@ -205,7 +213,7 @@ export function DayDialog({
                               onClick={() =>
                                 void toggleDriverSelfAssignment(ride)
                               }
-                              className={`rounded-xl px-3 py-1 text-sm font-semibold transition ${
+                              className={`min-h-10 rounded-xl px-3 py-2 text-sm font-semibold transition ${
                                 (ride.status === "assigned" ||
                                   ride.status === "theme") &&
                                 normalizeName(ride.driverName) ===
@@ -225,7 +233,7 @@ export function DayDialog({
                           <button
                             type="button"
                             onClick={() => toggleDriverRideCollapsed(ride.id)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100"
+                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 sm:h-8 sm:w-8"
                             aria-label={
                               collapsedDriverRideIds.includes(ride.id)
                                 ? "Fahrt einklappen"
@@ -253,7 +261,7 @@ export function DayDialog({
                             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                               Bemerkungen
                             </div>
-                            <div className="mt-2 whitespace-pre-line text-base leading-7 text-slate-700">
+                            <div className="mt-2 break-words whitespace-pre-line text-base leading-7 text-slate-700">
                               {ride.remarks || "-"}
                             </div>
                           </div>
@@ -265,10 +273,10 @@ export function DayDialog({
                               return (
                                 <div
                                   key={passenger.id}
-                                  className={`rounded-2xl border border-slate-200 bg-white p-3 transition ${passenger.istAbgehakt ? "opacity-70" : ""}`}
+                                  className={`min-w-0 rounded-2xl border border-slate-200 bg-white p-3 transition ${passenger.istAbgehakt ? "opacity-70" : ""}`}
                                 >
                                   <div className="flex flex-wrap items-start justify-between gap-2">
-                                    <label className="inline-flex items-center gap-2 text-2xl font-semibold text-slate-800">
+                                    <label className="inline-flex min-w-0 items-start gap-2 text-lg font-semibold text-slate-800 sm:text-2xl">
                                       <input
                                         type="checkbox"
                                         checked={Boolean(passenger.istAbgehakt)}
@@ -282,11 +290,11 @@ export function DayDialog({
                                         className={`h-6 w-6 rounded-md border-slate-300 ${canEditChecks ? "" : "cursor-not-allowed opacity-50"}`}
                                       />
                                       <span
-                                        className={
+                                        className={`min-w-0 break-words ${
                                           passenger.istAbgehakt
                                             ? "line-through text-slate-400"
                                             : ""
-                                        }
+                                        }`}
                                       >
                                         {passenger.name ||
                                           `Fahrgast ${passengerIndex + 1}`}
@@ -302,23 +310,23 @@ export function DayDialog({
                                   </div>
 
                                   <div className="mt-3 grid gap-2 md:grid-cols-3">
-                                    <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                    <div className="min-w-0 rounded-xl bg-slate-50 px-3 py-2">
                                       <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                                         Abholung
                                       </div>
-                                      <div className="mt-1 text-lg font-medium text-slate-800">
+                                      <div className="mt-1 break-words text-lg font-medium text-slate-800">
                                         {passenger.pickupAddress || "-"}
                                       </div>
                                     </div>
-                                    <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                    <div className="min-w-0 rounded-xl bg-slate-50 px-3 py-2">
                                       <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                                         Ziel
                                       </div>
-                                      <div className="mt-1 text-lg font-medium text-slate-800">
+                                      <div className="mt-1 break-words text-lg font-medium text-slate-800">
                                         {passenger.destinationAddress || "-"}
                                       </div>
                                     </div>
-                                    <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                    <div className="min-w-0 rounded-xl bg-slate-50 px-3 py-2">
                                       <div className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                                         <Phone
                                           className="h-3.5 w-3.5"
@@ -326,7 +334,7 @@ export function DayDialog({
                                         />
                                         Telefon
                                       </div>
-                                      <div className="mt-1 text-lg font-medium text-slate-800">
+                                      <div className="mt-1 break-all text-lg font-medium text-slate-800">
                                         {passenger.phone || "-"}
                                       </div>
                                     </div>
@@ -344,24 +352,24 @@ export function DayDialog({
                     </>
                   ) : (
                     <>
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-2xl font-semibold text-slate-800">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="break-words text-2xl font-semibold text-slate-800">
                             {ride.title}
                           </h3>
-                          <p className="mt-1 text-base text-slate-500">
+                          <p className="mt-1 break-words text-sm text-slate-500 sm:text-base">
                             {getRideTimeSummary(ride)}
                           </p>
                         </div>
                         <span
-                          className={`inline-flex items-center rounded-xl px-3 py-1 text-sm font-semibold text-white ${statusMetadata[ride.status].color}`}
+                          className={`inline-flex max-w-full items-center rounded-xl px-3 py-1 text-center text-sm font-semibold leading-tight text-white break-words ${statusMetadata[ride.status].color}`}
                         >
                           {statusMetadata[ride.status].label}
                         </span>
                       </div>
 
                       <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-                        <div>
+                        <div className="min-w-0 break-words">
                           <span className="font-semibold text-slate-700">
                             Fahrtart:
                           </span>{" "}
@@ -393,18 +401,18 @@ export function DayDialog({
                             </div>
                           </>
                         ) : null}
-                        <div>
+                        <div className="min-w-0 break-words">
                           <span className="font-semibold text-slate-700">
                             Erstellt von:
                           </span>{" "}
                           {ride.createdByName || "-"}
                         </div>
                         <div className="sm:col-span-2">
-                          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                          <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                               Bemerkungen
                             </div>
-                            <div className="mt-2 whitespace-pre-line text-base leading-7 text-slate-700">
+                            <div className="mt-2 break-words whitespace-pre-line text-base leading-7 text-slate-700">
                               {ride.remarks || "-"}
                             </div>
                           </div>
@@ -416,7 +424,7 @@ export function DayDialog({
                           <button
                             type="button"
                             onClick={() => toggleRideExpanded(ride.id)}
-                            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                            className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                           >
                             {expandedRideIds.includes(ride.id) ? (
                               <ChevronUp
@@ -451,13 +459,31 @@ export function DayDialog({
                                           {passenger.name ||
                                             `Fahrgast ${passengerIndex + 1}`}
                                         </div>
-                                        <div className="mt-1 text-xs text-slate-500">
-                                          Telefon: {passenger.phone || "-"} |
-                                          Abholung:{" "}
-                                          {passenger.pickupAddress || "-"} |
-                                          Ziel:{" "}
-                                          {passenger.destinationAddress || "-"}{" "}
-                                          | Zeit: {passenger.time || "-"}
+                                        <div className="mt-1 flex flex-col gap-1 text-xs text-slate-500 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1">
+                                          <span className="break-words">
+                                            Telefon: {passenger.phone || "-"}
+                                          </span>
+                                          <span className="hidden text-slate-300 sm:inline">
+                                            |
+                                          </span>
+                                          <span className="break-words">
+                                            Abholung:{" "}
+                                            {passenger.pickupAddress || "-"}
+                                          </span>
+                                          <span className="hidden text-slate-300 sm:inline">
+                                            |
+                                          </span>
+                                          <span className="break-words">
+                                            Ziel:{" "}
+                                            {passenger.destinationAddress ||
+                                              "-"}
+                                          </span>
+                                          <span className="hidden text-slate-300 sm:inline">
+                                            |
+                                          </span>
+                                          <span className="break-words">
+                                            Zeit: {passenger.time || "-"}
+                                          </span>
                                         </div>
                                       </li>
                                     ),
@@ -502,7 +528,7 @@ export function DayDialog({
             <button
               type="button"
               onClick={openRideDialogForSelection}
-              className="sticky bottom-4 ml-auto mt-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#0053a0] text-white shadow-[0_14px_30px_rgba(0,83,160,0.45)] transition hover:brightness-110"
+              className="sticky bottom-[calc(1rem+env(safe-area-inset-bottom))] mr-1 ml-auto mt-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#0053a0] text-white shadow-[0_14px_30px_rgba(0,83,160,0.45)] transition hover:brightness-110 sm:bottom-4 sm:mr-0"
               aria-label="Neue Fahrt erstellen"
             >
               <Plus className="h-7 w-7" aria-hidden="true" />

@@ -274,6 +274,7 @@ public static class UserEndpoints
                 .Include(u => u.BenutzerRollen)
                     .ThenInclude(br => br.Rolle)
                 .Include(u => u.Fahrer)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(u =>
                     (userId.HasValue && u.Id == userId.Value)
                     || (!string.IsNullOrWhiteSpace(normalizedEmail) && u.Email.ToLower() == normalizedEmail));
@@ -402,6 +403,7 @@ public static class UserEndpoints
                 .Include(u => u.BenutzerRollen)
                     .ThenInclude(br => br.Rolle)
                 .Include(u => u.Fahrer)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == id);
 
             if (user is null)
@@ -433,6 +435,7 @@ public static class UserEndpoints
                 .Include(u => u.BenutzerRollen)
                     .ThenInclude(br => br.Rolle)
                 .Include(u => u.Fahrer)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == id);
 
             if (user is null)
@@ -624,6 +627,7 @@ public static class UserEndpoints
             var user = await db.Benutzer
                 .Include(u => u.BenutzerRollen)
                     .ThenInclude(br => br.Rolle)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == id);
 
             if (user is null)

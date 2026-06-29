@@ -305,7 +305,7 @@ namespace BuergerbusAPI.Migrations
 
                     b.HasIndex("FahrzeugId");
 
-                    b.HasIndex("InitiativeId");
+                    b.HasIndex("InitiativeId", "Datum");
 
                     b.ToTable("Fahrten");
                 });
@@ -464,6 +464,8 @@ namespace BuergerbusAPI.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedAt");
+
                     b.ToTable("Notifications");
                 });
 
@@ -501,6 +503,8 @@ namespace BuergerbusAPI.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId");
 
                     b.HasIndex("NotificationId", "UserId")
                         .IsUnique();

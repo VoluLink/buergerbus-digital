@@ -379,12 +379,15 @@ function DashboardPage() {
   });
 
   // Aktuelles Fahrzeug und Kapazitätsgrenze für den Fahrt-Dialog
-  const selectedRideVehicle =
-    activeRideForm == null
-      ? null
-      : (visibleFahrzeuge.find(
-          (vehicle) => vehicle.id === activeRideForm.fahrzeugId,
-        ) ?? null);
+  const selectedRideVehicle = useMemo(
+    () =>
+      activeRideForm == null
+        ? null
+        : (visibleFahrzeuge.find(
+            (vehicle) => vehicle.id === activeRideForm.fahrzeugId,
+          ) ?? null),
+    [activeRideForm, visibleFahrzeuge],
+  );
 
   const maxPassengersForActiveRide = selectedRideVehicle?.kapazitaet ?? 0;
 
@@ -417,7 +420,7 @@ function DashboardPage() {
   }, [dayRole, hasDriverDayView, isFahrer]);
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
+    <main className="min-h-screen overflow-x-hidden bg-slate-100 text-slate-900">
       <DashboardHeader
         visibleTopFilters={visibleTopFilters}
         selectedFilter={selectedFilter}
@@ -430,8 +433,8 @@ function DashboardPage() {
         openProfile={() => navigate(isGast ? "/dashboard" : "/profil")}
       />
 
-      <div className="p-3 sm:p-4 lg:p-6">
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:p-8">
+      <div className="p-2 sm:p-4 lg:p-6">
+        <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-3xl sm:p-6 lg:p-8">
           <DashboardToolbar
             monthHeading={monthHeading}
             calendarViews={calendarViews}
@@ -467,7 +470,7 @@ function DashboardPage() {
       <button
         type="button"
         onClick={handleLogout}
-        className="mb-6 ml-3 inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 py-3 text-sm font-semibold text-rose-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] transition hover:bg-rose-50 sm:ml-4 lg:ml-6"
+        className="mb-4 ml-2 inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-white px-3 py-2.5 text-sm font-semibold text-rose-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] transition hover:bg-rose-50 sm:mb-6 sm:ml-4 sm:px-4 sm:py-3 lg:ml-6"
       >
         <LogOut className="h-4 w-4" aria-hidden="true" />
         Abmelden

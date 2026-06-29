@@ -331,6 +331,10 @@ CORS_ALLOWED_ORIGINS=https://<DOMAIN>
 
 Wichtig:
 
+In Production muss `CORS_ALLOWED_ORIGINS` auf die echte Frontend-Domain gesetzt werden. `*` ist nur für Development gedacht und wird in Staging/Production vom Setup-Skript und Backend abgelehnt.
+
+Für den initialen Admin-Seed müssen in Production gültige Werte gesetzt sein. `SEED_ADMIN_PASSWORD` darf nicht leer sein und keine Beispielwerte wie `Admin123!` oder `CHANGE_ME` enthalten; `SEED_INITIATIVE_NAME` darf ebenfalls kein `CHANGE_ME` enthalten. `SEED_ADMIN_EMAIL=admin@example.com` bleibt erlaubt, wenn das Passwort sicher gesetzt bzw. durch `start.sh` generiert wurde.
+
 ```env
 VITE_API_BASE_URL=https://<DOMAIN>
 ```
@@ -441,12 +445,13 @@ http://192.168.x.x:5173
 | ------------------------- | ------------------------------------- | ---: | -------------------------------------------------- |
 | Frontend                  | `https://<DOMAIN>`                    |  443 | Produktives Frontend über Nginx Proxy Manager      |
 | Backend/API               | `https://<DOMAIN>/api`                |  443 | API über benutzerdefinierten Pfad `/api`           |
-| Nginx Proxy Manager Admin | `http://<SERVER-IP>:81`               |   81 | Administrationsoberfläche des Nginx Proxy Managers |
+| Nginx Proxy Manager Admin | `http://localhost:8081`               |   81 | Nur lokal per SSH-Tunnel erreichbar                |
 | MariaDB                   | `localhost:3306`                      | 3306 | Datenbankserver, nicht öffentlich erreichbar       |
 | Frontend-Container intern | `http://buergerbus_frontend_prod:80`  |   80 | Nur intern im Docker-Netzwerk erreichbar           |
 | Backend-Container intern  | `http://buergerbus_backend_prod:8080` | 8080 | Nur intern im Docker-Netzwerk erreichbar           |
 
 Im Produktivbetrieb sollten Frontend und Backend nicht direkt über offene Host-Ports angesprochen werden.
+Der Nginx Proxy Manager Admin-Port `81` ist ebenfalls nur lokal auf dem Server gebunden.
 
 Der öffentliche Zugriff erfolgt über:
 
@@ -468,10 +473,18 @@ buergerbus_backend_prod:8080
 
 Im Produktivbetrieb übernimmt der Nginx Proxy Manager den öffentlichen Zugriff auf die Anwendung.
 
-Die Administrationsoberfläche ist erreichbar unter:
+Die Administrationsoberfläche ist nur lokal auf dem Server erreichbar. Externe Zugriffe laufen weiterhin über `80/443`.
+
+Zugriff per SSH-Tunnel:
+
+```bash
+ssh -L 8081:127.0.0.1:81 <USER>@<SERVER-IP>
+```
+
+Danach im lokalen Browser öffnen:
 
 ```text
-http://<SERVER-IP>:81
+http://localhost:8081
 ```
 
 Nach dem ersten Login sollten die Zugangsdaten geändert und sicher gespeichert werden.

@@ -29,15 +29,15 @@ export function MonthWeekCalendar({
 }: MonthWeekCalendarProps) {
   return (
     <>
-      <div className="mt-5 grid grid-cols-7 gap-2 text-center text-sm font-semibold text-slate-500">
+      <div className="mt-4 grid grid-cols-7 gap-1 text-center text-xs font-semibold text-slate-500 sm:mt-5 sm:gap-2 sm:text-sm">
         {weekDays.map((day) => (
-          <div key={day} className="py-2">
+          <div key={day} className="py-1.5 sm:py-2">
             {day}
           </div>
         ))}
       </div>
 
-      <div className="grid gap-2 grid-cols-1 sm:grid-cols-7">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {activeCalendarDays.map((day) => {
           const isSelected = isSameDay(day.date, selectedDate);
           const dayLabel = day.date.getDate().toString();
@@ -49,10 +49,10 @@ export function MonthWeekCalendar({
               key={day.date.toISOString()}
               type="button"
               onClick={() => openDayDialog(day.date)}
-              className={`flex flex-col justify-between rounded-xl border px-3 py-2 text-left transition ${
+              className={`flex min-w-0 flex-col justify-between rounded-lg border px-1.5 py-1.5 text-left transition sm:rounded-xl sm:px-3 sm:py-2 ${
                 selectedView === "Monat"
-                  ? "h-20 sm:h-22 lg:h-24"
-                  : "min-h-28 sm:min-h-32"
+                  ? "h-16 sm:h-22 lg:h-24"
+                  : "min-h-24 sm:min-h-32"
               } ${
                 day.isCurrentMonth
                   ? isSelected
@@ -92,7 +92,7 @@ export function MonthWeekCalendar({
                   return (
                     <span
                       key={ride.id}
-                      className="block rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-700"
+                      className="block rounded-lg bg-slate-100 px-1 py-1 text-[10px] font-semibold text-slate-700 sm:px-2"
                       title={getRideCalendarTitle(ride)}
                     >
                       {rideDisplayTime ? (
@@ -115,7 +115,7 @@ export function MonthWeekCalendar({
                 })}
 
                 {ridesForDay.length > visibleMarkers.length ? (
-                  <span className="block text-[10px] font-semibold text-slate-400">
+                  <span className="block text-[9px] font-semibold text-slate-400 sm:text-[10px]">
                     +{ridesForDay.length - visibleMarkers.length}
                   </span>
                 ) : null}
