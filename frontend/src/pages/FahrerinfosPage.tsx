@@ -50,7 +50,7 @@ function FahrerinfosPage() {
   }
 
   const filteredDrivers = drivers.filter((driver) => {
-    const haystack = `${driver.fahrerId} ${driver.name} ${driver.telefonnummer ?? ''} ${driver.fahrzeug ?? ''} ${driver.status} ${driver.bemerkung ?? ''}`.toLowerCase()
+    const haystack = `${driver.fahrerId} ${driver.name} ${driver.telefonnummer ?? ''} ${driver.status} ${driver.bemerkung ?? ''}`.toLowerCase()
     return haystack.includes(searchQuery.trim().toLowerCase())
   })
 
@@ -88,7 +88,7 @@ function FahrerinfosPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Suche nach Name, Telefonnummer, Fahrzeug ..."
+                  placeholder="Suche nach Name, Telefonnummer, Status ..."
                   className="w-full rounded-xl border border-slate-300 py-2 pl-9 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
                 />
               </div>
@@ -116,7 +116,6 @@ function FahrerinfosPage() {
                       <th className="px-4 py-3 text-left font-semibold text-slate-700">Fahrer-ID</th>
                       <th className="px-4 py-3 text-left font-semibold text-slate-700">Name</th>
                       <th className="px-4 py-3 text-left font-semibold text-slate-700">Telefonnummer</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Fahrzeug</th>
                       <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
                       <th className="px-4 py-3 text-left font-semibold text-slate-700">Bemerkung</th>
                     </tr>
@@ -127,7 +126,6 @@ function FahrerinfosPage() {
                         <td className="px-4 py-3">{driver.fahrerId}</td>
                         <td className="px-4 py-3">{driver.name}</td>
                         <td className="px-4 py-3">{driver.telefonnummer || '—'}</td>
-                        <td className="px-4 py-3">{driver.fahrzeug || '—'}</td>
                         <td className="px-4 py-3">{driver.status}</td>
                         <td className="px-4 py-3">{driver.bemerkung || '—'}</td>
                       </tr>
