@@ -52,6 +52,14 @@ public static class AuthEndpoints
                 );
             }
 
+            if (!user.Aktiv)
+            {
+                return Results.Text(
+                    "UngÃ¼ltige Zugangsdaten.",
+                    statusCode: StatusCodes.Status401Unauthorized
+                );
+            }
+
             var passwordResult = passwordHasher.VerifyHashedPassword(user, user.PasswortHash, request.Password);
 
             if (passwordResult == PasswordVerificationResult.Failed)
@@ -95,7 +103,7 @@ public static class AuthEndpoints
                 .Include(u => u.Fahrer)
                 .FirstOrDefaultAsync(u => u.Id == currentUserId.Value);
 
-            if (user is null)
+            if (user is null || !user.Aktiv)
             {
                 return Results.Unauthorized();
             }
@@ -256,7 +264,7 @@ public static class AuthEndpoints
             }
 
             var user = await db.Benutzer.FirstOrDefaultAsync(u => u.Id == currentUserId.Value);
-            if (user is null)
+            if (user is null || !user.Aktiv)
             {
                 return Results.Unauthorized();
             }

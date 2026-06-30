@@ -14,7 +14,7 @@ public static class InitiativeEndpoints
     public static IEndpointRouteBuilder MapInitiativeEndpoints(this IEndpointRouteBuilder app)
     {
         static bool IsDisponentWithoutAdmin(HttpContext httpContext)
-            => !AuthUtils.IsAdmin(httpContext.User) && httpContext.User.IsInRole("Disponent");
+            => !AuthUtils.IsAdmin(httpContext.User) && AuthUtils.IsDisponent(httpContext.User);
 
         static async Task<IResult> GetInitiativenDetails(AppDbContext db)
         {

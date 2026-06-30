@@ -1,4 +1,4 @@
-import { Bus, UserRound } from "lucide-react";
+import { Bus, Check, UserRound } from "lucide-react";
 
 import { FiveMinuteTimeField } from "../FiveMinuteTimeField";
 import { PassengerList } from "./PassengerList";
@@ -68,10 +68,11 @@ export function RegularRideForm({
   addPassengerField,
   removePassengerField,
 }: RegularRideFormProps) {
+  const isDriverAssigned = Boolean(activeRideForm?.fahrerId);
   const driverQuery = (activeRideForm?.driverName ?? "").trim().toLowerCase();
 
   const matchingDrivers =
-    driverQuery.length > 0
+    driverQuery.length > 0 && !isDriverAssigned
       ? fahrerListe
           .filter((driver) => {
             const searchable =
@@ -127,6 +128,12 @@ export function RegularRideForm({
         >
           <UserRound className="h-4 w-4 text-[#0053a0]" aria-hidden="true" />
           Fahrer (max. 1)
+          {isDriverAssigned ? (
+            <span className="ml-2 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+              <Check className="h-3.5 w-3.5" aria-hidden="true" />
+              Fahrer zugewiesen
+            </span>
+          ) : null}
         </label>
 
         <input

@@ -2,13 +2,11 @@ import { DayTimelineCalendar } from "../features/dashboard/components/DayTimelin
 import { MonthWeekCalendar } from "../features/dashboard/components/MonthWeekCalendar";
 import { DashboardToolbar } from "../features/dashboard/components/DashboardToolbar";
 import { DashboardHeader } from "../features/dashboard/components/DashboardHeader";
-import { SideMenu } from "../features/dashboard/components/SideMenu";
 import { DayDialog } from "../features/dashboard/components/DayDialog";
 import { RideDialog } from "../features/dashboard/components/RideDialog";
 import { useDashboardCalendarModel } from "../features/dashboard/hooks/useDashboardCalendarModel";
 
 import { useEffect, useMemo, useState } from "react";
-import { LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useDashboardData } from "../features/dashboard/hooks/useDashboardData";
@@ -24,6 +22,7 @@ import {
   toDateInputValue,
 } from "../features/dashboard/utils/dateUtils";
 import { StatusLegend } from "../features/dashboard/components/StatusLegend";
+import ProtectedSideMenu from "../components/ProtectedSideMenu";
 
 import type { CalendarRide } from "../types/DashboardRide";
 type DayRole = "dispo" | "fahrer";
@@ -36,7 +35,7 @@ const topFilters = ["Offene Fahrten", "Meine Fahrten", "Alle Fahrten"];
 function DashboardPage() {
   // Routing, Auth und Rollen
   const navigate = useNavigate();
-  const { currentUser, logout } = useAuth();
+  const { currentUser } = useAuth();
   const {
     canManageDataCrud,
     canManageInitiatives,
@@ -319,20 +318,9 @@ function DashboardPage() {
     setRidePendingDelete(null);
   }
 
-  // Seitennavigation und Logout
+  // Seitennavigation
   function closeSideMenu() {
     setIsSideMenuOpen(false);
-  }
-
-  function goToPage(path: string) {
-    closeSideMenu();
-    navigate(path);
-  }
-
-  function handleLogout() {
-    closeSideMenu();
-    logout();
-    navigate("/", { replace: true });
   }
 
   // Kalendernavigation: Monat, Woche oder Tag verschieben
@@ -441,10 +429,7 @@ function DashboardPage() {
             selectedView={selectedView}
             setSelectedView={setSelectedView}
             shiftPeriod={shiftPeriod}
-            isAdmin={isAdmin}
             isRideCrudRestricted={isRideCrudRestricted}
-            openNotifications={() => navigate("/admin/benachrichtigungen")}
-            openSettings={() => navigate("/admin/einstellungen")}
             openRideDialogForSelection={openRideDialogForSelection}
           />
           {selectedView === "Tag" ? (
@@ -467,22 +452,9 @@ function DashboardPage() {
         </section>
       </div>
 
-      <button
-        type="button"
-        onClick={handleLogout}
-        className="mb-4 ml-2 inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-white px-3 py-2.5 text-sm font-semibold text-rose-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] transition hover:bg-rose-50 sm:mb-6 sm:ml-4 sm:px-4 sm:py-3 lg:ml-6"
-      >
-        <LogOut className="h-4 w-4" aria-hidden="true" />
-        Abmelden
-      </button>
-
-      <SideMenu
+      <ProtectedSideMenu
         isOpen={isSideMenuOpen}
-        isFahrer={isFahrer}
-        isGast={isGast}
-        canManageInitiatives={canManageInitiatives}
-        closeSideMenu={closeSideMenu}
-        goToPage={goToPage}
+        onClose={closeSideMenu}
       />
 
       <DayDialog

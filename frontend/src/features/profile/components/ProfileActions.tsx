@@ -1,27 +1,14 @@
-import { LogOut } from 'lucide-react'
-
 type ProfileActionsProps = {
   isSaving: boolean
-  onLogout: () => void
   onSaveProfile: () => void
 }
 
 export function ProfileActions({
   isSaving,
-  onLogout,
   onSaveProfile,
 }: ProfileActionsProps) {
   return (
     <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-4">
-      <button
-        type="button"
-        onClick={onLogout}
-        className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
-      >
-        <LogOut className="h-3 w-3" aria-hidden="true" />
-        Abmelden
-      </button>
-
       <button
         type="button"
         onClick={onSaveProfile}

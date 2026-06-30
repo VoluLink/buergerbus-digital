@@ -78,6 +78,11 @@ public static class FahrzeugServiceEndpoints
             AppDbContext db
         ) =>
         {
+            if (!AuthUtils.CanManageVehicles(httpContext.User))
+            {
+                return Results.Forbid();
+            }
+
             var userResult = await LoadUserWithInitiativeAsync(httpContext.User, userId, db);
             if (userResult.Error != null)
             {
@@ -163,6 +168,11 @@ public static class FahrzeugServiceEndpoints
             AppDbContext db
         ) =>
         {
+            if (!AuthUtils.CanManageVehicles(httpContext.User))
+            {
+                return Results.Forbid();
+            }
+
             var fahrzeug = await db.Fahrzeuge.FirstOrDefaultAsync(f => f.Id == id);
             if (fahrzeug == null)
             {
@@ -270,6 +280,11 @@ public static class FahrzeugServiceEndpoints
             AppDbContext db
         ) =>
         {
+            if (!AuthUtils.CanManageVehicles(httpContext.User))
+            {
+                return Results.Forbid();
+            }
+
             var fahrzeug = await db.Fahrzeuge.FirstOrDefaultAsync(f => f.Id == id);
             if (fahrzeug == null)
             {
@@ -330,6 +345,11 @@ public static class FahrzeugServiceEndpoints
             AppDbContext db
         ) =>
         {
+            if (!AuthUtils.CanManageVehicles(httpContext.User))
+            {
+                return Results.Forbid();
+            }
+
             var authResult = await LoadAuthorizedVehicleAsync(httpContext.User, fahrzeugId, userId, db);
             if (authResult.Error != null)
             {
@@ -383,6 +403,11 @@ public static class FahrzeugServiceEndpoints
             AppDbContext db
         ) =>
         {
+            if (!AuthUtils.CanManageVehicles(httpContext.User))
+            {
+                return Results.Forbid();
+            }
+
             var wartung = await db.Wartungen
                 .Include(w => w.Fahrzeug)
                 .FirstOrDefaultAsync(w => w.Id == id);
@@ -438,6 +463,11 @@ public static class FahrzeugServiceEndpoints
             AppDbContext db
         ) =>
         {
+            if (!AuthUtils.CanManageVehicles(httpContext.User))
+            {
+                return Results.Forbid();
+            }
+
             var wartung = await db.Wartungen
                 .Include(w => w.Fahrzeug)
                 .FirstOrDefaultAsync(w => w.Id == id);
@@ -500,6 +530,11 @@ public static class FahrzeugServiceEndpoints
             AppDbContext db
         ) =>
         {
+            if (!AuthUtils.CanManageVehicles(httpContext.User))
+            {
+                return Results.Forbid();
+            }
+
             var authResult = await LoadAuthorizedVehicleAsync(httpContext.User, fahrzeugId, userId, db);
             if (authResult.Error != null)
             {
@@ -547,6 +582,11 @@ public static class FahrzeugServiceEndpoints
             AppDbContext db
         ) =>
         {
+            if (!AuthUtils.CanManageVehicles(httpContext.User))
+            {
+                return Results.Forbid();
+            }
+
             var schaden = await db.Schaeden
                 .Include(s => s.Fahrzeug)
                 .FirstOrDefaultAsync(s => s.Id == id);
@@ -596,6 +636,11 @@ public static class FahrzeugServiceEndpoints
             AppDbContext db
         ) =>
         {
+            if (!AuthUtils.CanManageVehicles(httpContext.User))
+            {
+                return Results.Forbid();
+            }
+
             var schaden = await db.Schaeden
                 .Include(s => s.Fahrzeug)
                 .FirstOrDefaultAsync(s => s.Id == id);

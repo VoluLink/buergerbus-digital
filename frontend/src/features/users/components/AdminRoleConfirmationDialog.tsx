@@ -22,11 +22,11 @@ function AdminRoleConfirmationDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/55 p-3 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-2 backdrop-blur-sm sm:p-4"
       onClick={onCancel}
     >
       <section
-        className="max-h-[calc(100vh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-4 shadow-xl sm:max-h-[90vh] sm:p-6"
+        className="max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-xl sm:max-h-[calc(100dvh-2rem)] sm:p-6"
         onClick={(event) => event.stopPropagation()}
         aria-label="Admin-Rolle bestätigen"
       >

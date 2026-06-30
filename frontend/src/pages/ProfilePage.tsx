@@ -6,17 +6,14 @@ import { ProfileHeader } from '../features/profile/components/ProfileHeader'
 import { ProfileInfoCard } from '../features/profile/components/ProfileInfoCard'
 import type { PasswordFormData, ProfileFormData } from '../features/profile/types'
 import { formatDateInput } from '../features/profile/utils'
-import { useRoleVisibility } from '../hooks/useRoleVisibility'
 import { changePassword, updateUserProfile } from '../services/profile'
 import { isPasswordLongEnough } from '../utils/password'
 import { useAuth } from '../context/AuthContext'
 
 function ProfilePage() {
   const navigate = useNavigate()
-  const { currentUser, isLoading, error, logout, refreshProfile } = useAuth()
-  const { canManageInitiatives, isFahrer } = useRoleVisibility()
+  const { currentUser, isLoading, error, refreshProfile } = useAuth()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
-  const [isAccountActive, setIsAccountActive] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
@@ -71,7 +68,6 @@ function ProfilePage() {
       remarks: currentUser.bemerkung ?? '',
     })
 
-    setIsAccountActive(currentUser.aktiv ?? true)
     setSaveError(null)
     setSaveSuccess(null)
     setChangePasswordError(null)
@@ -89,17 +85,6 @@ function ProfilePage() {
 
   function closeSideMenu() {
     setIsSideMenuOpen(false)
-  }
-
-  function goToPage(path: string) {
-    closeSideMenu()
-    navigate(path)
-  }
-
-  function handleLogout() {
-    closeSideMenu()
-    logout()
-    navigate('/', { replace: true })
   }
 
   function handleInputChange(field: keyof ProfileFormData, value: string) {
@@ -154,11 +139,9 @@ function ProfilePage() {
         letzteG25: formData.lastG2s ? formData.lastG2s : null,
         naechsteG25: formData.nextG2s ? formData.nextG2s : null,
         bemerkung: normalizeNullable(formData.remarks),
-        aktiv: isAccountActive,
         fahrer: hasFahrerRole
           ? {
               bemerkung: normalizeNullable(formData.remarks),
-              aktiv: isAccountActive,
             }
           : null,
       })
@@ -179,7 +162,6 @@ function ProfilePage() {
         remarks: updatedProfile.bemerkung ?? '',
       }))
 
-      setIsAccountActive(updatedProfile.aktiv ?? true)
       setSaveSuccess('Profil wurde gespeichert.')
       void refreshProfile()
     } catch (err) {
@@ -243,12 +225,9 @@ function ProfilePage() {
     <main className="min-h-screen bg-slate-100 text-slate-900">
       <ProfileHeader
         isSideMenuOpen={isSideMenuOpen}
-        canManageInitiatives={canManageInitiatives}
-        isFahrer={isFahrer}
         onOpenSideMenu={() => setIsSideMenuOpen(true)}
         onCloseSideMenu={closeSideMenu}
         onNavigateToProfile={() => navigate('/profil')}
-        onNavigateToPage={goToPage}
       />
 
       <div className="p-2 sm:p-3 lg:p-4">
@@ -264,9 +243,7 @@ function ProfilePage() {
             initiativeName={initiativeName}
             formData={formData}
             phoneError={phoneError}
-            isAccountActive={isAccountActive}
             onInputChange={handleInputChange}
-            onAccountActiveChange={setIsAccountActive}
           />
 
           <PasswordChangeForm
@@ -286,7 +263,6 @@ function ProfilePage() {
 
           <ProfileActions
             isSaving={isSaving}
-            onLogout={handleLogout}
             onSaveProfile={handleSaveProfile}
           />
         </section>

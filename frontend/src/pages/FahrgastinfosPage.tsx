@@ -26,7 +26,7 @@ import type { Initiative } from '../types/Initiative'
 function FahrgastinfosPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
-  const { canManageDataCrud, canManageInitiatives, isAdmin, isFahrer } = useRoleVisibility()
+  const { canManageDataCrud, isAdmin } = useRoleVisibility()
   const isCrudRestricted = !canManageDataCrud
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -105,11 +105,6 @@ function FahrgastinfosPage() {
 
   function closeSideMenu() {
     setIsSideMenuOpen(false)
-  }
-
-  function goToPage(path: string) {
-    closeSideMenu()
-    navigate(path)
   }
 
   function handleOpenEditModal() {
@@ -262,11 +257,8 @@ function FahrgastinfosPage() {
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
       <PassengerHeader
-        canManageInitiatives={canManageInitiatives}
-        isFahrer={isFahrer}
         isSideMenuOpen={isSideMenuOpen}
         onCloseSideMenu={closeSideMenu}
-        onGoToPage={goToPage}
         onOpenProfile={() => navigate('/profil')}
         onOpenSideMenu={() => setIsSideMenuOpen(true)}
       />

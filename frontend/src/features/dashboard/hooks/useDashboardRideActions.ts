@@ -336,6 +336,25 @@ export function useDashboardRideActions({
       const driverName = normalizePassengerText(
         activeRideForm.driverName,
       ).trim();
+      const selectedFahrerId = activeRideForm.fahrerId;
+      const selectedDriver = selectedFahrerId
+        ? fahrerListe.find((fahrer) => fahrer.fahrerId === selectedFahrerId)
+        : null;
+      const effectiveFahrerId = selectedDriver?.fahrerId ?? null;
+
+      if (driverName && !selectedFahrerId) {
+        setRideSaveError(
+          "Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.",
+        );
+        return;
+      }
+
+      if (selectedFahrerId && !selectedDriver) {
+        setRideSaveError(
+          "Bitte Fahrer aus der Liste auswÃ¤hlen oder das Feld leer lassen.",
+        );
+        return;
+      }
 
       const endTime = normalizePassengerText(activeRideForm.endTime).trim();
 
@@ -346,7 +365,7 @@ export function useDashboardRideActions({
 
       if (rideInEditId !== null) {
         const baseStatus =
-          statusOverride ?? getRideStatusByType(rideType, driverName);
+          statusOverride ?? getRideStatusByType(rideType, effectiveFahrerId);
 
         const existingRide = calendarRides.find(
           (ride) => ride.id === rideInEditId,
@@ -370,7 +389,7 @@ export function useDashboardRideActions({
           driverName,
           createdByName:
             existingRide?.createdByName ?? currentCreatorDisplayName,
-          fahrerId: activeRideForm.fahrerId,
+          fahrerId: effectiveFahrerId,
           fahrzeugId: activeRideForm.fahrzeugId,
           passengers:
             activeRideForm.passengers.length > 0
@@ -411,7 +430,7 @@ export function useDashboardRideActions({
       }
 
       const baseStatus =
-        statusOverride ?? getRideStatusByType(rideType, driverName);
+        statusOverride ?? getRideStatusByType(rideType, effectiveFahrerId);
 
       const rideTime = getEarliestPassengerTime(passengers);
 
@@ -430,7 +449,7 @@ export function useDashboardRideActions({
         endTime,
         driverName,
         createdByName: currentCreatorDisplayName,
-        fahrerId: activeRideForm.fahrerId,
+        fahrerId: effectiveFahrerId,
         fahrzeugId: activeRideForm.fahrzeugId,
         passengers,
         remarks: normalizePassengerText(activeRideForm.remarks).trim(),

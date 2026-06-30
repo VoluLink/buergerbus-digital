@@ -1,5 +1,6 @@
 using BuergerbusAPI.Data;
 using BuergerbusAPI.DTOs;
+using BuergerbusAPI.Services;
 using Microsoft.EntityFrameworkCore;
 /// <summary>
 /// Enthält API-Endpunkte zum Abrufen verfügbarer Rollen.
@@ -14,6 +15,7 @@ public static class RoleEndpoints
         {
             var roles = await db.Rollen
                 .AsNoTracking()
+                .Where(r => AuthUtils.GetAllowedRoles().Contains(r.Rollenname))
                 .OrderBy(r => r.Rollenname)
                 .Select(r => new RoleDto(r.Id, r.Rollenname))
                 .ToListAsync();

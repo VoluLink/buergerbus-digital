@@ -1,7 +1,11 @@
-import { FileText, Link2, ChevronLeft } from 'lucide-react'
+import { useState } from 'react'
+import { FileText, Link2, ChevronLeft, Menu } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import ProtectedSideMenu from '../components/ProtectedSideMenu'
 
 function AdminSettingsPage() {
+  const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
+
   return (
     <main className="min-h-screen bg-slate-100 px-5 py-8 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
@@ -14,13 +18,24 @@ function AdminSettingsPage() {
                 <p className="mt-3 text-sm leading-6 text-slate-500">Öffentliche Inhalte und Login-Footer zentral verwalten.</p>
               </div>
 
-              <Link
-                to="/dashboard"
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-              >
-                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                Zum Dashboard
-              </Link>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                <button
+                  type="button"
+                  onClick={() => setIsSideMenuOpen(true)}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  aria-label="Navigation öffnen"
+                >
+                  <Menu className="h-4 w-4" aria-hidden="true" />
+                  Navigation
+                </button>
+                <Link
+                  to="/dashboard"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                  Zum Dashboard
+                </Link>
+              </div>
             </div>
           </div>
 
@@ -49,6 +64,8 @@ function AdminSettingsPage() {
           </div>
         </section>
       </div>
+
+      <ProtectedSideMenu isOpen={isSideMenuOpen} onClose={() => setIsSideMenuOpen(false)} />
     </main>
   )
 }

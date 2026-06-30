@@ -370,6 +370,7 @@ export function useRideDialogState({
         [rideFormKey]: {
           ...currentState[rideFormKey],
           [field]: value,
+          ...(field === "driverName" ? { fahrerId: null } : {}),
           ...(rideFormKey === "theme" && field === "themeDestination"
             ? {
                 passengers: applyThemeDestinationToPassengers(
@@ -502,6 +503,8 @@ export function useRideDialogState({
       if (!selectedFahrer || rideType === "rental") {
         return;
       }
+
+      setRideSaveError(null);
 
       const rideFormKey: RideFormType =
         rideType === "theme" ? "theme" : "standard";

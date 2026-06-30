@@ -13,9 +13,7 @@ type ProfileInfoCardProps = {
   initiativeName: string
   formData: ProfileFormData
   phoneError: string
-  isAccountActive: boolean
   onInputChange: (field: keyof ProfileFormData, value: string) => void
-  onAccountActiveChange: (value: boolean) => void
 }
 
 export function ProfileInfoCard({
@@ -29,9 +27,7 @@ export function ProfileInfoCard({
   initiativeName,
   formData,
   phoneError,
-  isAccountActive,
   onInputChange,
-  onAccountActiveChange,
 }: ProfileInfoCardProps) {
   return (
     <>
@@ -240,22 +236,6 @@ export function ProfileInfoCard({
         />
       </div>
 
-      <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 p-3">
-        <span className="text-xs font-semibold text-slate-700">Aktiver Account</span>
-        <button
-          type="button"
-          onClick={() => onAccountActiveChange(!isAccountActive)}
-          className={`relative inline-flex h-8 w-14 items-center rounded-full transition ${
-            isAccountActive ? 'bg-emerald-500' : 'bg-slate-300'
-          }`}
-        >
-          <span
-            className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition ${
-              isAccountActive ? 'translate-x-7' : 'translate-x-1'
-            }`}
-          />
-        </button>
-      </div>
     </>
   )
 }
