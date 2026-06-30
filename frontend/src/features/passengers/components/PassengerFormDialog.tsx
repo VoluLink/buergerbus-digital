@@ -40,9 +40,9 @@ export function PassengerFormDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-3 backdrop-blur-sm sm:p-4">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-2 backdrop-blur-sm sm:p-4">
       <section
-        className="flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+        className="flex h-[calc(100dvh-1rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl sm:h-auto sm:max-h-[calc(100dvh-2rem)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-4 sm:px-6">
@@ -182,15 +182,15 @@ export function PassengerFormDialog({
             </div>
           </div>
 
-          <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-slate-200 px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-slate-200 px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+12px)] sm:flex-row sm:justify-end sm:px-6 sm:pb-4">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:py-2.5"
+              className="min-h-11 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:py-2.5"
             >
               Abbrechen
             </button>
-            <button type="submit" className={submitClassName}>
+            <button type="submit" className={`min-h-11 ${submitClassName}`}>
               {submitLabel}
             </button>
           </div>

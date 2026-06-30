@@ -539,8 +539,8 @@ export function DayDialog({
         </div>
 
         {ridePendingDelete ? (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]">
-            <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/45 p-2 backdrop-blur-[2px] sm:p-4">
+            <section className="max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:pb-5">
               <h3 className="text-xl font-semibold text-slate-800">
                 Fahrt wirklich löschen?
               </h3>
@@ -552,11 +552,11 @@ export function DayDialog({
                 wird dauerhaft aus dem Kalender entfernt.
               </p>
 
-              <div className="mt-5 flex justify-end gap-2">
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={cancelDeleteRide}
-                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                  className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
                 >
                   Abbrechen
                 </button>
@@ -564,7 +564,7 @@ export function DayDialog({
                   type="button"
                   onClick={confirmDeleteRide}
                   disabled={isRideCrudRestricted}
-                  className="rounded-xl border border-rose-200 bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
+                  className="min-h-11 rounded-xl border border-rose-200 bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
                 >
                   Endgültig löschen
                 </button>

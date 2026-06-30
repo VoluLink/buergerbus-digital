@@ -36,13 +36,13 @@ function CreateUserModal({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-2 backdrop-blur-sm sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-40 flex items-start justify-center bg-slate-900/50 p-2 backdrop-blur-sm sm:items-center sm:p-4">
       <section
-        className="flex max-h-[calc(100vh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl sm:max-h-[90vh]"
+        className="flex h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl sm:h-auto sm:max-h-[calc(100dvh-2rem)]"
         onClick={(event) => event.stopPropagation()}
         aria-label="Benutzer anlegen"
       >
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-6">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-6">
           <h2 className="text-lg font-bold text-slate-800 sm:text-xl">Benutzer anlegen</h2>
           <button
             type="button"
@@ -146,7 +146,7 @@ function CreateUserModal({
             </div>
           </div>
 
-          <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-slate-200 px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-slate-200 px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+12px)] sm:flex-row sm:justify-end sm:px-6 sm:pb-4">
             <button
               type="button"
               onClick={onClose}

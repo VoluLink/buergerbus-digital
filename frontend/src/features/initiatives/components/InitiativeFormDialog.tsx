@@ -27,9 +27,9 @@ export function InitiativeFormDialog({
   const isCreate = mode === 'create'
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-2 backdrop-blur-sm sm:p-4">
       <section
-        className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-[0_35px_80px_rgba(15,23,42,0.4)]"
+        className="relative flex h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-[0_35px_80px_rgba(15,23,42,0.4)] sm:h-auto sm:max-h-[calc(100dvh-2rem)]"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="shrink-0 bg-[#0053a0] px-5 py-4 text-white sm:px-8 sm:py-5">
@@ -55,7 +55,7 @@ export function InitiativeFormDialog({
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-8 sm:py-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-8 sm:py-6">
           <div className="space-y-5">
             {error ? (
               <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
@@ -123,7 +123,7 @@ export function InitiativeFormDialog({
           </div>
         </div>
 
-        <footer className="flex shrink-0 flex-col-reverse gap-3 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-8">
+        <footer className="flex shrink-0 flex-col-reverse gap-3 border-t border-slate-200 bg-white px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+12px)] sm:flex-row sm:items-center sm:justify-end sm:px-8 sm:pb-4">
           <button
             type="button"
             onClick={onClose}

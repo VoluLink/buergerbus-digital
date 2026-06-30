@@ -126,9 +126,9 @@ export function RideDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/65 p-3 backdrop-blur-sm sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/65 p-2 backdrop-blur-sm sm:p-4">
       <section
-        className="flex max-h-[calc(100vh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[1.75rem] bg-white shadow-[0_40px_100px_rgba(15,23,42,0.45)] sm:max-h-[calc(100vh-2rem)]"
+        className="flex h-[calc(100dvh-1rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[1.75rem] bg-white shadow-[0_40px_100px_rgba(15,23,42,0.45)] sm:h-auto sm:max-h-[calc(100dvh-2rem)]"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="shrink-0 bg-[#0053a0] px-5 py-4 text-white sm:px-8 sm:py-5">
@@ -246,7 +246,7 @@ export function RideDialog({
           </div>
         </div>
 
-        <footer className="shrink-0 border-t border-slate-200 bg-white px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:bg-slate-50 sm:px-8">
+        <footer className="shrink-0 border-t border-slate-200 bg-white px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+12px)] sm:bg-slate-50 sm:px-8 sm:pb-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
             <button
               type="button"

@@ -221,7 +221,7 @@ function MaintenanceSection({
 
         {formError ? <p className="text-sm text-red-600 sm:col-span-2">{formError}</p> : null}
 
-        <div className="sticky bottom-0 -mx-4 grid grid-cols-1 gap-2 bg-slate-50/95 px-4 py-3 sm:col-span-2 sm:mx-0 sm:flex sm:justify-end sm:px-0">
+        <div className="sticky bottom-0 -mx-4 grid grid-cols-1 gap-2 bg-slate-50/95 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)] sm:col-span-2 sm:mx-0 sm:flex sm:justify-end sm:px-0 sm:pb-3">
           {editingWartungId ? (
             <button
               type="button"

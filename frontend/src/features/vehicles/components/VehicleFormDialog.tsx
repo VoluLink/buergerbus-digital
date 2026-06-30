@@ -113,12 +113,12 @@ function VehicleFormDialog({
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/50 p-3 backdrop-blur-sm sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/50 p-2 backdrop-blur-sm sm:items-center sm:p-4">
       <div
-        className="flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-lg"
+        className="flex h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-lg sm:h-auto sm:max-h-[calc(100dvh-2rem)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center justify-between gap-3 border-b px-4 py-4 sm:px-6">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-4 sm:px-6">
           <h2 className="text-xl font-bold text-slate-800">{title}</h2>
           <button
             type="button"
@@ -140,6 +140,7 @@ function VehicleFormDialog({
           <div className="mt-4">
             {activeTab === 'stammdaten' ? (
               <form
+                id="vehicle-main-form"
                 onSubmit={onSaveVehicle}
                 className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3"
               >
@@ -229,26 +230,6 @@ function VehicleFormDialog({
                   </p>
                 ) : null}
 
-                <div className="sticky bottom-0 col-span-1 -mx-4 mt-2 grid grid-cols-1 gap-2 bg-white/95 px-4 py-3 sm:col-span-2 sm:mx-0 sm:flex sm:justify-end sm:px-0 md:col-span-3">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="min-h-11 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                  >
-                    Abbrechen
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isCrudRestricted || isSaving}
-                    className={`min-h-11 rounded-lg px-4 py-2 text-sm font-semibold text-white ${
-                      isCrudRestricted || isSaving
-                        ? 'cursor-not-allowed bg-blue-400'
-                        : 'bg-blue-500 hover:bg-blue-600'
-                    }`}
-                  >
-                    {isSaving ? 'Speichern...' : submitLabel}
-                  </button>
-                </div>
               </form>
             ) : null}
 
@@ -306,6 +287,30 @@ function VehicleFormDialog({
             ) : null}
           </div>
         </div>
+
+        {activeTab === 'stammdaten' ? (
+          <div className="grid shrink-0 grid-cols-1 gap-2 border-t border-slate-200 bg-white px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+12px)] sm:flex sm:justify-end sm:px-6 sm:pb-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-h-11 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+            >
+              Abbrechen
+            </button>
+            <button
+              type="submit"
+              form="vehicle-main-form"
+              disabled={isCrudRestricted || isSaving}
+              className={`min-h-11 rounded-lg px-4 py-2 text-sm font-semibold text-white ${
+                isCrudRestricted || isSaving
+                  ? 'cursor-not-allowed bg-blue-400'
+                  : 'bg-blue-500 hover:bg-blue-600'
+              }`}
+            >
+              {isSaving ? 'Speichern...' : submitLabel}
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   )
