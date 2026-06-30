@@ -75,25 +75,36 @@ export function DayDialog({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-2 backdrop-blur-sm sm:p-4"
       onClick={closeDayDialog}
     >
       <section
-        className="relative w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-[0_35px_80px_rgba(15,23,42,0.4)]"
+        className="relative flex h-[calc(100dvh-1rem)] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-[0_35px_80px_rgba(15,23,42,0.4)] sm:h-auto sm:max-h-[calc(100dvh-2rem)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="bg-[#0053a0] px-4 py-4 text-white sm:px-8 sm:py-5">
+        <header className="shrink-0 bg-[#0053a0] px-4 py-4 text-white sm:px-8 sm:py-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-            <div className="min-w-0">
-              <h2 className="text-2xl font-semibold tracking-tight leading-tight sm:text-4xl">
-                {dialogHeading}
-              </h2>
-              <p className="mt-1 text-sm text-white/80 sm:text-base">
-                {selectedDayRides.length} Fahrten
-              </p>
+            <div className="flex min-w-0 items-start justify-between gap-3 sm:flex-1">
+              <div className="min-w-0">
+                <h2 className="break-words text-2xl font-semibold tracking-tight leading-tight sm:text-4xl">
+                  {dialogHeading}
+                </h2>
+                <p className="mt-1 text-sm text-white/80 sm:text-base">
+                  {selectedDayRides.length} Fahrten
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeDayDialog}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white transition hover:bg-white/10"
+                aria-label="Dialog schliessen"
+              >
+                <X className="h-6 w-6" aria-hidden="true" />
+              </button>
             </div>
 
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-4">
               {!hasDriverDayView ? (
                 <div className="inline-flex w-full rounded-2xl bg-white/20 p-1 sm:w-auto">
                   <button
@@ -140,20 +151,11 @@ export function DayDialog({
                   </button>
                 </div>
               )}
-
-              <button
-                type="button"
-                onClick={closeDayDialog}
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center self-end rounded-xl text-white transition hover:bg-white/10 sm:self-auto"
-                aria-label="Dialog schliessen"
-              >
-                <X className="h-6 w-6" aria-hidden="true" />
-              </button>
             </div>
           </div>
         </header>
 
-        <div className="relative h-[460px] overflow-y-auto px-5 py-5 sm:px-8">
+        <div className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 sm:h-[460px] sm:flex-none sm:px-8 sm:py-5">
           {selectedDayRides.length === 0 ? (
             <div className="flex h-full items-center justify-center text-center text-slate-400">
               <p className="text-2xl font-medium text-slate-400 sm:text-4xl">
@@ -165,7 +167,7 @@ export function DayDialog({
               {selectedDayRides.map((ride) => (
                 <article
                   key={ride.id}
-                  className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4"
+                  className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4"
                 >
                   {dayRole === "fahrer" && ride.type !== "rental" ? (
                     <>
@@ -381,19 +383,19 @@ export function DayDialog({
                         </div>
                         {ride.type !== "rental" ? (
                           <>
-                            <div>
+                            <div className="min-w-0 break-words">
                               <span className="font-semibold text-slate-700">
                                 Fahrgäste:
                               </span>{" "}
                               {ride.passengers.length}
                             </div>
-                            <div>
+                            <div className="min-w-0 break-words">
                               <span className="font-semibold text-slate-700">
                                 Fahrer:
                               </span>{" "}
                               {ride.driverName || "-"}
                             </div>
-                            <div>
+                            <div className="min-w-0 break-words">
                               <span className="font-semibold text-slate-700">
                                 Geschätzte Endzeit:
                               </span>{" "}
@@ -453,9 +455,9 @@ export function DayDialog({
                                     (passenger, passengerIndex) => (
                                       <li
                                         key={passenger.id}
-                                        className="rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700"
+                                        className="min-w-0 rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700"
                                       >
-                                        <div className="font-semibold text-slate-800">
+                                        <div className="break-words font-semibold text-slate-800">
                                           {passenger.name ||
                                             `Fahrgast ${passengerIndex + 1}`}
                                         </div>
