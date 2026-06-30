@@ -55,13 +55,13 @@ public record UpdateUserProfileRequest(
     DateTime? NaechsteG25,
     string? Telefonnummer,
     string? Bemerkung,
-    bool Aktiv,
+    bool? Aktiv,
     UpdateFahrerProfileRequest? Fahrer
 );
 
 public record UpdateFahrerProfileRequest(
     string? Bemerkung,
-    bool Aktiv
+    bool? Aktiv
 );
 
 public record UpdateRolesRequest(List<string> Roles, string? ActiveRole);

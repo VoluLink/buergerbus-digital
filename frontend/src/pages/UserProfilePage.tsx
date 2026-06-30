@@ -36,6 +36,7 @@ function createProfileForm(profile?: UserProfile | null) {
     postCode: profile?.postleitzahl ?? '',
     city: profile?.ort ?? '',
     remarks: profile?.bemerkung ?? '',
+    accountActive: profile?.aktiv === false ? 'false' : 'true',
   }
 }
 
@@ -146,6 +147,7 @@ function UserProfilePage() {
   }, [userId])
 
   const canManageProfile = isAdmin && profile !== null
+  const isOwnProfile = currentUser?.id === profile?.id
   const canDeleteProfile = canManageProfile && currentUser?.id !== profile?.id
 
   function handleInputChange(field: keyof typeof formData, value: string) {
@@ -213,11 +215,11 @@ function UserProfilePage() {
         letzteG25: formData.lastG25 ? formData.lastG25 : null,
         naechsteG25: formData.nextG25 ? formData.nextG25 : null,
         bemerkung: normalizeNullable(formData.remarks),
-        aktiv: profile.aktiv,
+        aktiv: isOwnProfile ? undefined : formData.accountActive === 'true',
         fahrer: hasFahrerRole
           ? {
               bemerkung: normalizeNullable(formData.remarks),
-              aktiv: profile.fahrer?.aktiv ?? profile.aktiv,
+              aktiv: isOwnProfile ? undefined : profile.fahrer?.aktiv ?? profile.aktiv,
             }
           : null,
       })
@@ -472,6 +474,20 @@ function UserProfilePage() {
                       disabled={isSaving || isDeleting}
                     />
                   </div>
+                  {!isOwnProfile ? (
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Status</label>
+                      <select
+                        value={formData.accountActive}
+                        onChange={(event) => handleInputChange('accountActive', event.target.value)}
+                        className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
+                        disabled={isSaving || isDeleting}
+                      >
+                        <option value="true">Aktiv</option>
+                        <option value="false">Inaktiv</option>
+                      </select>
+                    </div>
+                  ) : null}
 
                   <div className="sm:col-span-2 flex justify-end gap-3 pt-2">
                     <button

@@ -14,7 +14,6 @@ function ProfilePage() {
   const navigate = useNavigate()
   const { currentUser, isLoading, error, refreshProfile } = useAuth()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
-  const [isAccountActive, setIsAccountActive] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
@@ -69,7 +68,6 @@ function ProfilePage() {
       remarks: currentUser.bemerkung ?? '',
     })
 
-    setIsAccountActive(currentUser.aktiv ?? true)
     setSaveError(null)
     setSaveSuccess(null)
     setChangePasswordError(null)
@@ -141,11 +139,9 @@ function ProfilePage() {
         letzteG25: formData.lastG2s ? formData.lastG2s : null,
         naechsteG25: formData.nextG2s ? formData.nextG2s : null,
         bemerkung: normalizeNullable(formData.remarks),
-        aktiv: isAccountActive,
         fahrer: hasFahrerRole
           ? {
               bemerkung: normalizeNullable(formData.remarks),
-              aktiv: isAccountActive,
             }
           : null,
       })
@@ -166,7 +162,6 @@ function ProfilePage() {
         remarks: updatedProfile.bemerkung ?? '',
       }))
 
-      setIsAccountActive(updatedProfile.aktiv ?? true)
       setSaveSuccess('Profil wurde gespeichert.')
       void refreshProfile()
     } catch (err) {
@@ -248,9 +243,7 @@ function ProfilePage() {
             initiativeName={initiativeName}
             formData={formData}
             phoneError={phoneError}
-            isAccountActive={isAccountActive}
             onInputChange={handleInputChange}
-            onAccountActiveChange={setIsAccountActive}
           />
 
           <PasswordChangeForm

@@ -286,7 +286,6 @@ public static class UserEndpoints
             {
                 return Results.NotFound("Benutzer wurde nicht gefunden.");
             }
-
             return Results.Ok(UserMapper.CreateUserProfile(user));
         })
         .RequireAuthorization();
@@ -392,9 +391,9 @@ public static class UserEndpoints
         ) =>
         {
             var principal = httpContext.User;
+            var tokenUserId = AuthUtils.GetUserId(principal);
             if (!AuthUtils.IsAdmin(principal))
             {
-                var tokenUserId = AuthUtils.GetUserId(principal);
                 if (!tokenUserId.HasValue || tokenUserId.Value != id)
                 {
                     return Results.Forbid();
@@ -478,9 +477,10 @@ public static class UserEndpoints
         ) =>
         {
             var principal = httpContext.User;
+            var tokenUserId = AuthUtils.GetUserId(principal);
+            var isOwnProfile = tokenUserId.HasValue && tokenUserId.Value == id;
             if (!AuthUtils.IsAdmin(principal))
             {
-                var tokenUserId = AuthUtils.GetUserId(principal);
                 if (!tokenUserId.HasValue || tokenUserId.Value != id)
                 {
                     return Results.Forbid();
@@ -499,6 +499,23 @@ public static class UserEndpoints
                 return Results.NotFound("Benutzer wurde nicht gefunden.");
             }
             // Benutzername prüfen und sicherstellen, dass er eindeutig ist
+            if (isOwnProfile && request.Aktiv.HasValue && request.Aktiv.Value != user.Aktiv)
+            {
+                return Results.BadRequest(request.Aktiv.Value
+                    ? "Der Status des eigenen Kontos kann nicht geÃ¤ndert werden."
+                    : "Das eigene Konto kann nicht deaktiviert werden.");
+            }
+
+            if (isOwnProfile
+                && request.Fahrer?.Aktiv.HasValue == true
+                && user.Fahrer is not null
+                && request.Fahrer.Aktiv.Value != user.Fahrer.Aktiv)
+            {
+                return Results.BadRequest(request.Fahrer.Aktiv.Value
+                    ? "Der Status des eigenen Fahrerprofils kann nicht geÃ¤ndert werden."
+                    : "Das eigene Fahrerprofil kann nicht deaktiviert werden.");
+            }
+
             if (string.IsNullOrWhiteSpace(request.Username))
             {
                 return Results.BadRequest("Benutzername darf nicht leer sein.");
@@ -525,7 +542,10 @@ public static class UserEndpoints
             user.NaechsteG25 = request.NaechsteG25;
             user.Telefonnummer = request.Telefonnummer;
             user.Bemerkung = request.Bemerkung;
-            user.Aktiv = request.Aktiv;
+            if (request.Aktiv.HasValue)
+            {
+                user.Aktiv = request.Aktiv.Value;
+            }
             user.GeaendertAm = DateTime.UtcNow;
 
             // Prüfen, ob der Benutzer die Rolle "Fahrer" besitzt
@@ -546,7 +566,10 @@ public static class UserEndpoints
                 }
                 // Fahrerspezifische Zusatzdaten aktualisieren
                 user.Fahrer.Bemerkung = request.Fahrer.Bemerkung;
-                user.Fahrer.Aktiv = request.Fahrer.Aktiv;
+                if (request.Fahrer.Aktiv.HasValue)
+                {
+                    user.Fahrer.Aktiv = request.Fahrer.Aktiv.Value;
+                }
                 user.Fahrer.GeaendertAm = DateTime.UtcNow;
             }
 

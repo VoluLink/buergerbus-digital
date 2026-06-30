@@ -13,7 +13,7 @@ export type ChangePasswordResponse = {
 
 type UpdateFahrerProfileRequest = {
   bemerkung?: string | null
-  aktiv: boolean
+  aktiv?: boolean | null
 }
 
 type UpdateUserProfileRequest = {
@@ -28,7 +28,7 @@ type UpdateUserProfileRequest = {
   letzteG25?: string | null
   naechsteG25?: string | null
   bemerkung?: string | null
-  aktiv: boolean
+  aktiv?: boolean | null
   fahrer?: UpdateFahrerProfileRequest | null
 }
 
