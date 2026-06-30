@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, Plus, Save, Trash2 } from 'lucide-react'
+import { ChevronLeft, Menu, Plus, Save, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import ProtectedSideMenu from '../../../components/ProtectedSideMenu'
 import { useRoleVisibility } from '../../../hooks/useRoleVisibility'
 import { createPage, deletePage, getAdminPages, updatePage } from '../api/pagesApi'
 import type { AdminPage, CreatePageRequest } from '../types'
@@ -20,6 +21,7 @@ function emptyForm(): PageFormState {
 
 function AdminPagesPage() {
   const { isAdmin } = useRoleVisibility()
+  const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [pages, setPages] = useState<AdminPage[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -152,10 +154,19 @@ function AdminPagesPage() {
                 <p className="mt-3 text-sm leading-6 text-slate-500">Öffentliche Seiten wie Impressum, Datenschutz und Kontakt pflegen.</p>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsSideMenuOpen(true)}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  aria-label="Navigation öffnen"
+                >
+                  <Menu className="h-4 w-4" aria-hidden="true" />
+                  Navigation
+                </button>
                 <Link
                   to="/admin/einstellungen"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                 >
                   <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                   Zurück
@@ -343,6 +354,8 @@ function AdminPagesPage() {
           </div>
         </section>
       </div>
+
+      <ProtectedSideMenu isOpen={isSideMenuOpen} onClose={() => setIsSideMenuOpen(false)} />
     </main>
   )
 }

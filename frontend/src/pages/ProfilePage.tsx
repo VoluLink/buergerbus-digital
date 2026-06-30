@@ -6,15 +6,13 @@ import { ProfileHeader } from '../features/profile/components/ProfileHeader'
 import { ProfileInfoCard } from '../features/profile/components/ProfileInfoCard'
 import type { PasswordFormData, ProfileFormData } from '../features/profile/types'
 import { formatDateInput } from '../features/profile/utils'
-import { useRoleVisibility } from '../hooks/useRoleVisibility'
 import { changePassword, updateUserProfile } from '../services/profile'
 import { isPasswordLongEnough } from '../utils/password'
 import { useAuth } from '../context/AuthContext'
 
 function ProfilePage() {
   const navigate = useNavigate()
-  const { currentUser, isLoading, error, logout, refreshProfile } = useAuth()
-  const { canManageInitiatives, isFahrer } = useRoleVisibility()
+  const { currentUser, isLoading, error, refreshProfile } = useAuth()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isAccountActive, setIsAccountActive] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -89,17 +87,6 @@ function ProfilePage() {
 
   function closeSideMenu() {
     setIsSideMenuOpen(false)
-  }
-
-  function goToPage(path: string) {
-    closeSideMenu()
-    navigate(path)
-  }
-
-  function handleLogout() {
-    closeSideMenu()
-    logout()
-    navigate('/', { replace: true })
   }
 
   function handleInputChange(field: keyof ProfileFormData, value: string) {
@@ -243,12 +230,9 @@ function ProfilePage() {
     <main className="min-h-screen bg-slate-100 text-slate-900">
       <ProfileHeader
         isSideMenuOpen={isSideMenuOpen}
-        canManageInitiatives={canManageInitiatives}
-        isFahrer={isFahrer}
         onOpenSideMenu={() => setIsSideMenuOpen(true)}
         onCloseSideMenu={closeSideMenu}
         onNavigateToProfile={() => navigate('/profil')}
-        onNavigateToPage={goToPage}
       />
 
       <div className="p-2 sm:p-3 lg:p-4">
@@ -286,7 +270,6 @@ function ProfilePage() {
 
           <ProfileActions
             isSaving={isSaving}
-            onLogout={handleLogout}
             onSaveProfile={handleSaveProfile}
           />
         </section>

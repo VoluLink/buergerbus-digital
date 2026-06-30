@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Trash2, UserRound } from 'lucide-react'
+import { ArrowLeft, Menu, Trash2, UserRound } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+import ProtectedSideMenu from '../components/ProtectedSideMenu'
 import UserMenuButton from '../components/UserMenuButton'
 import { useAuth } from '../context/AuthContext'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
@@ -89,6 +90,7 @@ function UserProfilePage() {
   const [actionError, setActionError] = useState('')
   const [actionSuccess, setActionSuccess] = useState('')
   const [phoneError, setPhoneError] = useState('')
+  const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
 
   const userId = useMemo(() => {
     const raw = params.id
@@ -274,6 +276,14 @@ function UserProfilePage() {
               aria-label="Zurück"
             >
               <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsSideMenuOpen(true)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0053a0]/40"
+              aria-label="Navigation öffnen"
+            >
+              <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
 
             <h1 className="text-2xl font-bold text-slate-800">Profil</h1>
@@ -558,6 +568,8 @@ function UserProfilePage() {
           </div>
         </section>
       </div>
+
+      <ProtectedSideMenu isOpen={isSideMenuOpen} onClose={() => setIsSideMenuOpen(false)} />
     </main>
   )
 }

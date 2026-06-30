@@ -2,7 +2,6 @@ import { DayTimelineCalendar } from "../features/dashboard/components/DayTimelin
 import { MonthWeekCalendar } from "../features/dashboard/components/MonthWeekCalendar";
 import { DashboardToolbar } from "../features/dashboard/components/DashboardToolbar";
 import { DashboardHeader } from "../features/dashboard/components/DashboardHeader";
-import { SideMenu } from "../features/dashboard/components/SideMenu";
 import { DayDialog } from "../features/dashboard/components/DayDialog";
 import { RideDialog } from "../features/dashboard/components/RideDialog";
 import { useDashboardCalendarModel } from "../features/dashboard/hooks/useDashboardCalendarModel";
@@ -23,6 +22,7 @@ import {
   toDateInputValue,
 } from "../features/dashboard/utils/dateUtils";
 import { StatusLegend } from "../features/dashboard/components/StatusLegend";
+import ProtectedSideMenu from "../components/ProtectedSideMenu";
 
 import type { CalendarRide } from "../types/DashboardRide";
 type DayRole = "dispo" | "fahrer";
@@ -35,7 +35,7 @@ const topFilters = ["Offene Fahrten", "Meine Fahrten", "Alle Fahrten"];
 function DashboardPage() {
   // Routing, Auth und Rollen
   const navigate = useNavigate();
-  const { currentUser, logout } = useAuth();
+  const { currentUser } = useAuth();
   const {
     canManageDataCrud,
     canManageInitiatives,
@@ -318,20 +318,9 @@ function DashboardPage() {
     setRidePendingDelete(null);
   }
 
-  // Seitennavigation und Logout
+  // Seitennavigation
   function closeSideMenu() {
     setIsSideMenuOpen(false);
-  }
-
-  function goToPage(path: string) {
-    closeSideMenu();
-    navigate(path);
-  }
-
-  function handleLogout() {
-    closeSideMenu();
-    logout();
-    navigate("/", { replace: true });
   }
 
   // Kalendernavigation: Monat, Woche oder Tag verschieben
@@ -463,15 +452,9 @@ function DashboardPage() {
         </section>
       </div>
 
-      <SideMenu
+      <ProtectedSideMenu
         isOpen={isSideMenuOpen}
-        isFahrer={isFahrer}
-        isGast={isGast}
-        isAdmin={isAdmin}
-        canManageInitiatives={canManageInitiatives}
-        closeSideMenu={closeSideMenu}
-        goToPage={goToPage}
-        onLogout={handleLogout}
+        onClose={closeSideMenu}
       />
 
       <DayDialog

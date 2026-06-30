@@ -18,7 +18,7 @@ import type { Initiative, InitiativeDeletePreview } from '../types/Initiative'
 
 function InitiativenPage() {
   const navigate = useNavigate()
-  const { canManageInitiatives, isDisponent, isFahrer } = useRoleVisibility()
+  const { canManageInitiatives } = useRoleVisibility()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
 
   const [initiatives, setInitiatives] = useState<Initiative[]>([])
@@ -90,11 +90,6 @@ function InitiativenPage() {
 
   function closeSideMenu() {
     setIsSideMenuOpen(false)
-  }
-
-  function goToPage(path: string) {
-    closeSideMenu()
-    navigate(path)
   }
 
   function openCreateModal() {
@@ -308,13 +303,9 @@ function InitiativenPage() {
     <main className="min-h-screen bg-slate-100 text-slate-900">
       <InitiativeHeader
         isSideMenuOpen={isSideMenuOpen}
-        canManageInitiatives={canManageInitiatives}
-        isDisponent={isDisponent}
-        isFahrer={isFahrer}
         onOpenSideMenu={() => setIsSideMenuOpen(true)}
         onCloseSideMenu={closeSideMenu}
         onNavigateToProfile={() => navigate('/profil')}
-        onNavigateToPage={goToPage}
       />
 
       <InitiativeMembersSection

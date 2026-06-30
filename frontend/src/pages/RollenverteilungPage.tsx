@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import ProtectedSideMenu from '../components/ProtectedSideMenu'
 import AdminRoleConfirmationDialog from '../features/users/components/AdminRoleConfirmationDialog'
 import CreateUserModal from '../features/users/components/CreateUserModal'
 import RollenverteilungHeader from '../features/users/components/RollenverteilungHeader'
-import RollenverteilungSideMenu from '../features/users/components/RollenverteilungSideMenu'
 import UsersRoleTable from '../features/users/components/UsersRoleTable'
 import type {
   CreateUserForm,
@@ -27,8 +27,8 @@ import type { InitiativeSummary, RoleSummary, UserSummary } from '../types/UserP
 
 function RollenverteilungPage() {
   const navigate = useNavigate()
-  const { currentUser, logout } = useAuth()
-  const { canManageInitiatives, canManageRoleAssignments, isAdmin, isDisponent, isFahrer } = useRoleVisibility()
+  const { currentUser } = useAuth()
+  const { canManageRoleAssignments, isAdmin, isDisponent } = useRoleVisibility()
   const currentInitiativeId = currentUser?.initiative?.id ?? null
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -160,17 +160,6 @@ function RollenverteilungPage() {
     }
 
     setIsCreateModalOpen(false)
-  }
-
-  function goToPage(path: string) {
-    closeSideMenu()
-    navigate(path)
-  }
-
-  function handleLogout() {
-    closeSideMenu()
-    logout()
-    navigate('/', { replace: true })
   }
 
   function closeAdminConfirmation() {
@@ -505,14 +494,7 @@ function RollenverteilungPage() {
       </div>
 
       {isSideMenuOpen ? (
-        <RollenverteilungSideMenu
-          canManageInitiatives={canManageInitiatives}
-          isAdmin={isAdmin}
-          isFahrer={isFahrer}
-          onClose={closeSideMenu}
-          onNavigate={goToPage}
-          onLogout={handleLogout}
-        />
+        <ProtectedSideMenu isOpen={isSideMenuOpen} onClose={closeSideMenu} />
       ) : null}
 
       {pendingAdminConfirmation ? (
