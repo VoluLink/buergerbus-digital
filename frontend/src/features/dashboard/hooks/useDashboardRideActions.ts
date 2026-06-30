@@ -336,6 +336,14 @@ export function useDashboardRideActions({
       const driverName = normalizePassengerText(
         activeRideForm.driverName,
       ).trim();
+      const selectedFahrerId = activeRideForm.fahrerId;
+
+      if (driverName && !selectedFahrerId) {
+        setRideSaveError(
+          "Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.",
+        );
+        return;
+      }
 
       const endTime = normalizePassengerText(activeRideForm.endTime).trim();
 
@@ -346,7 +354,7 @@ export function useDashboardRideActions({
 
       if (rideInEditId !== null) {
         const baseStatus =
-          statusOverride ?? getRideStatusByType(rideType, driverName);
+          statusOverride ?? getRideStatusByType(rideType, selectedFahrerId);
 
         const existingRide = calendarRides.find(
           (ride) => ride.id === rideInEditId,
@@ -370,7 +378,7 @@ export function useDashboardRideActions({
           driverName,
           createdByName:
             existingRide?.createdByName ?? currentCreatorDisplayName,
-          fahrerId: activeRideForm.fahrerId,
+          fahrerId: selectedFahrerId,
           fahrzeugId: activeRideForm.fahrzeugId,
           passengers:
             activeRideForm.passengers.length > 0
@@ -411,7 +419,7 @@ export function useDashboardRideActions({
       }
 
       const baseStatus =
-        statusOverride ?? getRideStatusByType(rideType, driverName);
+        statusOverride ?? getRideStatusByType(rideType, selectedFahrerId);
 
       const rideTime = getEarliestPassengerTime(passengers);
 
@@ -430,7 +438,7 @@ export function useDashboardRideActions({
         endTime,
         driverName,
         createdByName: currentCreatorDisplayName,
-        fahrerId: activeRideForm.fahrerId,
+        fahrerId: selectedFahrerId,
         fahrzeugId: activeRideForm.fahrzeugId,
         passengers,
         remarks: normalizePassengerText(activeRideForm.remarks).trim(),

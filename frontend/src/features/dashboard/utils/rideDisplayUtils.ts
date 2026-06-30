@@ -139,16 +139,12 @@ export function buildDriverDisplayName(
   return email || ''
 }
 
-export function getRideStatusByType(rideType: RideType, driverName: string): RideStatus {
-  if (rideType === 'theme') {
-    return normalizePassengerText(driverName).trim() ? 'theme' : 'open'
-  }
-
+export function getRideStatusByType(rideType: RideType, fahrerId: number | null): RideStatus {
   if (rideType === 'rental') {
     return 'rental'
   }
 
-  return normalizePassengerText(driverName).trim() ? 'assigned' : 'open'
+  return fahrerId ? 'assigned' : 'open'
 }
 
 export function rideTypeButtonClassName(currentType: RideType, rideType: RideType) {

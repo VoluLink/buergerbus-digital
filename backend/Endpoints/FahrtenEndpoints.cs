@@ -45,8 +45,32 @@ public static class FahrtenEndpoints
                || status.Contains("deleted", StringComparison.OrdinalIgnoreCase)
            );
 
+    private static bool IsSavedRideStatus(string? status)
+        => string.Equals(status, "Gespeichert", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(status, "Saved", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsDriverSelfAssignableRide(Fahrten ride)
         => IsThemeRide(ride.Fahrttyp) || IsStandardRide(ride.Fahrttyp);
+
+    private static string ResolveWriteStatus(FahrtMetaDto meta)
+    {
+        if (IsRentalRide(meta.Fahrttyp))
+        {
+            return "Vermietung";
+        }
+
+        if (meta.FahrerId.HasValue)
+        {
+            return "Zugewiesen";
+        }
+
+        if (IsSavedRideStatus(meta.Status))
+        {
+            return "Gespeichert";
+        }
+
+        return IsThemeRide(meta.Fahrttyp) ? "Themenfahrt" : "Offen";
+    }
 
     private static bool IsDriverVisibleRide(Fahrten ride, int? fahrerId)
           => IsPublished(ride.Status)
@@ -217,7 +241,7 @@ public static class FahrtenEndpoints
         ride.Startzeit = meta.Startzeit;
         ride.Endzeit = meta.Endzeit;
         ride.Bemerkung = meta.Bemerkung;
-        ride.Status = meta.Status;
+        ride.Status = ResolveWriteStatus(meta);
         ride.FahrerId = meta.FahrerId;
         ride.FahrzeugId = meta.FahrzeugId;
         ride.InitiativeId = initiativeId;
@@ -300,7 +324,7 @@ public static class FahrtenEndpoints
 
         var requestedFahrerId = meta.FahrerId;
 
-        if (requestedFahrerId.HasValue && !isRental)
+        if (requestedFahrerId.HasValue)
         {
             var driver = await db.Fahrer
                 .Include(f => f.Benutzer)
@@ -308,10 +332,10 @@ public static class FahrtenEndpoints
                 .FirstOrDefaultAsync(f => f.Id == requestedFahrerId.Value);
 
             if (driver is null)
-                return Results.NotFound("Fahrer wurde nicht gefunden.");
+                return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
 
             if (driver.Benutzer.InitiativeId != targetInitiativeId.Value)
-                return Results.Forbid();
+                return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
 
             if (!driver.Aktiv)
                 return Results.BadRequest("Fahrer ist inaktiv.");
@@ -779,12 +803,28 @@ public static class FahrtenEndpoints
             if (fahrt is null)
                 return Results.NotFound("Fahrt wurde nicht gefunden.");
 
-            var fahrerExists = await db.Fahrer.AnyAsync(f => f.Id == fahrerId);
-            if (!fahrerExists)
-                return Results.NotFound("Fahrer wurde nicht gefunden.");
+            var access = await ValidateRideAccessAsync(httpContext.User, db, fahrt);
+            if (access is not null)
+            {
+                return access;
+            }
+
+            var fahrer = await db.Fahrer
+                .Include(f => f.Benutzer)
+                .FirstOrDefaultAsync(f => f.Id == fahrerId);
+
+            if (fahrer is null)
+                return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
+
+            if (fahrer.Benutzer.InitiativeId != fahrt.InitiativeId)
+                return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
+
+            if (!fahrer.Aktiv)
+                return Results.BadRequest("Fahrer ist inaktiv.");
 
             var previous = fahrt.FahrerId;
             fahrt.FahrerId = fahrerId;
+            fahrt.Status = "Zugewiesen";
 
             await db.SaveChangesAsync();
 
@@ -793,11 +833,7 @@ public static class FahrtenEndpoints
             {
                 try
                 {
-                    var assignedDriver = await db.Fahrer.Include(f => f.Benutzer).FirstOrDefaultAsync(f => f.Id == fahrerId);
-                    if (assignedDriver is not null)
-                    {
-                        await tripEmailService.SendTripDriverAssignedEmailAsync(fahrt, assignedDriver, httpContext.User);
-                    }
+                    await tripEmailService.SendTripDriverAssignedEmailAsync(fahrt, fahrer, httpContext.User);
                 }
                 catch (Exception)
                 {

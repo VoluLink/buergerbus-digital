@@ -370,6 +370,7 @@ export function useRideDialogState({
         [rideFormKey]: {
           ...currentState[rideFormKey],
           [field]: value,
+          ...(field === "driverName" ? { fahrerId: null } : {}),
           ...(rideFormKey === "theme" && field === "themeDestination"
             ? {
                 passengers: applyThemeDestinationToPassengers(
