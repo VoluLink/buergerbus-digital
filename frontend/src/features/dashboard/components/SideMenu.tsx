@@ -1,5 +1,7 @@
 import {
+  Bell,
   Bus,
+  LogOut,
   MapPin,
   Settings,
   UserRound,
@@ -11,18 +13,22 @@ type SideMenuProps = {
   isOpen: boolean;
   isFahrer: boolean;
   isGast: boolean;
+  isAdmin: boolean;
   canManageInitiatives: boolean;
   closeSideMenu: () => void;
   goToPage: (path: string) => void;
+  onLogout: () => void;
 };
 
 export function SideMenu({
   isOpen,
   isFahrer,
   isGast,
+  isAdmin,
   canManageInitiatives,
   closeSideMenu,
   goToPage,
+  onLogout,
 }: SideMenuProps) {
   if (!isOpen) {
     return null;
@@ -34,7 +40,7 @@ export function SideMenu({
       onClick={closeSideMenu}
     >
       <aside
-        className="h-full w-full max-w-sm bg-white shadow-2xl"
+        className="flex h-full w-full max-w-sm flex-col bg-white shadow-2xl"
         onClick={(event) => event.stopPropagation()}
         aria-label="Seitliche Navigation"
       >
@@ -51,7 +57,7 @@ export function SideMenu({
           </button>
         </div>
 
-        <div className="space-y-3 p-4">
+        <div className="flex-1 space-y-3 overflow-y-auto p-4">
           <button
             type="button"
             onClick={() => goToPage("/dashboard")}
@@ -115,6 +121,39 @@ export function SideMenu({
               Rollenverteilung
             </button>
           ) : null}
+
+          {isAdmin ? (
+            <button
+              type="button"
+              onClick={() => goToPage("/admin/benachrichtigungen")}
+              className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+            >
+              <Bell className="h-5 w-5" aria-hidden="true" />
+              Benachrichtigungen
+            </button>
+          ) : null}
+
+          {isAdmin ? (
+            <button
+              type="button"
+              onClick={() => goToPage("/admin/einstellungen")}
+              className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
+            >
+              <Settings className="h-5 w-5" aria-hidden="true" />
+              Einstellungen
+            </button>
+          ) : null}
+        </div>
+
+        <div className="mt-auto border-t border-slate-200 p-4">
+          <button
+            type="button"
+            onClick={onLogout}
+            className="flex w-full items-center gap-3 rounded-2xl border border-rose-200 bg-white px-4 py-3 text-left text-lg font-medium text-rose-700 transition hover:bg-rose-50"
+          >
+            <LogOut className="h-5 w-5" aria-hidden="true" />
+            Abmelden
+          </button>
         </div>
       </aside>
     </div>

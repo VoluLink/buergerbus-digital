@@ -1,24 +1,28 @@
-import { Bus, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
+import { Bell, Bus, LogOut, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
 
 type RollenverteilungSideMenuProps = {
   canManageInitiatives: boolean
+  isAdmin: boolean
   isFahrer: boolean
   onClose: () => void
   onNavigate: (path: string) => void
+  onLogout: () => void
 }
 
 function RollenverteilungSideMenu({
   canManageInitiatives,
+  isAdmin,
   isFahrer,
   onClose,
   onNavigate,
+  onLogout,
 }: RollenverteilungSideMenuProps) {
   const itemClass = 'flex min-h-11 w-full items-center gap-3 rounded-xl bg-[#0053a0]/12 px-4 py-3 text-left text-base font-medium text-[#0053a0] sm:rounded-2xl sm:text-lg'
 
   return (
     <div className="fixed inset-0 z-30 overflow-hidden bg-slate-900/45 backdrop-blur-[2px]" onClick={onClose}>
       <aside
-        className="h-full w-full max-w-sm overflow-y-auto bg-white shadow-2xl"
+        className="flex h-full w-full max-w-sm flex-col bg-white shadow-2xl"
         onClick={(event) => event.stopPropagation()}
         aria-label="Seitliche Navigation"
       >
@@ -34,7 +38,7 @@ function RollenverteilungSideMenu({
           </button>
         </div>
 
-        <div className="space-y-3 p-4">
+        <div className="flex-1 space-y-3 overflow-y-auto p-4">
           <button
             type="button"
             onClick={() => onNavigate('/dashboard')}
@@ -96,6 +100,39 @@ function RollenverteilungSideMenu({
               <span className="min-w-0 break-words">Rollenverteilung</span>
             </button>
           ) : null}
+
+          {isAdmin ? (
+            <button
+              type="button"
+              onClick={() => onNavigate('/admin/benachrichtigungen')}
+              className={itemClass}
+            >
+              <Bell className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span className="min-w-0 break-words">Benachrichtigungen</span>
+            </button>
+          ) : null}
+
+          {isAdmin ? (
+            <button
+              type="button"
+              onClick={() => onNavigate('/admin/einstellungen')}
+              className={itemClass}
+            >
+              <Settings className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span className="min-w-0 break-words">Einstellungen</span>
+            </button>
+          ) : null}
+        </div>
+
+        <div className="mt-auto border-t border-slate-200 p-4">
+          <button
+            type="button"
+            onClick={onLogout}
+            className="flex min-h-11 w-full items-center gap-3 rounded-xl border border-rose-200 bg-white px-4 py-3 text-left text-base font-medium text-rose-700 transition hover:bg-rose-50 sm:rounded-2xl sm:text-lg"
+          >
+            <LogOut className="h-5 w-5 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 break-words">Abmelden</span>
+          </button>
         </div>
       </aside>
     </div>

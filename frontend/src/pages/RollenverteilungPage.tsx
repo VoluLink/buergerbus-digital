@@ -27,7 +27,7 @@ import type { InitiativeSummary, RoleSummary, UserSummary } from '../types/UserP
 
 function RollenverteilungPage() {
   const navigate = useNavigate()
-  const { currentUser } = useAuth()
+  const { currentUser, logout } = useAuth()
   const { canManageInitiatives, canManageRoleAssignments, isAdmin, isDisponent, isFahrer } = useRoleVisibility()
   const currentInitiativeId = currentUser?.initiative?.id ?? null
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
@@ -165,6 +165,12 @@ function RollenverteilungPage() {
   function goToPage(path: string) {
     closeSideMenu()
     navigate(path)
+  }
+
+  function handleLogout() {
+    closeSideMenu()
+    logout()
+    navigate('/', { replace: true })
   }
 
   function closeAdminConfirmation() {
@@ -501,9 +507,11 @@ function RollenverteilungPage() {
       {isSideMenuOpen ? (
         <RollenverteilungSideMenu
           canManageInitiatives={canManageInitiatives}
+          isAdmin={isAdmin}
           isFahrer={isFahrer}
           onClose={closeSideMenu}
           onNavigate={goToPage}
+          onLogout={handleLogout}
         />
       ) : null}
 

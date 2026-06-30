@@ -8,7 +8,6 @@ import { RideDialog } from "../features/dashboard/components/RideDialog";
 import { useDashboardCalendarModel } from "../features/dashboard/hooks/useDashboardCalendarModel";
 
 import { useEffect, useMemo, useState } from "react";
-import { LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useDashboardData } from "../features/dashboard/hooks/useDashboardData";
@@ -441,10 +440,7 @@ function DashboardPage() {
             selectedView={selectedView}
             setSelectedView={setSelectedView}
             shiftPeriod={shiftPeriod}
-            isAdmin={isAdmin}
             isRideCrudRestricted={isRideCrudRestricted}
-            openNotifications={() => navigate("/admin/benachrichtigungen")}
-            openSettings={() => navigate("/admin/einstellungen")}
             openRideDialogForSelection={openRideDialogForSelection}
           />
           {selectedView === "Tag" ? (
@@ -467,22 +463,15 @@ function DashboardPage() {
         </section>
       </div>
 
-      <button
-        type="button"
-        onClick={handleLogout}
-        className="mb-4 ml-2 inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-white px-3 py-2.5 text-sm font-semibold text-rose-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] transition hover:bg-rose-50 sm:mb-6 sm:ml-4 sm:px-4 sm:py-3 lg:ml-6"
-      >
-        <LogOut className="h-4 w-4" aria-hidden="true" />
-        Abmelden
-      </button>
-
       <SideMenu
         isOpen={isSideMenuOpen}
         isFahrer={isFahrer}
         isGast={isGast}
+        isAdmin={isAdmin}
         canManageInitiatives={canManageInitiatives}
         closeSideMenu={closeSideMenu}
         goToPage={goToPage}
+        onLogout={handleLogout}
       />
 
       <DayDialog

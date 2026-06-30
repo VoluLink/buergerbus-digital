@@ -1,4 +1,4 @@
-import { Bell, ChevronLeft, ChevronRight, Plus, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 
 type CalendarView = "Monat" | "Woche" | "Tag";
 
@@ -8,10 +8,7 @@ type DashboardToolbarProps = {
   selectedView: CalendarView;
   setSelectedView: (view: CalendarView) => void;
   shiftPeriod: (amount: number) => void;
-  isAdmin: boolean;
   isRideCrudRestricted: boolean;
-  openNotifications: () => void;
-  openSettings: () => void;
   openRideDialogForSelection: () => void;
 };
 
@@ -21,10 +18,7 @@ export function DashboardToolbar({
   selectedView,
   setSelectedView,
   shiftPeriod,
-  isAdmin,
   isRideCrudRestricted,
-  openNotifications,
-  openSettings,
   openRideDialogForSelection,
 }: DashboardToolbarProps) {
   return (
@@ -71,29 +65,7 @@ export function DashboardToolbar({
           </button>
         </div>
 
-        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end sm:gap-3">
-          {isAdmin ? (
-            <button
-              type="button"
-              onClick={openNotifications}
-              className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border border-[#0053a0]/20 bg-[#0053a0]/5 px-3 py-2.5 text-sm font-semibold text-[#0053a0] transition hover:bg-[#0053a0]/10 sm:flex-none sm:px-4"
-            >
-              <Bell className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span className="truncate">Benachrichtigungen</span>
-            </button>
-          ) : null}
-
-          {isAdmin ? (
-            <button
-              type="button"
-              onClick={openSettings}
-              className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border border-[#0053a0]/20 bg-[#0053a0]/5 px-3 py-2.5 text-sm font-semibold text-[#0053a0] transition hover:bg-[#0053a0]/10 sm:flex-none sm:px-4"
-            >
-              <Settings className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span className="truncate">Einstellungen</span>
-            </button>
-          ) : null}
-
+        <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end sm:gap-3">
           {!isRideCrudRestricted ? (
             <button
               type="button"
