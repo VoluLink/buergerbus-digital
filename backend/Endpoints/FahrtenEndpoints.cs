@@ -103,8 +103,8 @@ public static class FahrtenEndpoints
         var initiativeId = AuthUtils.GetInitiativeId(principal);
         var userId = AuthUtils.GetUserId(principal);
         var fahrerId = await ResolveFahrerIdAsync(db, userId);
-        var isDriver = principal.IsInRole("Fahrer");
-        var isGuest = principal.IsInRole("Gast");
+        var isDriver = AuthUtils.IsFahrer(principal);
+        var isGuest = AuthUtils.IsGast(principal);
 
         if (isAdmin)
         {
@@ -152,8 +152,8 @@ public static class FahrtenEndpoints
     {
         var isAdmin = AuthUtils.IsAdmin(principal);
         var initiativeId = AuthUtils.GetInitiativeId(principal);
-        var isDriver = principal.IsInRole("Fahrer");
-        var isGuest = principal.IsInRole("Gast");
+        var isDriver = AuthUtils.IsFahrer(principal);
+        var isGuest = AuthUtils.IsGast(principal);
 
         var query = db.Fahrten
             .Include(f => f.AngelegtVonUser)
@@ -258,6 +258,9 @@ public static class FahrtenEndpoints
     {
         if (!AuthUtils.GetUserId(principal).HasValue)
             return Results.Unauthorized();
+
+        if (!AuthUtils.CanManageRides(principal))
+            return Results.Forbid();
 
         var isAdmin = AuthUtils.IsAdmin(principal);
         var userInitiativeId = AuthUtils.GetInitiativeId(principal);
@@ -669,6 +672,11 @@ public static class FahrtenEndpoints
             TripEmailNotificationService tripEmailService
         ) =>
         {
+            if (!AuthUtils.CanManageRides(httpContext.User))
+            {
+                return Results.Forbid();
+            }
+
             var validation = await ValidateRideWriteAsync(db, httpContext.User, request.Fahrt, request.Teilnehmer);
             if (validation is not null)
             {
@@ -714,10 +722,10 @@ public static class FahrtenEndpoints
 
                 return Results.Ok(FahrtenMapper.ToDto(loaded));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 await transaction.RollbackAsync();
-                return Results.Problem(ex.Message);
+                return Results.Problem("Fahrt konnte nicht gespeichert werden.");
             }
         })
         .RequireAuthorization();
@@ -730,6 +738,11 @@ public static class FahrtenEndpoints
             TripEmailNotificationService tripEmailService
         ) =>
         {
+            if (!AuthUtils.CanManageRides(httpContext.User))
+            {
+                return Results.Forbid();
+            }
+
             var existing = await db.Fahrten
                 .Include(f => f.Teilnehmer)
                     .ThenInclude(tp => tp.Teilstrecken)
@@ -825,10 +838,10 @@ public static class FahrtenEndpoints
 
                 return Results.Ok(FahrtenMapper.ToDto(loaded));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 await transaction.RollbackAsync();
-                return Results.Problem(ex.Message);
+                return Results.Problem("Fahrt konnte nicht gespeichert werden.");
             }
         })
         .RequireAuthorization();
@@ -839,6 +852,11 @@ public static class FahrtenEndpoints
             HttpContext httpContext
         ) =>
         {
+            if (!AuthUtils.CanManageRides(httpContext.User))
+            {
+                return Results.Forbid();
+            }
+
             var ride = await db.Fahrten
                 .Include(f => f.Teilnehmer)
                     .ThenInclude(tp => tp.Teilstrecken)
@@ -864,6 +882,11 @@ public static class FahrtenEndpoints
 
         app.MapPatch("/api/v1/fahrten/{id:int}/fahrer/{fahrerId:int}", async (int id, int fahrerId, AppDbContext db, HttpContext httpContext, TripEmailNotificationService tripEmailService) =>
         {
+            if (!AuthUtils.CanManageRides(httpContext.User))
+            {
+                return Results.Forbid();
+            }
+
             var fahrt = await db.Fahrten.FirstOrDefaultAsync(f => f.Id == id);
             if (fahrt is null)
                 return Results.NotFound("Fahrt wurde nicht gefunden.");
@@ -924,7 +947,7 @@ public static class FahrtenEndpoints
                 return Results.Unauthorized();
             }
 
-            if (!user.IsInRole("Fahrer") && !AuthUtils.IsAdmin(user))
+            if (!AuthUtils.IsFahrer(user))
             {
                 return Results.Forbid();
             }
@@ -935,13 +958,10 @@ public static class FahrtenEndpoints
                 return Results.NotFound("Fahrt wurde nicht gefunden.");
             }
 
-            if (!AuthUtils.IsAdmin(user))
+            var initiativeId = AuthUtils.GetInitiativeId(user);
+            if (!initiativeId.HasValue || initiativeId.Value != fahrt.InitiativeId)
             {
-                var initiativeId = AuthUtils.GetInitiativeId(user);
-                if (!initiativeId.HasValue || initiativeId.Value != fahrt.InitiativeId)
-                {
-                    return Results.Forbid();
-                }
+                return Results.Forbid();
             }
 
             if (!IsDriverSelfAssignableRide(fahrt))
@@ -965,7 +985,7 @@ public static class FahrtenEndpoints
                 return Results.BadRequest("Angemeldeter Benutzer ist kein aktiver Fahrer.");
             }
 
-            if (!AuthUtils.IsAdmin(user) && fahrer.Benutzer.InitiativeId != fahrt.InitiativeId)
+            if (fahrer.Benutzer.InitiativeId != fahrt.InitiativeId)
             {
                 return Results.Forbid();
             }
@@ -1016,7 +1036,7 @@ public static class FahrtenEndpoints
                 return Results.Unauthorized();
             }
 
-            if (!user.IsInRole("Fahrer") && !AuthUtils.IsAdmin(user))
+            if (!AuthUtils.IsFahrer(user))
             {
                 return Results.Forbid();
             }
@@ -1027,24 +1047,21 @@ public static class FahrtenEndpoints
                 return Results.NotFound("Fahrt wurde nicht gefunden.");
             }
 
-            if (!AuthUtils.IsAdmin(user))
+            var initiativeId = AuthUtils.GetInitiativeId(user);
+            if (!initiativeId.HasValue || initiativeId.Value != fahrt.InitiativeId)
             {
-                var initiativeId = AuthUtils.GetInitiativeId(user);
-                if (!initiativeId.HasValue || initiativeId.Value != fahrt.InitiativeId)
-                {
-                    return Results.Forbid();
-                }
+                return Results.Forbid();
+            }
 
-                var fahrerId = await db.Fahrer
-                    .AsNoTracking()
-                    .Where(f => f.BenutzerId == userId.Value)
-                    .Select(f => (int?)f.Id)
-                    .FirstOrDefaultAsync();
+            var fahrerId = await db.Fahrer
+                .AsNoTracking()
+                .Where(f => f.BenutzerId == userId.Value)
+                .Select(f => (int?)f.Id)
+                .FirstOrDefaultAsync();
 
-                if (!fahrerId.HasValue || fahrt.FahrerId != fahrerId.Value)
-                {
-                    return Results.Forbid();
-                }
+            if (!fahrerId.HasValue || fahrt.FahrerId != fahrerId.Value)
+            {
+                return Results.Forbid();
             }
 
             if (string.Equals(fahrt.Status, "Abgeschlossen", StringComparison.OrdinalIgnoreCase)
@@ -1069,15 +1086,32 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPatch("/api/v1/fahrten/{id:int}/fahrzeug/{fahrzeugId:int}", async (int id, int fahrzeugId, AppDbContext db) =>
+        app.MapPatch("/api/v1/fahrten/{id:int}/fahrzeug/{fahrzeugId:int}", async (int id, int fahrzeugId, AppDbContext db, HttpContext httpContext) =>
         {
+            if (!AuthUtils.CanManageRides(httpContext.User))
+            {
+                return Results.Forbid();
+            }
+
             var fahrt = await db.Fahrten.FirstOrDefaultAsync(f => f.Id == id);
             if (fahrt is null)
                 return Results.NotFound("Fahrt wurde nicht gefunden.");
 
-            var fahrzeugExists = await db.Fahrzeuge.AnyAsync(f => f.Id == fahrzeugId);
-            if (!fahrzeugExists)
+            var access = await ValidateRideAccessAsync(httpContext.User, db, fahrt);
+            if (access is not null)
+            {
+                return access;
+            }
+
+            var fahrzeug = await db.Fahrzeuge.AsNoTracking().FirstOrDefaultAsync(f => f.Id == fahrzeugId);
+            if (fahrzeug is null)
                 return Results.NotFound("Fahrzeug wurde nicht gefunden.");
+
+            if (fahrzeug.InitiativeId != fahrt.InitiativeId)
+                return Results.Forbid();
+
+            if (!fahrzeug.Aktiv)
+                return Results.BadRequest("Fahrzeug ist inaktiv.");
 
             fahrt.FahrzeugId = fahrzeugId;
 
@@ -1106,8 +1140,8 @@ public static class FahrtenEndpoints
             var user = httpContext.User;
             var userId = AuthUtils.GetUserId(user);
             var isAdmin = AuthUtils.IsAdmin(user);
-            var isDisponent = user.IsInRole("Disponent");
-            var isDriver = user.IsInRole("Fahrer");
+            var isDisponent = AuthUtils.IsDisponent(user);
+            var isDriver = AuthUtils.IsFahrer(user);
 
             if (!isAdmin && !isDisponent && !isDriver)
             {

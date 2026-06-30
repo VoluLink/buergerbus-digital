@@ -28,11 +28,8 @@ public static class UserEndpoints
     /// </summary>
     public static IEndpointRouteBuilder MapUserEndpoints(this IEndpointRouteBuilder app)
     {
-        static bool CanManageUsers(ClaimsPrincipal principal)
-            => AuthUtils.IsAdmin(principal) || principal.IsInRole("Disponent");
-
         static bool IsDisponentWithoutAdmin(ClaimsPrincipal principal)
-            => !AuthUtils.IsAdmin(principal) && principal.IsInRole("Disponent");
+            => !AuthUtils.IsAdmin(principal) && AuthUtils.IsDisponent(principal);
 
 // -----------------------------------------------------------------------------
 // Benutzer anlegen (ohne Rechteprüfung; wird später ergänzt)
@@ -52,7 +49,7 @@ public static class UserEndpoints
             var isDisponent = IsDisponentWithoutAdmin(principal);
             var requesterInitiativeId = AuthUtils.GetInitiativeId(principal);
 
-            if (!CanManageUsers(principal))
+            if (!AuthUtils.CanManageUsers(principal))
             {
                 return Results.Forbid();
             }
@@ -130,6 +127,12 @@ public static class UserEndpoints
                 return Results.NotFound("Rolle wurde nicht gefunden.");
             }
 
+            var normalizedRole = AuthUtils.NormalizeRole(role.Rollenname);
+            if (normalizedRole is null)
+            {
+                return Results.BadRequest("Rolle ist ungültig.");
+            }
+
             if (isDisponent)
             {
                 if (!requesterInitiativeId.HasValue)
@@ -142,7 +145,7 @@ public static class UserEndpoints
                     return Results.Forbid();
                 }
 
-                if (string.Equals(role.Rollenname, "Admin", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(normalizedRole, AuthUtils.AdminRole, StringComparison.OrdinalIgnoreCase))
                 {
                     return Results.Forbid();
                 }
@@ -158,7 +161,7 @@ public static class UserEndpoints
                 PasswortHash = "",
                 Aktiv = true,
                 AngelegtAm = DateTime.UtcNow,
-                AktiveRolle = role.Rollenname,
+                AktiveRolle = normalizedRole,
             };
 
             user.PasswortHash = passwordHasher.HashPassword(user, request.Password);
@@ -172,7 +175,7 @@ public static class UserEndpoints
                 RolleId = role.Id,
             });
 
-            if (string.Equals(role.Rollenname, "Fahrer", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(normalizedRole, AuthUtils.FahrerRole, StringComparison.OrdinalIgnoreCase))
             {
                 db.Fahrer.Add(new Fahrer
                 {
@@ -304,7 +307,7 @@ public static class UserEndpoints
             var isDisponent = IsDisponentWithoutAdmin(principal);
             var requesterInitiativeId = AuthUtils.GetInitiativeId(principal);
 
-            if (!CanManageUsers(principal))
+            if (!AuthUtils.CanManageUsers(principal))
             {
                 return Results.Forbid();
             }
@@ -427,7 +430,7 @@ public static class UserEndpoints
             var principal = httpContext.User;
             var tokenUserId = AuthUtils.GetUserId(principal);
             var isAdmin = AuthUtils.IsAdmin(principal);
-            var isDisponent = principal.IsInRole("Disponent");
+            var isDisponent = AuthUtils.IsDisponent(principal);
             var currentInitiativeId = AuthUtils.GetInitiativeId(principal);
 
             var user = await db.Benutzer
@@ -667,7 +670,7 @@ public static class UserEndpoints
             var isDisponent = IsDisponentWithoutAdmin(principal);
             var requesterInitiativeId = AuthUtils.GetInitiativeId(principal);
 
-            if (!CanManageUsers(principal))
+            if (!AuthUtils.CanManageUsers(principal))
             {
                 return Results.Forbid();
             }
@@ -694,7 +697,13 @@ public static class UserEndpoints
             var requestedRoles = request.Roles
                 .Select(role => role?.Trim())
                 .Where(role => !string.IsNullOrWhiteSpace(role))
+                .Select(AuthUtils.NormalizeRole)
                 .ToList();
+
+            if (requestedRoles.Any(role => role is null))
+            {
+                return Results.BadRequest("Unbekannte Rolle.");
+            }
 
             // Rollen für Vergleiche normalisieren und Duplikate entfernen
             var normalizedRoles = requestedRoles
@@ -733,22 +742,14 @@ public static class UserEndpoints
                 .Where(r => normalizedRoles.Contains(r.Rollenname.ToLower()))
                 .ToDictionaryAsync(r => r.Rollenname.ToLower(), r => r);
                 
-            // Noch nicht vorhandene Rollen automatisch erstellen
-            foreach (var roleName in requestedRoles)
+            // Alle angeforderten Rollen müssen als erlaubte Rollen vorhanden sein
+            foreach (var roleName in normalizedRoles)
             {
-                var normalizedRole = roleName!.ToLowerInvariant();
-                if (rolesByName.ContainsKey(normalizedRole))
+                if (!rolesByName.ContainsKey(roleName))
                 {
-                    continue;
+                    return Results.BadRequest("Rolle ist ungültig.");
                 }
-
-                var newRole = new Rollen { Rollenname = roleName };
-                db.Rollen.Add(newRole);
-                rolesByName[normalizedRole] = newRole;
             }
-            // Neu erstellte Rollen speichern, damit ihre IDs verfügbar sind
-            await db.SaveChangesAsync();
-
             // Rollen entfernen, die nicht mehr in der neuen Rollenliste enthalten sind
             user.BenutzerRollen.RemoveAll(br =>
                 !normalizedRoles.Contains(br.Rolle.Rollenname.ToLowerInvariant()));
