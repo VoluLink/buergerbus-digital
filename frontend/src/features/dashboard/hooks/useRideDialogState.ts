@@ -504,6 +504,8 @@ export function useRideDialogState({
         return;
       }
 
+      setRideSaveError(null);
+
       const rideFormKey: RideFormType =
         rideType === "theme" ? "theme" : "standard";
 
