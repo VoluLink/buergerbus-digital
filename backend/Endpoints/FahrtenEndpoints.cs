@@ -54,6 +54,11 @@ public static class FahrtenEndpoints
 
     private static string ResolveWriteStatus(FahrtMetaDto meta)
     {
+        if (IsSavedRideStatus(meta.Status))
+        {
+            return "Gespeichert";
+        }
+
         if (IsRentalRide(meta.Fahrttyp))
         {
             return "Vermietung";
@@ -62,11 +67,6 @@ public static class FahrtenEndpoints
         if (meta.FahrerId.HasValue)
         {
             return "Zugewiesen";
-        }
-
-        if (IsSavedRideStatus(meta.Status))
-        {
-            return "Gespeichert";
         }
 
         return IsThemeRide(meta.Fahrttyp) ? "Themenfahrt" : "Offen";
@@ -272,6 +272,71 @@ public static class FahrtenEndpoints
         var isRental =
             string.Equals(meta.Fahrttyp, "rental", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(meta.Fahrttyp, "Vermietung", StringComparison.OrdinalIgnoreCase);
+        var isSaved = IsSavedRideStatus(meta.Status);
+
+        if (isSaved)
+        {
+            if (string.IsNullOrWhiteSpace(meta.Titel))
+                return Results.BadRequest("Titel ist erforderlich.");
+
+            if (!string.IsNullOrWhiteSpace(meta.Fahrttyp) &&
+                !IsRentalRide(meta.Fahrttyp) &&
+                !IsThemeRide(meta.Fahrttyp) &&
+                !IsStandardRide(meta.Fahrttyp))
+                return Results.BadRequest("Fahrttyp ist ungültig.");
+
+            if (meta.FahrzeugId.HasValue)
+            {
+                var draftVehicle = await db.Fahrzeuge
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(f => f.Id == meta.FahrzeugId.Value);
+
+                if (draftVehicle is null)
+                    return Results.NotFound("Fahrzeug wurde nicht gefunden.");
+
+                if (draftVehicle.InitiativeId != targetInitiativeId.Value)
+                    return Results.Forbid();
+
+                if (!draftVehicle.Aktiv)
+                    return Results.BadRequest("Fahrzeug ist inaktiv.");
+            }
+
+            if (meta.FahrerId.HasValue)
+            {
+                var draftDriver = await db.Fahrer
+                    .Include(f => f.Benutzer)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(f => f.Id == meta.FahrerId.Value);
+
+                if (draftDriver is null)
+                    return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
+
+                if (draftDriver.Benutzer.InitiativeId != targetInitiativeId.Value)
+                    return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
+
+                if (!draftDriver.Aktiv)
+                    return Results.BadRequest("Fahrer ist inaktiv.");
+            }
+
+            foreach (var participant in teilnehmer)
+            {
+                if (participant.FahrgastId.HasValue)
+                {
+                    var guest = await db.Fahrgaeste
+                        .Include(f => f.Initiative)
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(f => f.Id == participant.FahrgastId.Value);
+
+                    if (guest is null)
+                        return Results.NotFound("Fahrgast wurde nicht gefunden.");
+
+                    if (guest.InitiativeId != targetInitiativeId.Value)
+                        return Results.BadRequest("Ein oder mehrere Fahrgäste gehören nicht zur Initiative dieser Fahrt.");
+                }
+            }
+
+            return null;
+        }
 
         // =========================
         // RENTAL EARLY EXIT LOGIC
@@ -628,7 +693,7 @@ public static class FahrtenEndpoints
                     .FirstAsync(f => f.Id == ride.Id);
 
                 // If a driver was assigned during creation, notify them
-                if (request.Fahrt.FahrerId.HasValue)
+                if (request.Fahrt.FahrerId.HasValue && !IsSavedRideStatus(loaded.Status))
                 {
                     var assignedDriver = await db.Fahrer
                         .Include(f => f.Benutzer)
@@ -736,7 +801,7 @@ public static class FahrtenEndpoints
                 try
                 {
                     // If driver changed and new driver assigned -> send assigned email
-                    if (oldSnapshot.FahrerId != loaded.FahrerId && loaded.FahrerId.HasValue)
+                    if (oldSnapshot.FahrerId != loaded.FahrerId && loaded.FahrerId.HasValue && !IsSavedRideStatus(loaded.Status))
                     {
                         var newDriver = await db.Fahrer.Include(f => f.Benutzer).FirstOrDefaultAsync(f => f.Id == loaded.FahrerId.Value);
                         if (newDriver is not null)
@@ -744,7 +809,7 @@ public static class FahrtenEndpoints
                             await tripEmailService.SendTripDriverAssignedEmailAsync(loaded, newDriver, httpContext.User);
                         }
                     }
-                    else if (loaded.FahrerId.HasValue && relevantChanged)
+                    else if (loaded.FahrerId.HasValue && relevantChanged && !IsSavedRideStatus(loaded.Status))
                     {
                         var driver = await db.Fahrer.Include(f => f.Benutzer).FirstOrDefaultAsync(f => f.Id == loaded.FahrerId.Value);
                         if (driver is not null)

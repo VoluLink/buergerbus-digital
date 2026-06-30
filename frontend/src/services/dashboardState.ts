@@ -214,6 +214,17 @@ function buildDefaultRideEndzeit(date: Date, latestPassengerTime?: string | null
   return `${toLocalDateString(endDate)}T${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}:00`
 }
 
+function hasPassengerDraftContent(passenger: PassengerForm) {
+  return Boolean(
+    passenger.sourceGuestId ||
+    safeText(passenger.name).trim() ||
+    safeText(passenger.phone).trim() ||
+    safeText(passenger.pickupAddress).trim() ||
+    safeText(passenger.destinationAddress).trim() ||
+    safeText(passenger.time).trim()
+  )
+}
+
 export function mapBackendRideToCalendarRide(dto: BackendFahrtDto, fahrerListe: FahrerListItem[] = []): CalendarRide {
   const type = mapBackendTypeToRideType(dto.fahrttyp)
   const safeFahrerListe = Array.isArray(fahrerListe) ? fahrerListe : []
@@ -244,12 +255,15 @@ export function mapBackendRideToCalendarRide(dto: BackendFahrtDto, fahrerListe: 
 }
 
 export function mapCalendarRideToBackendWriteDto(ride: CalendarRide, initiativeId?: number | null): BackendFahrtWriteDto {
-  const firstPassenger = ride.passengers[0]
-  const earliestTime = ride.passengers
+  const writablePassengers = ride.status === 'saved'
+    ? ride.passengers.filter(hasPassengerDraftContent)
+    : ride.passengers
+  const firstPassenger = writablePassengers[0]
+  const earliestTime = writablePassengers
     .map(p => p.time)
     .filter((t): t is string => !!t)
     .sort()[0]
-  const latestTime = ride.passengers
+  const latestTime = writablePassengers
     .map(p => p.time)
     .filter((t): t is string => !!t)
     .sort()
@@ -314,7 +328,7 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide, initiativeI
       fahrzeugId: ride.fahrzeugId,
       initiativeId: initiativeId ?? null,
     },
-    teilnehmer: ride.passengers.map((p, index) => ({
+    teilnehmer: writablePassengers.map((p, index) => ({
       fahrgastId: p.sourceGuestId ?? null,
       vorname: safeText(p.name).trim().split(/\s+/)[0] ?? '',
       nachname: safeText(p.name).trim().split(/\s+/).slice(1).join(' ') || safeText(p.name).trim(),
