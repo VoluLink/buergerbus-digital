@@ -24,9 +24,6 @@ export type InitiativeDeletePreviewAffected = {
   rides: number
   passengers: number
   rideSegments: number
-  notifications: number
-  deletionDeadlines: number
-  driverVehicleAssignments: number
 }
 
 export type InitiativeDeletePreview = {

@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './api'
+import { API_BASE_URL } from '../config/apiConfig'
 import { apiFetch } from './httpClient'
 import type { ForgotPasswordRequest, PasswordResetResponse, ResetPasswordRequest } from '../types/PasswordReset'
 

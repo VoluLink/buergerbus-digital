@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './api'
+import { API_BASE_URL } from '../config/apiConfig'
 import { apiFetch } from './httpClient'
 import type { UserProfile } from '../types/UserProfile'
 
@@ -13,7 +13,7 @@ export type ChangePasswordResponse = {
 
 type UpdateFahrerProfileRequest = {
   bemerkung?: string | null
-  aktiv: boolean
+  aktiv?: boolean | null
 }
 
 type UpdateUserProfileRequest = {
@@ -28,7 +28,7 @@ type UpdateUserProfileRequest = {
   letzteG25?: string | null
   naechsteG25?: string | null
   bemerkung?: string | null
-  aktiv: boolean
+  aktiv?: boolean | null
   fahrer?: UpdateFahrerProfileRequest | null
 }
 

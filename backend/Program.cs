@@ -46,7 +46,11 @@ builder.Services.AddSingleton(new EmailSettings
 });
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<TripEmailNotificationService>();
+builder.Services.AddScoped<InitiativeDeletionService>();
 builder.Services.AddScoped<ITemporaryParticipantCleanupService, TemporaryParticipantCleanupService>();
+builder.Services.AddScoped<PageService>();
+builder.Services.AddScoped<FooterService>();
 builder.Services.AddHostedService<TemporaryParticipantCleanupBackgroundService>();
 builder.Services.AddControllers();
 
@@ -86,7 +90,15 @@ builder.Services.AddCors(options =>
     options.AddPolicy("FrontendCors", policy =>
     {
         var allowedOriginsRaw = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
-                if (string.Equals(allowedOriginsRaw?.Trim(), "*", StringComparison.Ordinal))
+        if (!builder.Environment.IsDevelopment()
+            && string.Equals(allowedOriginsRaw?.Trim(), "*", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "CORS_ALLOWED_ORIGINS='*' ist in Staging/Production nicht erlaubt."
+            );
+        }
+
+        if (string.Equals(allowedOriginsRaw?.Trim(), "*", StringComparison.Ordinal))
         {
             policy
                 .AllowAnyOrigin()
@@ -163,6 +175,10 @@ app.UseAuthorization();
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapAdminNotificationEndpoints();
+app.MapPublicPagesEndpoints();
+app.MapPublicFooterEndpoints();
+app.MapAdminPagesEndpoints();
+app.MapAdminFooterEndpoints();
 app.MapRoleEndpoints();
 app.MapInitiativeEndpoints();
 app.MapFahrzeugServiceEndpoints();
@@ -170,7 +186,7 @@ app.MapFahrgastEndpoints();
 app.MapFahrerEndpoints();
 
 app.MapFahrtenEndpoints();
-app.MapControllers();
+app.MapControllers(); 
 
 try
 {
@@ -186,10 +202,15 @@ try
         await SeedData.InitializeAsync(app.Services);
     }
 }
+catch (SeedConfigurationException ex)
+{
+    app.Logger.LogError(ex, "Ungültige Seed-Konfiguration.");
+    throw;
+}
 catch (Exception ex)
 {
     app.Logger.LogError(ex, "Fehler beim Seeding des initialen Admin-Benutzers.");
-}
+} 
 
 app.Run();
 

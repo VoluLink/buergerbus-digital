@@ -1,86 +1,32 @@
 import { useEffect, useState } from 'react'
-import { Bus, CircleUserRound, Menu, Search, Settings, UserRound, UserRoundPlus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { PassengerDetailsCard } from '../features/passengers/components/PassengerDetailsCard'
+import { PassengerFormDialog } from '../features/passengers/components/PassengerFormDialog'
+import { PassengerHeader } from '../features/passengers/components/PassengerHeader'
+import { PassengerSearchBar } from '../features/passengers/components/PassengerSearchBar'
+import { PassengerTable } from '../features/passengers/components/PassengerTable'
+import {
+  createEmptyForm,
+  createFormFromGuest,
+  filterGuests,
+  toFahrgastUpsertRequest,
+} from '../features/passengers/utils'
 import {
   createFahrgast,
   deletePassenger,
   getFahrgaeste,
-  type FahrgastUpsertRequest,
   updateFahrgast,
 } from '../services/fahrgastApi'
-import { normalizeFahrgastFormData, normalizeFahrgastText } from '../types/Fahrgast'
-import type { Fahrgast, FahrgastFormData } from '../types/Fahrgast'
-import UserMenuButton from '../components/UserMenuButton'
-import { useRoleVisibility } from '../hooks/useRoleVisibility'
-import { useAuth } from '../context/AuthContext'
 import { getInitiativen } from '../services/initiativeApi'
+import { useAuth } from '../context/AuthContext'
+import { useRoleVisibility } from '../hooks/useRoleVisibility'
+import type { Fahrgast, FahrgastFormData } from '../types/Fahrgast'
 import type { Initiative } from '../types/Initiative'
-
-function formatDateDisplay(value: string) {
-  if (!value) {
-    return '-'
-  }
-
-  const parsedDate = new Date(value)
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value
-  }
-
-  return new Intl.DateTimeFormat('de-DE').format(parsedDate)
-}
-
-function createFormFromGuest(guest: Fahrgast): FahrgastFormData {
-  return normalizeFahrgastFormData(guest)
-}
-
-function createEmptyForm(): FahrgastFormData {
-  return {
-    vorname: '',
-    nachname: '',
-    adresse: '',
-    email: '',
-    telefonnummer: '',
-    bemerkung: '',
-    letzteNutzung: '',
-    aktiv: 'true',
-    initiativeId: '',
-  }
-}
-
-function toFahrgastUpsertRequest(form: FahrgastFormData, options: { isAdmin: boolean }): FahrgastUpsertRequest {
-  const vorname = normalizeFahrgastText(form.vorname).trim()
-  const nachname = normalizeFahrgastText(form.nachname).trim()
-  const adresse = normalizeFahrgastText(form.adresse).trim()
-  const email = normalizeFahrgastText(form.email).trim()
-  const telefonnummer = normalizeFahrgastText(form.telefonnummer).trim()
-  const bemerkung = normalizeFahrgastText(form.bemerkung).trim()
-  const letzteNutzung = normalizeFahrgastText(form.letzteNutzung).trim()
-
-  const payload: FahrgastUpsertRequest = {
-    vorname,
-    nachname,
-    adresse,
-    email: email || null,
-    telefonnummer: telefonnummer || null,
-    bemerkung: bemerkung || null,
-    letzteNutzung: letzteNutzung ? `${letzteNutzung}T00:00:00Z` : null,
-    aktiv: form.aktiv === 'true',
-  }
-
-  if (options.isAdmin) {
-    const parsedInitiativeId = Number(form.initiativeId)
-    if (!Number.isNaN(parsedInitiativeId)) {
-      payload.initiativeId = parsedInitiativeId
-    }
-  }
-
-  return payload
-}
 
 function FahrgastinfosPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
-  const { canManageDataCrud, canManageInitiatives, isAdmin, isDisponent, isFahrer } = useRoleVisibility()
+  const { canManageDataCrud, isAdmin } = useRoleVisibility()
   const isCrudRestricted = !canManageDataCrud
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -99,6 +45,7 @@ function FahrgastinfosPage() {
   const [initiativesError, setInitiativesError] = useState('')
 
   const selectedGuest = guests.find((entry) => entry.id === selectedGuestId) ?? null
+  const filteredGuests = filterGuests(guests, searchQuery)
 
   useEffect(() => {
     let isActive = true
@@ -156,29 +103,8 @@ function FahrgastinfosPage() {
     }
   }, [isAdmin])
 
- const filteredGuests = guests
-  .filter(
-    (entry) =>
-      entry.vorname !== "Gelöschter" &&
-      entry.nachname !== "Fahrgast"
-  )
-  .filter((entry) => {
-    const haystack =
-      `${entry.vorname ?? ''} ${entry.nachname ?? ''} ${entry.adresse ?? ''} ${entry.telefonnummer ?? ''}`
-        .toLowerCase()
-
-    return haystack.includes(
-      (searchQuery ?? '').trim().toLowerCase()
-    )
-  })
-
   function closeSideMenu() {
     setIsSideMenuOpen(false)
-  }
-
-  function goToPage(path: string) {
-    closeSideMenu()
-    navigate(path)
   }
 
   function handleOpenEditModal() {
@@ -237,9 +163,7 @@ function FahrgastinfosPage() {
 
       const savedGuest = await updateFahrgast(selectedGuest.id, payload)
       setGuests((prev) =>
-        prev
-          .map((entry) => (entry.id === selectedGuest.id ? savedGuest : entry))
-          .filter((entry) => entry.aktiv),
+        prev.map((entry) => (entry.id === selectedGuest.id ? savedGuest : entry)).filter((entry) => entry.aktiv),
       )
 
       if (!savedGuest.aktiv) {
@@ -276,7 +200,11 @@ function FahrgastinfosPage() {
       setGuests((prev) => prev.filter((entry) => entry.id !== selectedGuest.id))
       setSelectedGuestId(null)
     } catch (err) {
-      console.error('Failed to delete passenger', { passengerId: selectedGuest.id, route: '/api/v1/fahrgaeste/:id', error: err })
+      console.error('Failed to delete passenger', {
+        passengerId: selectedGuest.id,
+        route: '/api/v1/fahrgaeste/:id',
+        error: err,
+      })
       setDeleteError(err instanceof Error ? err.message : 'Fahrgast konnte nicht gelöscht werden.')
     }
   }
@@ -328,43 +256,19 @@ function FahrgastinfosPage() {
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
-      <header className="border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setIsSideMenuOpen(true)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0053a0]/40"
-              aria-label="Navigation öffnen"
-            >
-              <Menu className="h-5 w-5" aria-hidden="true" />
-            </button>
-          </div>
-
-          <UserMenuButton
-            onClick={() => navigate('/profil')}
-            icon={<CircleUserRound className="h-6 w-6" aria-hidden="true" />}
-          />
-        </div>
-      </header>
+      <PassengerHeader
+        isSideMenuOpen={isSideMenuOpen}
+        onCloseSideMenu={closeSideMenu}
+        onOpenProfile={() => navigate('/profil')}
+        onOpenSideMenu={() => setIsSideMenuOpen(true)}
+      />
 
       <div className="p-3 sm:p-4 lg:p-6">
-        <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 p-5 sm:p-6">
-            <h1 className="text-4xl font-bold tracking-tight text-slate-800">Fahrgastinfos</h1>
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl">
+          <div className="border-b border-slate-200 p-4 sm:p-6">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-800 sm:text-4xl">Fahrgastinfos</h1>
 
-            <div className="mt-4 w-full">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Suche nach Name, Adresse, Telefonnummer ..."
-                  className="w-full rounded-xl border border-slate-300 py-2 pl-9 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
-                />
-              </div>
-            </div>
+            <PassengerSearchBar searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} />
           </div>
 
           {deleteError ? (
@@ -373,66 +277,20 @@ function FahrgastinfosPage() {
             </div>
           ) : null}
 
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Auswahl</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Vorname</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Nachname</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Adresse</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Telefonnummer</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Bemerkungen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading ? (
-                  <tr>
-                    <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={6}>
-                      Fahrgäste werden geladen...
-                    </td>
-                  </tr>
-                ) : filteredGuests.length > 0 ? (
-                  filteredGuests.map((guest) => (
-                   <tr
-                      key={guest.id}
-                      className={`border-b border-slate-100 transition ${
-                        guest.aktiv
-                          ? ''
-                          : 'bg-red-50 text-red-700'
-                      }`}
-                    >
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedGuestId === guest.id}
-                          onChange={(event) => setSelectedGuestId(event.target.checked ? guest.id : null)}
-                        />
-                      </td>
-                      <td className="px-4 py-3">{guest.vorname}</td>
-                      <td className="px-4 py-3">{guest.nachname}</td>
-                      <td className="px-4 py-3">{guest.adresse}</td>
-                      <td className="px-4 py-3">{guest.telefonnummer || '-'}</td>
-                      <td className="px-4 py-3">{guest.bemerkung || '-'}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={6}>
-                      {loadError || 'Kein Fahrgast vorhanden.'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <PassengerTable
+            filteredGuests={filteredGuests}
+            isLoading={isLoading}
+            loadError={loadError}
+            selectedGuestId={selectedGuestId}
+            onSelectedGuestIdChange={setSelectedGuestId}
+          />
 
           {!isCrudRestricted ? (
-            <div className="flex w-full items-center justify-end gap-3 p-4">
+            <div className="flex w-full flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center sm:justify-end">
               <button
                 type="button"
                 onClick={handleOpenCreateModal}
-                className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 sm:py-2.5"
               >
                 Fahrgast hinzufügen
               </button>
@@ -440,7 +298,7 @@ function FahrgastinfosPage() {
                 type="button"
                 onClick={handleOpenEditModal}
                 disabled={!selectedGuestId}
-                className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition ${
+                className={`rounded-xl px-5 py-3 text-sm font-semibold transition sm:py-2.5 ${
                   selectedGuestId
                     ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
                     : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
@@ -452,10 +310,8 @@ function FahrgastinfosPage() {
                 type="button"
                 onClick={handleDeleteGuest}
                 disabled={!selectedGuestId}
-                className={`rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition ${
-                  selectedGuestId
-                    ? 'bg-rose-500 hover:bg-rose-600'
-                    : 'cursor-not-allowed bg-rose-200'
+                className={`rounded-xl px-5 py-3 text-sm font-semibold text-white transition sm:py-2.5 ${
+                  selectedGuestId ? 'bg-rose-500 hover:bg-rose-600' : 'cursor-not-allowed bg-rose-200'
                 }`}
               >
                 Gast löschen
@@ -465,417 +321,46 @@ function FahrgastinfosPage() {
         </section>
       </div>
 
-      {isSideMenuOpen ? (
-        <div className="fixed inset-0 z-30 bg-slate-900/45 backdrop-blur-[2px]" onClick={closeSideMenu}>
-          <aside
-            className="h-full w-full max-w-sm bg-white shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-            aria-label="Seitliche Navigation"
-          >
-            <div className="flex items-center justify-between bg-[#0053a0] px-6 py-5 text-white">
-              <h2 className="text-4xl font-semibold tracking-tight">Navigation</h2>
-              <button
-                type="button"
-                onClick={closeSideMenu}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-white transition hover:bg-white/10"
-                aria-label="Navigation schließen"
-              >
-                <X className="h-7 w-7" aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className="space-y-3 p-4">
-              <button
-                type="button"
-                onClick={() => goToPage('/dashboard')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <Bus className="h-5 w-5" aria-hidden="true" />
-                Dashboard
-              </button>
-
-              {!isFahrer ? (
-                <button
-                  type="button"
-                  onClick={() => goToPage('/fahrerinfos')}
-                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-                >
-                  <UserRound className="h-5 w-5" aria-hidden="true" />
-                  Fahrerinfos
-                </button>
-              ) : null}
-
-              <button
-                type="button"
-                onClick={() => goToPage('/fahrzeuginfos')}
-                className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-              >
-                <Bus className="h-5 w-5" aria-hidden="true" />
-                Fahrzeuginfos
-              </button>
-
-              {!isFahrer ? (
-                <button
-                  type="button"
-                  onClick={() => goToPage('/fahrgastinfos')}
-                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0] px-4 py-3 text-left text-lg font-medium text-white"
-                >
-                  <UserRoundPlus className="h-5 w-5" aria-hidden="true" />
-                  Fahrgastinfos
-                </button>
-              ) : null}
-
-              {canManageInitiatives ? (
-                <button
-                  type="button"
-                  onClick={() => goToPage('/initiativen')}
-                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-                >
-                  <Bus className="h-5 w-5" aria-hidden="true" />
-                  Initiativen
-                </button>
-              ) : null}
-
-              {!isFahrer ? (
-                <button
-                  type="button"
-                  onClick={() => goToPage('/rollenverteilung')}
-                  className="flex w-full items-center gap-3 rounded-2xl bg-[#0053a0]/12 px-4 py-3 text-left text-lg font-medium text-[#0053a0]"
-                >
-                  <Settings className="h-5 w-5" aria-hidden="true" />
-                  Rollenverteilung
-                </button>
-              ) : null}
-            </div>
-          </aside>
-        </div>
-      ) : null}
-
       {isEditModalOpen ? (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-        >
-          <section
-            className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-              <h2 className="text-xl font-bold text-slate-800">Fahrgast bearbeiten</h2>
-              <button
-                type="button"
-                onClick={handleCloseEditModal}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
-                aria-label="Bearbeiten schließen"
-              >
-                <X className="h-5 w-5" aria-hidden="true" />
-              </button>
-            </div>
-
-            <form
-              className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2"
-              onSubmit={(event) => {
-                event.preventDefault()
-                void handleSaveGuestChanges()
-              }}
-            >
-              {editError ? (
-                <p className="sm:col-span-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{editError}</p>
-              ) : null}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Vorname</label>
-                <input
-                  type="text"
-                  value={editForm.vorname ?? ''}
-                  onChange={(event) => handleEditFormChange('vorname', event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Nachname</label>
-                <input
-                  type="text"
-                  value={editForm.nachname ?? ''}
-                  onChange={(event) => handleEditFormChange('nachname', event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Adresse</label>
-                <input
-                  type="text"
-                  value={editForm.adresse ?? ''}
-                  onChange={(event) => handleEditFormChange('adresse', event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">E-Mail</label>
-                <input
-                  type="email"
-                  value={editForm.email ?? ''}
-                  onChange={(event) => handleEditFormChange('email', event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Telefonnummer</label>
-                <input
-                  type="text"
-                  value={editForm.telefonnummer ?? ''}
-                  onChange={(event) => handleEditFormChange('telefonnummer', event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Letzte Nutzung</label>
-                <input
-                  type="date"
-                  value={editForm.letzteNutzung ?? ''}
-                  readOnly
-                  className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-500"
-                />
-                <p className="mt-1 text-xs text-slate-500">Wird automatisch durch Fahrten aktualisiert.</p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Aktiv</label>
-                <select
-                  value={editForm.aktiv ?? 'true'}
-                  onChange={(event) => handleEditFormChange('aktiv', event.target.value as 'true' | 'false')}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                >
-                  <option value="true">Ja</option>
-                  <option value="false">Nein</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Initiative</label>
-                {isAdmin ? (
-                  <select
-                    value={editForm.initiativeId ?? ''}
-                    onChange={(event) => handleEditFormChange('initiativeId', event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                  >
-                    <option value="" disabled>Bitte wählen</option>
-                    {initiatives.map((initiative) => (
-                      <option key={initiative.id} value={String(initiative.id)}>
-                        {initiative.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    value={selectedGuest?.initiativeName ?? currentUser?.initiative?.name ?? '-'}
-                    disabled
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700"
-                  />
-                )}
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Bemerkungen</label>
-                <textarea
-                  value={editForm.bemerkung ?? ''}
-                  onChange={(event) => handleEditFormChange('bemerkung', event.target.value)}
-                  rows={3}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div className="sm:col-span-2 mt-2 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={handleCloseEditModal}
-                  className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-[#0053a0] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-110"
-                >
-                  Änderungen speichern
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
+        <PassengerFormDialog
+          closeLabel="Bearbeiten schließen"
+          error={editError}
+          form={editForm}
+          initiatives={initiatives}
+          isAdmin={isAdmin}
+          nonAdminInitiativeName={selectedGuest?.initiativeName ?? currentUser?.initiative?.name ?? '-'}
+          submitClassName="rounded-xl bg-[#0053a0] px-5 py-3 text-sm font-semibold text-white hover:brightness-110 sm:py-2.5"
+          submitLabel="Änderungen speichern"
+          title="Fahrgast bearbeiten"
+          onClose={handleCloseEditModal}
+          onFieldChange={handleEditFormChange}
+          onSubmit={() => {
+            void handleSaveGuestChanges()
+          }}
+        />
       ) : null}
 
       {isCreateModalOpen ? (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-        >
-          <section
-            className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-              <h2 className="text-xl font-bold text-slate-800">Fahrgast hinzufügen</h2>
-              <button
-                type="button"
-                onClick={handleCloseCreateModal}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
-                aria-label="Hinzufügen schließen"
-              >
-                <X className="h-5 w-5" aria-hidden="true" />
-              </button>
-            </div>
-
-            <form
-              className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2"
-              onSubmit={(event) => {
-                event.preventDefault()
-                void handleCreateGuest()
-              }}
-            >
-              {createError ? (
-                <p className="sm:col-span-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{createError}</p>
-              ) : null}
-
-              {initiativesError && isAdmin ? (
-                <p className="sm:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{initiativesError}</p>
-              ) : null}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Vorname</label>
-                <input
-                  type="text"
-                  value={createForm.vorname ?? ''}
-                  onChange={(event) => handleCreateFormChange('vorname', event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Nachname</label>
-                <input
-                  type="text"
-                  value={createForm.nachname ?? ''}
-                  onChange={(event) => handleCreateFormChange('nachname', event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Adresse</label>
-                <input
-                  type="text"
-                  value={createForm.adresse ?? ''}
-                  onChange={(event) => handleCreateFormChange('adresse', event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">E-Mail</label>
-                <input
-                  type="email"
-                  value={createForm.email ?? ''}
-                  onChange={(event) => handleCreateFormChange('email', event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Telefonnummer</label>
-                <input
-                  type="text"
-                  value={createForm.telefonnummer ?? ''}
-                  onChange={(event) => handleCreateFormChange('telefonnummer', event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Letzte Nutzung</label>
-                <input
-                  type="date"
-                  value={createForm.letzteNutzung ?? ''}
-                  readOnly
-                  className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-500"
-                />
-                <p className="mt-1 text-xs text-slate-500">Wird automatisch durch Fahrten aktualisiert.</p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Aktiv</label>
-                <select
-                  value={createForm.aktiv ?? 'true'}
-                  onChange={(event) => handleCreateFormChange('aktiv', event.target.value as 'true' | 'false')}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                >
-                  <option value="true">Ja</option>
-                  <option value="false">Nein</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Initiative</label>
-                {isAdmin ? (
-                  <select
-                    value={createForm.initiativeId ?? ''}
-                    onChange={(event) => handleCreateFormChange('initiativeId', event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                  >
-                    <option value="" disabled>Bitte wählen</option>
-                    {initiatives.map((initiative) => (
-                      <option key={initiative.id} value={String(initiative.id)}>
-                        {initiative.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    value={currentUser?.initiative?.name ?? '-'}
-                    disabled
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700"
-                  />
-                )}
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Bemerkungen</label>
-                <textarea
-                  value={createForm.bemerkung ?? ''}
-                  onChange={(event) => handleCreateFormChange('bemerkung', event.target.value)}
-                  rows={3}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div className="sm:col-span-2 mt-2 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={handleCloseCreateModal}
-                  className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
-                >
-                  Gast anlegen
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
+        <PassengerFormDialog
+          closeLabel="Hinzufügen schließen"
+          error={createError}
+          form={createForm}
+          initiatives={initiatives}
+          initiativesError={initiativesError}
+          isAdmin={isAdmin}
+          nonAdminInitiativeName={currentUser?.initiative?.name ?? '-'}
+          submitClassName="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700 sm:py-2.5"
+          submitLabel="Gast anlegen"
+          title="Fahrgast hinzufügen"
+          onClose={handleCloseCreateModal}
+          onFieldChange={handleCreateFormChange}
+          onSubmit={() => {
+            void handleCreateGuest()
+          }}
+        />
       ) : null}
 
-      {selectedGuest ? (
-        <p className="px-6 pb-6 text-xs text-slate-500">
-          Letzte Nutzung: {formatDateDisplay(selectedGuest.letzteNutzung)}
-        </p>
-      ) : null}
+      {selectedGuest ? <PassengerDetailsCard selectedGuest={selectedGuest} /> : null}
     </main>
   )
 }

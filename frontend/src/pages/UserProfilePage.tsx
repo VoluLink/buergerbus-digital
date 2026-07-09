@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Trash2, UserRound } from 'lucide-react'
+import { ArrowLeft, Menu, Trash2, UserRound } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+import ProtectedSideMenu from '../components/ProtectedSideMenu'
 import UserMenuButton from '../components/UserMenuButton'
 import { useAuth } from '../context/AuthContext'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
@@ -35,6 +36,7 @@ function createProfileForm(profile?: UserProfile | null) {
     postCode: profile?.postleitzahl ?? '',
     city: profile?.ort ?? '',
     remarks: profile?.bemerkung ?? '',
+    accountActive: profile?.aktiv === false ? 'false' : 'true',
   }
 }
 
@@ -89,6 +91,7 @@ function UserProfilePage() {
   const [actionError, setActionError] = useState('')
   const [actionSuccess, setActionSuccess] = useState('')
   const [phoneError, setPhoneError] = useState('')
+  const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
 
   const userId = useMemo(() => {
     const raw = params.id
@@ -144,6 +147,7 @@ function UserProfilePage() {
   }, [userId])
 
   const canManageProfile = isAdmin && profile !== null
+  const isOwnProfile = currentUser?.id === profile?.id
   const canDeleteProfile = canManageProfile && currentUser?.id !== profile?.id
 
   function handleInputChange(field: keyof typeof formData, value: string) {
@@ -211,11 +215,11 @@ function UserProfilePage() {
         letzteG25: formData.lastG25 ? formData.lastG25 : null,
         naechsteG25: formData.nextG25 ? formData.nextG25 : null,
         bemerkung: normalizeNullable(formData.remarks),
-        aktiv: profile.aktiv,
+        aktiv: isOwnProfile ? undefined : formData.accountActive === 'true',
         fahrer: hasFahrerRole
           ? {
               bemerkung: normalizeNullable(formData.remarks),
-              aktiv: profile.fahrer?.aktiv ?? profile.aktiv,
+              aktiv: isOwnProfile ? undefined : profile.fahrer?.aktiv ?? profile.aktiv,
             }
           : null,
       })
@@ -274,6 +278,14 @@ function UserProfilePage() {
               aria-label="Zurück"
             >
               <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsSideMenuOpen(true)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0053a0]/40"
+              aria-label="Navigation öffnen"
+            >
+              <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
 
             <h1 className="text-2xl font-bold text-slate-800">Profil</h1>
@@ -462,6 +474,20 @@ function UserProfilePage() {
                       disabled={isSaving || isDeleting}
                     />
                   </div>
+                  {!isOwnProfile ? (
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Status</label>
+                      <select
+                        value={formData.accountActive}
+                        onChange={(event) => handleInputChange('accountActive', event.target.value)}
+                        className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
+                        disabled={isSaving || isDeleting}
+                      >
+                        <option value="true">Aktiv</option>
+                        <option value="false">Inaktiv</option>
+                      </select>
+                    </div>
+                  ) : null}
 
                   <div className="sm:col-span-2 flex justify-end gap-3 pt-2">
                     <button
@@ -558,6 +584,8 @@ function UserProfilePage() {
           </div>
         </section>
       </div>
+
+      <ProtectedSideMenu isOpen={isSideMenuOpen} onClose={() => setIsSideMenuOpen(false)} />
     </main>
   )
 }

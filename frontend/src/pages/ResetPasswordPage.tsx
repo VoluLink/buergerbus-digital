@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { Bus, ChevronLeft, LockKeyhole } from 'lucide-react'
+import { ChevronLeft, LockKeyhole } from 'lucide-react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { resetPassword } from '../services/passwordReset'
 import { isPasswordLongEnough } from '../utils/password'
+import { Eye, EyeOff } from 'lucide-react'
 
 function ResetPasswordPage() {
   const navigate = useNavigate()
@@ -13,6 +14,8 @@ function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -90,42 +93,72 @@ function ResetPasswordPage() {
                 <label htmlFor="new-password" className="text-sm font-medium text-slate-700">
                   Neues Passwort
                 </label>
-                <input
-                  id="new-password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(event) => {
-                    setPassword(event.target.value)
-                    if (error) {
-                      setError(null)
-                    }
-                  }}
-                  placeholder="Neues Passwort eingeben"
-                  aria-invalid={Boolean(error)}
-                  className="w-full rounded-2xl border border-sky-200 bg-white px-4 py-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-                />
+
+                <div className="relative">
+                  <input
+                    id="new-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(event) => {
+                      setPassword(event.target.value)
+                      if (error) {
+                        setError(null)
+                      }
+                    }}
+                    placeholder="Neues Passwort eingeben"
+                    aria-invalid={Boolean(error)}
+                    className="w-full rounded-2xl border border-sky-200 bg-white px-4 py-4 pr-12 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2">
                 <label htmlFor="confirm-password" className="text-sm font-medium text-slate-700">
                   Passwort wiederholen
                 </label>
-                <input
-                  id="confirm-password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={confirmPassword}
-                  onChange={(event) => {
-                    setConfirmPassword(event.target.value)
-                    if (error) {
-                      setError(null)
-                    }
-                  }}
-                  placeholder="Passwort wiederholen"
-                  aria-invalid={Boolean(error)}
-                  className="w-full rounded-2xl border border-sky-200 bg-white px-4 py-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-                />
+
+                <div className="relative">
+                  <input
+                    id="confirm-password"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(event) => {
+                      setConfirmPassword(event.target.value)
+                      if (error) {
+                        setError(null)
+                      }
+                    }}
+                    placeholder="Passwort wiederholen"
+                    aria-invalid={Boolean(error)}
+                    className="w-full rounded-2xl border border-sky-200 bg-white px-4 py-4 pr-12 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               {error ? (

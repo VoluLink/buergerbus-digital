@@ -41,18 +41,18 @@ function UserMenuButton({ onClick, icon, className }: UserMenuButtonProps) {
     <button
       type="button"
       onClick={onClick}
-      className={className ?? 'ml-auto flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:bg-slate-50'}
+      className={className ?? 'ml-auto flex min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2.5 py-1 text-left transition hover:bg-slate-50 sm:gap-3 sm:px-3 sm:py-2'}
     >
       <div className="min-w-0">
-        <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-400">
+        <span className="block text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-slate-400 sm:text-[0.65rem] sm:tracking-[0.2em]">
           Profil
         </span>
-        <span className="block truncate text-sm font-semibold text-slate-700">
+        <span className="block max-w-[8.5rem] truncate text-xs font-semibold text-slate-700 sm:max-w-none sm:text-sm">
           {isLoading ? 'Lade...' : displayName}
         </span>
       </div>
 
-      <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#0053a0] text-white shadow-md">
+      <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0053a0] text-white shadow-md sm:h-12 sm:w-12">
         {icon}
       </div>
     </button>

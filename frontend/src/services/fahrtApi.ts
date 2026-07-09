@@ -1,5 +1,6 @@
-import { API_BASE_URL } from './api'
+import { API_BASE_URL } from '../config/apiConfig'
 import { apiFetch } from './httpClient'
+import type { BackendFahrtDto, BackendFahrtWriteDto } from './dashboardState'
 
 /* =========================
    CREATE
@@ -9,7 +10,7 @@ function buildInitiativeQuery(initiativeId?: number | null) {
   return initiativeId ? `?initiativeId=${initiativeId}` : ''
 }
 
-export async function createFahrt(data: any) {
+export async function createFahrt(data: BackendFahrtWriteDto): Promise<BackendFahrtDto> {
   const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten`, {
     method: 'POST',
     headers: {
@@ -30,7 +31,7 @@ export async function createFahrt(data: any) {
    GET ALL 
 ========================= */
 
-export async function getFahrten(initiativeId?: number | null) {
+export async function getFahrten(initiativeId?: number | null): Promise<BackendFahrtDto[]> {
   const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten${buildInitiativeQuery(initiativeId)}`)
 
   if (!res.ok) {
@@ -45,7 +46,7 @@ export async function getFahrten(initiativeId?: number | null) {
    GET BY IDs
 ========================= */
 
-export async function getFahrt(id: number) {
+export async function getFahrt(id: number): Promise<BackendFahrtDto> {
   const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten/${id}`)
 
   if (!res.ok) {
@@ -60,7 +61,7 @@ export async function getFahrt(id: number) {
    UPDATE
 ========================= */
 
-export async function updateFahrt(id: number, data: any) {
+export async function updateFahrt(id: number, data: BackendFahrtWriteDto): Promise<BackendFahrtDto> {
   const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten/${id}`, {
     method: 'PUT',
     headers: {

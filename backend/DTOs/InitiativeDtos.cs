@@ -26,10 +26,7 @@ public record InitiativeDeletePreviewAffectedDto(
 	int DamageReports,
 	int Rides,
 	int Passengers,
-	int RideSegments,
-	int Notifications,
-	int DeletionDeadlines,
-	int DriverVehicleAssignments
+	int RideSegments
 );
 
 public record InitiativeDeletePreviewDto(

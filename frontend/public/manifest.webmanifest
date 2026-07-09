@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "Bürgerbus Digital",
+  "short_name": "Bürgerbus",
+  "description": "Digitale Verwaltung für Bürgerbus-Fahrten, Fahrer und Disposition.",
+  "lang": "de-DE",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#005bbb",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

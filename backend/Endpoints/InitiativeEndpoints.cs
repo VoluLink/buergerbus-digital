@@ -14,87 +14,7 @@ public static class InitiativeEndpoints
     public static IEndpointRouteBuilder MapInitiativeEndpoints(this IEndpointRouteBuilder app)
     {
         static bool IsDisponentWithoutAdmin(HttpContext httpContext)
-            => !AuthUtils.IsAdmin(httpContext.User) && httpContext.User.IsInRole("Disponent");
-
-        static async Task<InitiativeDeletePreviewDto?> BuildDeletePreview(int id, AppDbContext db)
-        {
-            var initiative = await db.Initiativen
-                .AsNoTracking()
-                .FirstOrDefaultAsync(i => i.Id == id);
-
-            if (initiative is null)
-            {
-                return null;
-            }
-
-            var isDefault = string.Equals(initiative.Name, "Default", StringComparison.OrdinalIgnoreCase);
-            // NOTE: DbContext is not thread-safe. Do NOT run EF queries concurrently on the same context.
-            var users = await db.Benutzer.AsNoTracking().CountAsync(b => b.InitiativeId == id);
-            var vehicles = await db.Fahrzeuge.AsNoTracking().CountAsync(f => f.InitiativeId == id);
-            var maintenanceRecords = await db.Wartungen.AsNoTracking().CountAsync(w => w.InitiativeId == id);
-            var damageReports = await db.Schaeden.AsNoTracking().CountAsync(s => s.InitiativeId == id);
-            var rides = await db.Fahrten.AsNoTracking().CountAsync(f => f.InitiativeId == id);
-            var passengers = await db.Fahrgaeste.AsNoTracking().CountAsync(f => f.InitiativeId == id);
-            var rideSegments = await db.Fahrten.AsNoTracking()
-                .Where(f => f.InitiativeId == id)
-                .SelectMany(f => f.Teilstrecken)
-                .CountAsync();
-            var notifications = await db.Benachrichtigungen.AsNoTracking().CountAsync(b => b.InitiativeId == id);
-            var deletionDeadlines = await db.Loeschfristen.AsNoTracking().CountAsync(l => l.InitiativeId == id);
-
-            // Assignments (no InitiativeId on the join table) -> derived via Fahrzeug.
-            var driverVehicleAssignments = await db.FahrerFahrzeuge
-                .AsNoTracking()
-                .CountAsync(ff => ff.Fahrzeug.InitiativeId == id);
-
-            var affected = new InitiativeDeletePreviewAffectedDto(
-                users,
-                vehicles,
-                maintenanceRecords,
-                damageReports,
-                rides,
-                passengers,
-                rideSegments,
-                notifications,
-                deletionDeadlines,
-                driverVehicleAssignments
-            );
-
-            var canDelete = true;
-            string? reason = null;
-
-            var hasAnyDependencies =
-                affected.Users > 0 ||
-                affected.Vehicles > 0 ||
-                affected.MaintenanceRecords > 0 ||
-                affected.DamageReports > 0 ||
-                affected.Rides > 0 ||
-                affected.Passengers > 0 ||
-                affected.RideSegments > 0 ||
-                affected.Notifications > 0 ||
-                affected.DeletionDeadlines > 0 ||
-                affected.DriverVehicleAssignments > 0;
-
-            if (isDefault)
-            {
-                canDelete = false;
-                reason = "Die Standard-Initiative kann nicht gelöscht werden.";
-            }
-            else if (hasAnyDependencies)
-            {
-                canDelete = false;
-                reason = "Die Initiative kann nicht gelöscht werden, solange noch abhängige Daten existieren.";
-            }
-
-            return new InitiativeDeletePreviewDto(
-                initiative.Id,
-                initiative.Name,
-                canDelete,
-                isDefault,
-                reason,
-                affected
-            );
-        }
+            => !AuthUtils.IsAdmin(httpContext.User) && AuthUtils.IsDisponent(httpContext.User);
 
         static async Task<IResult> GetInitiativenDetails(AppDbContext db)
         {
@@ -192,48 +112,20 @@ public static class InitiativeEndpoints
             ));
         }
 
-        static async Task<IResult> DeleteInitiative(int id, AppDbContext db)
+        static async Task<IResult> DeleteInitiative(int id, InitiativeDeletionService initiativeDeletionService)
         {
-            var preview = await BuildDeletePreview(id, db);
-            if (preview is null)
+            var (ok, error) = await initiativeDeletionService.DeleteAsync(id);
+            if (!ok)
             {
-                return Results.NotFound("Initiative wurde nicht gefunden.");
+                return Results.Conflict(error ?? "Die Initiative konnte nicht gelöscht werden.");
             }
 
-            if (!preview.CanDelete)
-            {
-                return Results.Conflict(preview.Reason ?? "Die Initiative kann nicht gelöscht werden.");
-            }
-
-            try
-            {
-                var entity = await db.Initiativen.FindAsync(id);
-                if (entity is null)
-                {
-                    return Results.NotFound("Initiative wurde nicht gefunden.");
-                }
-
-                db.Initiativen.Remove(entity);
-                await db.SaveChangesAsync();
-
-                return Results.NoContent();
-            }
-            catch (DbUpdateException)
-            {
-                return Results.Conflict("Die Initiative kann nicht gelöscht werden, da noch abhängige Daten existieren.");
-            }
-            catch (Exception)
-            {
-                return Results.Problem(
-                    detail: "Beim Löschen der Initiative ist ein Fehler aufgetreten.",
-                    statusCode: StatusCodes.Status500InternalServerError
-                );
-            }
+            return Results.NoContent();
         }
 
-        static async Task<IResult> GetDeletePreview(int id, AppDbContext db)
+        static async Task<IResult> GetDeletePreview(int id, InitiativeDeletionService initiativeDeletionService)
         {
-            var preview = await BuildDeletePreview(id, db);
+            var preview = await initiativeDeletionService.GetDeletePreviewAsync(id);
             if (preview is null)
             {
                 return Results.NotFound("Initiative wurde nicht gefunden.");
@@ -269,6 +161,7 @@ public static class InitiativeEndpoints
 
             var user = await db.Benutzer
                 .Include(u => u.Initiative)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == id);
 
             if (user is null)

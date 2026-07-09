@@ -23,8 +23,6 @@ namespace BuergerbusAPI.Models
         // Übergangsnavigation für bestehende Teilstrecken.
         public List<Teilstrecke> Teilstrecken { get; set; } = new();
 
-        //Loeschfrist des Fahrgastes
-        public Loeschfristen? Loeschfrist { get; set; }
 
     }
 }

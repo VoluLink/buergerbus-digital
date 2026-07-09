@@ -22,6 +22,11 @@ public static class FahrgastEndpoints
         ) =>
         {
             var principal = httpContext.User;
+            if (!AuthUtils.CanManagePassengers(principal))
+            {
+                return Results.Forbid();
+            }
+
             var isAdmin = AuthUtils.IsAdmin(principal);
             var claimInitiativeId = AuthUtils.GetInitiativeId(principal);
 
@@ -30,7 +35,7 @@ public static class FahrgastEndpoints
                 return Results.Forbid();
             }
 
-            if (!isAdmin && initiativeId.HasValue && initiativeId.Value != claimInitiativeId.Value)
+            if (!isAdmin && initiativeId.HasValue && claimInitiativeId.HasValue && initiativeId.Value != claimInitiativeId.Value)
             {
                 return Results.Forbid();
             }
@@ -60,6 +65,11 @@ public static class FahrgastEndpoints
         ) =>
         {
             var principal = httpContext.User;
+            if (!AuthUtils.CanManagePassengers(principal))
+            {
+                return Results.Forbid();
+            }
+
             var isAdmin = AuthUtils.IsAdmin(principal);
             var initiativeId = AuthUtils.GetInitiativeId(principal);
             if (!isAdmin && !initiativeId.HasValue)
@@ -96,6 +106,11 @@ public static class FahrgastEndpoints
         ) =>
         {
             var principal = httpContext.User;
+            if (!AuthUtils.CanManagePassengers(principal))
+            {
+                return Results.Forbid();
+            }
+
             var isAdmin = AuthUtils.IsAdmin(principal);
             var claimInitiativeId = AuthUtils.GetInitiativeId(principal);
 
@@ -169,6 +184,11 @@ public static class FahrgastEndpoints
         ) =>
         {
             var principal = httpContext.User;
+            if (!AuthUtils.CanManagePassengers(principal))
+            {
+                return Results.Forbid();
+            }
+
             var isAdmin = AuthUtils.IsAdmin(principal);
             var claimInitiativeId = AuthUtils.GetInitiativeId(principal);
 
@@ -247,6 +267,11 @@ public static class FahrgastEndpoints
         ) =>
         {
             var principal = httpContext.User;
+            if (!AuthUtils.CanManagePassengers(principal))
+            {
+                return Results.Forbid();
+            }
+
             var isAdmin = AuthUtils.IsAdmin(principal);
             var initiativeId = AuthUtils.GetInitiativeId(principal);
             if (!isAdmin && !initiativeId.HasValue)

@@ -1,6 +1,8 @@
 using BuergerbusAPI.Models;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 /// <summary>
 /// Initialisiert die Datenbank beim Anwendungsstart.
@@ -61,6 +63,11 @@ public static class SeedData
         var initiativeName = Environment.GetEnvironmentVariable("SEED_INITIATIVE_NAME")
                              ?? "Default";
 
+        var env = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
+        ValidateProductionSeedConfiguration(env, email, password, initiativeName);
+
+        var now = DateTime.UtcNow;
+
         var requiredRoleNames = new[] { "Admin", "Disponent", "Fahrer", "Gast" };
         var existingRoles = await db.Rollen.ToListAsync();
 
@@ -82,6 +89,8 @@ public static class SeedData
         {
             await db.SaveChangesAsync();
         }
+
+        await SeedPagesAndFooterAsync(db, now, logger);
 
         var adminRole = existingRoles.FirstOrDefault(r =>
             string.Equals(r.Rollenname, "Admin", StringComparison.OrdinalIgnoreCase));
@@ -154,5 +163,118 @@ public static class SeedData
                 adminRole.Rollenname
             );
         }
+    }
+
+    private static async Task SeedPagesAndFooterAsync(AppDbContext db, DateTime now, ILogger logger)
+    {
+        var standardPages = new[]
+        {
+            new { Slug = "impressum", Title = "Impressum", Content = "Angaben gemäß § 5 TMG.", SortOrder = 1 },
+            new { Slug = "datenschutz", Title = "Datenschutz", Content = "Hinweise zum Datenschutz.", SortOrder = 2 },
+            new { Slug = "kontakt", Title = "Kontakt", Content = "Kontaktdaten und Ansprechpartner.", SortOrder = 3 },
+        };
+
+        var pagesBySlug = await db.SitePages.ToDictionaryAsync(page => page.Slug, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var pageData in standardPages)
+        {
+            if (pagesBySlug.ContainsKey(pageData.Slug))
+            {
+                continue;
+            }
+
+            var page = new SitePage
+            {
+                Id = Guid.NewGuid(),
+                Slug = pageData.Slug,
+                Title = pageData.Title,
+                Content = pageData.Content,
+                IsPublished = true,
+                ShowInFooter = true,
+                FooterSortOrder = pageData.SortOrder,
+                CreatedAt = now,
+                UpdatedAt = now,
+            };
+
+            db.SitePages.Add(page);
+            pagesBySlug[page.Slug] = page;
+            logger.LogInformation("Seed-Seite {Slug} wurde erstellt.", page.Slug);
+        }
+
+        await db.SaveChangesAsync();
+
+        var footerSeeds = new[]
+        {
+            (Label: "Impressum", Slug: "impressum", SortOrder: 1),
+            (Label: "Datenschutz", Slug: "datenschutz", SortOrder: 2),
+            (Label: "Kontakt", Slug: "kontakt", SortOrder: 3),
+        };
+
+        foreach (var footerSeed in footerSeeds)
+        {
+            if (!pagesBySlug.TryGetValue(footerSeed.Slug, out var page))
+            {
+                continue;
+            }
+
+            var exists = await db.FooterLinks.AnyAsync(link => link.SitePageId == page.Id);
+            if (exists)
+            {
+                continue;
+            }
+
+            db.FooterLinks.Add(new FooterLink
+            {
+                Id = Guid.NewGuid(),
+                Label = footerSeed.Label,
+                LinkType = FooterLinkType.InternalPage,
+                SitePageId = page.Id,
+                ExternalUrl = null,
+                SortOrder = footerSeed.SortOrder,
+                IsActive = true,
+                OpenInNewTab = false,
+                CreatedAt = now,
+                UpdatedAt = now,
+            });
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static void ValidateProductionSeedConfiguration(
+        IWebHostEnvironment env,
+        string seedAdminEmail,
+        string seedAdminPassword,
+        string seedInitiativeName)
+    {
+        if (!env.IsProduction())
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(seedAdminEmail)
+            || string.IsNullOrWhiteSpace(seedAdminPassword)
+            || string.Equals(seedAdminPassword, "Admin123!", StringComparison.Ordinal)
+            || ContainsChangeMe(seedAdminEmail)
+            || ContainsChangeMe(seedAdminPassword)
+            || ContainsChangeMe(seedInitiativeName))
+        {
+            throw new SeedConfigurationException(
+                "Production requires real SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD and SEED_INITIATIVE_NAME values."
+            );
+        }
+    }
+
+    private static bool ContainsChangeMe(string? value)
+    {
+        return value?.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase) == true;
+    }
+}
+
+public sealed class SeedConfigurationException : InvalidOperationException
+{
+    public SeedConfigurationException(string message)
+        : base(message)
+    {
     }
 }

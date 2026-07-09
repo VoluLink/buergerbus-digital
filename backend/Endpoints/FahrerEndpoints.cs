@@ -28,8 +28,6 @@ public static class FahrerEndpoints
             var fahrerList = await db.Fahrer
                 .AsNoTracking()
                 .Include(f => f.Benutzer)
-                .Include(f => f.FahrerFahrzeuge)
-                    .ThenInclude(ff => ff.Fahrzeug)
                 .Where(f => isAdmin || (f.Benutzer != null && f.Benutzer.InitiativeId == initiativeId))
                 .OrderBy(f => f.Id)
                 .ToListAsync();
@@ -48,41 +46,12 @@ public static class FahrerEndpoints
                         ?? "(Unbekannt)";
                 }
 
-                var fahrzeugText = f.FahrerFahrzeuge
-                    .Select(ff => ff.Fahrzeug)
-                    .Where(fz => fz != null)
-                    .Select(fz =>
-                    {
-                        var bezeichnung = fz!.Bezeichnung?.Trim();
-                        var kennzeichen = fz.Kennzeichen?.Trim();
-
-                        if (!string.IsNullOrWhiteSpace(bezeichnung) && !string.IsNullOrWhiteSpace(kennzeichen))
-                        {
-                            return $"{bezeichnung} ({kennzeichen})";
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(bezeichnung))
-                        {
-                            return bezeichnung;
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(kennzeichen))
-                        {
-                            return kennzeichen;
-                        }
-
-                        return string.Empty;
-                    })
-                    .FirstOrDefault(text => !string.IsNullOrWhiteSpace(text));
-
-                fahrzeugText = string.IsNullOrWhiteSpace(fahrzeugText) ? null : fahrzeugText.Trim();
 
                 return new FahrerListItemDto(
                     f.Id,
                     f.BenutzerId,
                     displayName,
                     f.Benutzer?.Telefonnummer,
-                    fahrzeugText,
                     f.Aktiv ? "Aktiv" : "Inaktiv",
                     f.Aktiv,
                     f.Bemerkung
