@@ -19,7 +19,7 @@ public static class FahrzeugServiceEndpoints
 
     public static IEndpointRouteBuilder MapFahrzeugServiceEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/v1/fahrzeuge", async (
+        app.MapGet("/api/v1/vehicles", async (
             HttpContext httpContext,
             int? userId,
             AppDbContext db
@@ -71,7 +71,7 @@ public static class FahrzeugServiceEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPost("/api/v1/fahrzeuge", async (
+        app.MapPost("/api/v1/vehicles", async (
             HttpContext httpContext,
             int? userId,
             CreateFahrzeugRequest request,
@@ -139,7 +139,7 @@ public static class FahrzeugServiceEndpoints
                 .Select(i => i.Name)
                 .FirstOrDefaultAsync();
 
-            return Results.Created($"/api/v1/fahrzeuge/{fahrzeug.Id}", new FahrzeugDto(
+            return Results.Created($"/api/v1/vehicles/{fahrzeug.Id}", new FahrzeugDto(
                 fahrzeug.Id,
                 fahrzeug.Kennzeichen,
                 fahrzeug.Bezeichnung,
@@ -160,7 +160,7 @@ public static class FahrzeugServiceEndpoints
         .Produces<FahrzeugDto>(StatusCodes.Status201Created)
         .RequireAuthorization();
 
-        app.MapPut("/api/v1/fahrzeuge/{id:int}", async (
+        app.MapPut("/api/v1/vehicles/{id:int}", async (
             int id,
             HttpContext httpContext,
             int? userId,
@@ -273,7 +273,7 @@ public static class FahrzeugServiceEndpoints
         .Produces<FahrzeugDto>(StatusCodes.Status200OK)
         .RequireAuthorization();
 
-        app.MapDelete("/api/v1/fahrzeuge/{id:int}", async (
+        app.MapDelete("/api/v1/vehicles/{id:int}", async (
             int id,
             HttpContext httpContext,
             int? userId,
@@ -304,7 +304,7 @@ public static class FahrzeugServiceEndpoints
         })
         .RequireAuthorization();
 
-        app.MapGet("/api/v1/fahrzeuge/{fahrzeugId:int}/wartungen", async (
+        app.MapGet("/api/v1/vehicles/{fahrzeugId:int}/maintenance", async (
             int fahrzeugId,
             HttpContext httpContext,
             int? userId,
@@ -337,7 +337,7 @@ public static class FahrzeugServiceEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPost("/api/v1/fahrzeuge/{fahrzeugId:int}/wartungen", async (
+        app.MapPost("/api/v1/vehicles/{fahrzeugId:int}/maintenance", async (
             int fahrzeugId,
             HttpContext httpContext,
             int? userId,
@@ -380,7 +380,7 @@ public static class FahrzeugServiceEndpoints
             db.Wartungen.Add(wartung);
             await db.SaveChangesAsync();
 
-            return Results.Created($"/api/v1/wartungen/{wartung.Id}", new WartungDto(
+            return Results.Created($"/api/v1/maintenance/{wartung.Id}", new WartungDto(
                 wartung.Id,
                 wartung.FahrzeugId,
                 wartung.InitiativeId,
@@ -395,7 +395,7 @@ public static class FahrzeugServiceEndpoints
         .Produces<WartungDto>(StatusCodes.Status201Created)
         .RequireAuthorization();
 
-        app.MapPut("/api/v1/wartungen/{id:int}", async (
+        app.MapPut("/api/v1/maintenance/{id:int}", async (
             int id,
             HttpContext httpContext,
             int? userId,
@@ -456,7 +456,7 @@ public static class FahrzeugServiceEndpoints
         .Produces<WartungDto>(StatusCodes.Status200OK)
         .RequireAuthorization();
 
-        app.MapDelete("/api/v1/wartungen/{id:int}", async (
+        app.MapDelete("/api/v1/maintenance/{id:int}", async (
             int id,
             HttpContext httpContext,
             int? userId,
@@ -490,7 +490,7 @@ public static class FahrzeugServiceEndpoints
         })
         .RequireAuthorization();
 
-        app.MapGet("/api/v1/fahrzeuge/{fahrzeugId:int}/schaeden", async (
+        app.MapGet("/api/v1/vehicles/{fahrzeugId:int}/damages", async (
             int fahrzeugId,
             HttpContext httpContext,
             int? userId,
@@ -522,7 +522,7 @@ public static class FahrzeugServiceEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPost("/api/v1/fahrzeuge/{fahrzeugId:int}/schaeden", async (
+        app.MapPost("/api/v1/vehicles/{fahrzeugId:int}/damages", async (
             int fahrzeugId,
             HttpContext httpContext,
             int? userId,
@@ -560,7 +560,7 @@ public static class FahrzeugServiceEndpoints
             db.Schaeden.Add(schaden);
             await db.SaveChangesAsync();
 
-            return Results.Created($"/api/v1/schaeden/{schaden.Id}", new SchadenDto(
+            return Results.Created($"/api/v1/damages/{schaden.Id}", new SchadenDto(
                 schaden.Id,
                 schaden.FahrzeugId,
                 schaden.InitiativeId,
@@ -574,7 +574,7 @@ public static class FahrzeugServiceEndpoints
         .Produces<SchadenDto>(StatusCodes.Status201Created)
         .RequireAuthorization();
 
-        app.MapPut("/api/v1/schaeden/{id:int}", async (
+        app.MapPut("/api/v1/damages/{id:int}", async (
             int id,
             HttpContext httpContext,
             int? userId,
@@ -629,7 +629,7 @@ public static class FahrzeugServiceEndpoints
         .Produces<SchadenDto>(StatusCodes.Status200OK)
         .RequireAuthorization();
 
-        app.MapDelete("/api/v1/schaeden/{id:int}", async (
+        app.MapDelete("/api/v1/damages/{id:int}", async (
             int id,
             HttpContext httpContext,
             int? userId,

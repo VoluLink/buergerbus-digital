@@ -39,7 +39,7 @@ public static class AdminNotificationEndpoints
         {
             if (state is not ("activate" or "deactivate")) return Results.NotFound(); var item=await db.AdminNotifications.FirstOrDefaultAsync(x=>x.Id==id,ct); if(item is null)return Results.NotFound(); if(!int.TryParse(ctx.User.FindFirstValue(ClaimTypes.NameIdentifier),out var userId))return Results.Forbid(); item.IsActive=state=="activate";item.UpdatedAtUtc=DateTime.UtcNow;item.UpdatedByUserId=userId;await db.SaveChangesAsync(ct);await audit.WriteAsync(item.IsActive?"AdminNotificationActivated":"AdminNotificationDeactivated","AdminNotification","success",userId,item.Id.ToString(),item.InitiativeId,new { item.IsActive });return Results.Ok(ToDto(item));
         }).RequireAuthorization("AdminOnly");
-        app.MapPost("/api/admin/notifications/send", async (
+        app.MapPost("/api/v1/admin/broadcast-emails", async (
             SendBroadcastNotificationRequest request,
             HttpContext httpContext,
             INotificationService notificationService) =>
@@ -89,7 +89,7 @@ public static class AdminNotificationEndpoints
         })
         .RequireAuthorization("AdminOnly");
 
-        app.MapGet("/api/admin/notifications", async (
+        app.MapGet("/api/v1/admin/broadcast-emails", async (
             INotificationService notificationService) =>
         {
             var notifications = await notificationService.GetNotificationsAsync();
@@ -97,7 +97,7 @@ public static class AdminNotificationEndpoints
         })
         .RequireAuthorization("AdminOnly");
 
-        app.MapGet("/api/admin/notifications/{id:guid}", async (
+        app.MapGet("/api/v1/admin/broadcast-emails/{id:guid}", async (
             Guid id,
             INotificationService notificationService) =>
         {
@@ -113,7 +113,7 @@ public static class AdminNotificationEndpoints
         })
         .RequireAuthorization("AdminOnly");
 
-        app.MapPost("/api/v1/admin/cleanup/temporaere-fahrtteilnehmer", async (
+        app.MapPost("/api/v1/admin/cleanup/temporary-participants", async (
             ITemporaryParticipantCleanupService cleanupService,
             CancellationToken cancellationToken) =>
         {

@@ -34,7 +34,7 @@ public static class UserEndpoints
 // -----------------------------------------------------------------------------
 // Benutzer anlegen (ohne Rechteprüfung; wird später ergänzt)
 // -----------------------------------------------------------------------------
-        app.MapPost("/api/v1/benutzer", async (
+        app.MapPost("/api/v1/users", async (
             CreateBenutzerRequest request,
             HttpContext httpContext,
             AppDbContext db,
@@ -396,7 +396,8 @@ public static class UserEndpoints
 // -----------------------------------------------------------------------------
 // Einzelnen Benutzer anhand der ID laden
 // -----------------------------------------------------------------------------
-        app.MapGet("/api/v1/users/{id:int}", async (
+        #if false // Superseded by the canonical profile endpoint below.
+        app.MapGet("/api/v1/users/{id:int}/summary", async (
             int id,
             HttpContext httpContext,
             AppDbContext db
@@ -432,7 +433,8 @@ public static class UserEndpoints
 // -----------------------------------------------------------------------------
 // Vollständiges Benutzerprofil inklusive Rollen, Initiative und Fahrer laden
 // -----------------------------------------------------------------------------
-        app.MapGet("/api/v1/users/{id:int}/profile", async (
+        #endif
+        app.MapGet("/api/v1/users/{id:int}", async (
             int id,
             HttpContext httpContext,
             AppDbContext db
@@ -481,7 +483,7 @@ public static class UserEndpoints
 // - Führerschein- und G25-Daten speichern
 // - Optional Fahrer-Daten aktualisieren
 // -----------------------------------------------------------------------------
-        app.MapPut("/api/v1/users/{id:int}/profile", async (
+        app.MapPut("/api/v1/users/{id:int}", async (
             int id,
             HttpContext httpContext,
             UpdateUserProfileRequest request,
@@ -604,7 +606,7 @@ public static class UserEndpoints
 // - Von dem Benutzer angelegte Fahrten werden auf den ausführenden Admin umgehängt
 // - Fahrer-Verknüpfungen werden vor dem Löschen gelöst
 // -----------------------------------------------------------------------------
-        app.MapDelete("/api/v1/users/{id:int}/profile", async (
+        app.MapDelete("/api/v1/users/{id:int}", async (
             int id,
             HttpContext httpContext,
             AppDbContext db

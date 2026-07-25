@@ -555,7 +555,7 @@ public static class FahrtenEndpoints
 
     public static IEndpointRouteBuilder MapFahrtenEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/v1/fahrten", async (
+        app.MapGet("/api/v1/rides", async (
             HttpContext httpContext,
             AppDbContext db,
             int? initiativeId
@@ -590,7 +590,7 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapGet("/api/v1/fahrten/{id:int}", async (
+        app.MapGet("/api/v1/rides/{id:int}", async (
             int id,
             HttpContext httpContext,
             AppDbContext db
@@ -623,7 +623,7 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPost("/api/v1/fahrten", async (
+        app.MapPost("/api/v1/rides", async (
             CreateFahrtRequest request,
             AppDbContext db,
             HttpContext httpContext,
@@ -690,7 +690,7 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPut("/api/v1/fahrten/{id:int}", async (
+        app.MapPut("/api/v1/rides/{id:int}", async (
             int id,
             UpdateFahrtRequest request,
             AppDbContext db,
@@ -808,7 +808,7 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapDelete("/api/v1/fahrten/{id:int}", async (
+        app.MapDelete("/api/v1/rides/{id:int}", async (
             int id,
             AppDbContext db,
             HttpContext httpContext
@@ -842,7 +842,7 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPatch("/api/v1/fahrten/{id:int}/fahrer/{fahrerId:int}", async (int id, int fahrerId, AppDbContext db, HttpContext httpContext, TripEmailNotificationService tripEmailService) =>
+        app.MapPatch("/api/v1/rides/{id:int}/driver/{fahrerId:int}", async (int id, int fahrerId, AppDbContext db, HttpContext httpContext, TripEmailNotificationService tripEmailService) =>
         {
             if (!AuthUtils.CanManageRides(httpContext.User))
             {
@@ -895,7 +895,7 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPatch("/api/v1/fahrten/{fahrtId:int}/fahrer/anmelden", async (
+        app.MapPost("/api/v1/rides/{fahrtId:int}/self-registration", async (
             int fahrtId,
             AppDbContext db,
             HttpContext httpContext,
@@ -985,7 +985,7 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPatch("/api/v1/fahrten/{fahrtId:int}/fahrer/abmelden", async (
+        app.MapDelete("/api/v1/rides/{fahrtId:int}/self-registration", async (
             int fahrtId,
             AppDbContext db,
             HttpContext httpContext) =>
@@ -1048,7 +1048,7 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPatch("/api/v1/fahrten/{id:int}/fahrzeug/{fahrzeugId:int}", async (int id, int fahrzeugId, AppDbContext db, HttpContext httpContext) =>
+        app.MapPatch("/api/v1/rides/{id:int}/vehicle/{fahrzeugId:int}", async (int id, int fahrzeugId, AppDbContext db, HttpContext httpContext) =>
         {
             if (!AuthUtils.CanManageRides(httpContext.User))
             {
@@ -1083,7 +1083,7 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPatch("/api/v1/fahrtteilnehmer/{id:int}/abgehakt", async (
+        app.MapPatch("/api/v1/participants/{id:int}/completion", async (
             int id,
             FahrtTeilnehmerCheckDto dto,
             AppDbContext db,

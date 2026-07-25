@@ -70,7 +70,7 @@ public static class InitiativeEndpoints
                 entity.GeaendertAm
             );
 
-            return Results.Created($"/api/v1/initiativen/{entity.Id}", dto);
+            return Results.Created($"/api/v1/admin/initiatives/{entity.Id}", dto);
         }
 
         static async Task<IResult> UpdateInitiative(int id, UpdateInitiativeDetailsRequest request, AppDbContext db)
@@ -134,18 +134,11 @@ public static class InitiativeEndpoints
             return Results.Ok(preview);
         }
 
-        app.MapGet("/api/v1/initiativen", GetInitiativenDetails).RequireAuthorization("AdminOnly");
-        app.MapPost("/api/v1/initiativen", CreateInitiative).RequireAuthorization("AdminOnly");
-        app.MapGet("/api/v1/initiativen/{id:int}/delete-preview", GetDeletePreview).RequireAuthorization("AdminOnly");
-        app.MapPut("/api/v1/initiativen/{id:int}", UpdateInitiative).RequireAuthorization("AdminOnly");
-        app.MapDelete("/api/v1/initiativen/{id:int}", DeleteInitiative).RequireAuthorization("AdminOnly");
-
-        // Aliases (unversioned, english) as requested in the task description.
-        app.MapGet("/api/initiatives", GetInitiativenDetails).RequireAuthorization("AdminOnly");
-        app.MapPost("/api/initiatives", CreateInitiative).RequireAuthorization("AdminOnly");
-        app.MapGet("/api/initiatives/{id:int}/delete-preview", GetDeletePreview).RequireAuthorization("AdminOnly");
-        app.MapPut("/api/initiatives/{id:int}", UpdateInitiative).RequireAuthorization("AdminOnly");
-        app.MapDelete("/api/initiatives/{id:int}", DeleteInitiative).RequireAuthorization("AdminOnly");
+        app.MapGet("/api/v1/admin/initiatives", GetInitiativenDetails).RequireAuthorization("AdminOnly");
+        app.MapPost("/api/v1/admin/initiatives", CreateInitiative).RequireAuthorization("AdminOnly");
+        app.MapGet("/api/v1/admin/initiatives/{id:int}/delete-preview", GetDeletePreview).RequireAuthorization("AdminOnly");
+        app.MapPut("/api/v1/admin/initiatives/{id:int}", UpdateInitiative).RequireAuthorization("AdminOnly");
+        app.MapDelete("/api/v1/admin/initiatives/{id:int}", DeleteInitiative).RequireAuthorization("AdminOnly");
 
         app.MapGet("/api/v1/users/{id:int}/initiative", async (int id, HttpContext httpContext, AppDbContext db) =>
         {
@@ -232,7 +225,7 @@ public static class InitiativeEndpoints
         })
         .RequireAuthorization();
 
-        app.MapGet("/api/v1/initiatives", async (HttpContext httpContext, AppDbContext db) =>
+        app.MapGet("/api/v1/initiatives/options", async (HttpContext httpContext, AppDbContext db) =>
         {
             var principal = httpContext.User;
             var isAdmin = AuthUtils.IsAdmin(principal);

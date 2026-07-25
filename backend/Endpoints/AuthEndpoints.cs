@@ -108,7 +108,7 @@ public static class AuthEndpoints
             var token=RefreshSessionService.ReadCookie(context.Request); await refreshSessions.RevokeAsync(token,"logout",ct); refreshSessions.DeleteCookie(context.Response); var userId=AuthUtils.GetUserId(context.User); if(userId.HasValue) await audit.WriteAsync("Logout","RefreshSession","success",userId.Value); return Results.NoContent();
         });
 
-        app.MapPost("/api/auth/forgot-password", async (
+        app.MapPost("/api/v1/auth/forgot-password", async (
             ForgotPasswordRequest request,
             AppDbContext db,
             IEmailService emailService,
@@ -181,7 +181,7 @@ public static class AuthEndpoints
             return Results.Ok(new { message = neutralResponse });
         }).RequireRateLimiting("auth-forgot-password");
 
-        app.MapPost("/api/auth/reset-password", async (
+        app.MapPost("/api/v1/auth/reset-password", async (
             ResetPasswordRequest request,
             AppDbContext db,
             IPasswordHasher<Benutzer> passwordHasher,
@@ -295,7 +295,9 @@ public static class AuthEndpoints
         .Produces(StatusCodes.Status401Unauthorized)
         .RequireAuthorization();
 
-        app.MapGet("/api/v1/test", (HttpContext httpContext) =>
+        if (app.ServiceProvider.GetRequiredService<IHostEnvironment>().IsDevelopment())
+        {
+            app.MapGet("/api/v1/test", (HttpContext httpContext) =>
         {
             var userName = httpContext.User.Identity?.Name;
 
@@ -304,7 +306,8 @@ public static class AuthEndpoints
                 Message = "Du bist eingeloggt!",
                 User = userName
             });
-        }).RequireAuthorization();
+            }).RequireAuthorization();
+        }
 
         return app;
     }

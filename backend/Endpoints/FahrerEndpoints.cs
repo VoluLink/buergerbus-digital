@@ -12,7 +12,7 @@ public static class FahrerEndpoints
 {
     public static IEndpointRouteBuilder MapFahrerEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/v1/fahrer", async (
+        app.MapGet("/api/v1/drivers", async (
             HttpContext httpContext,
             AppDbContext db,
             int? initiativeId
