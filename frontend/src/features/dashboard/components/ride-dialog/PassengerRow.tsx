@@ -1,5 +1,4 @@
 import { Trash2 } from "lucide-react";
-import { AddressAutocomplete } from "../../../../components/AddressAutocomplete";
 
 import { FiveMinuteTimeField } from "../FiveMinuteTimeField";
 
@@ -136,17 +135,25 @@ export function PassengerRow({
           className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
         />
 
-        <AddressAutocomplete
+        <input
+          type="text"
           value={passenger.pickupAddress ?? ""}
-          onChange={(value) => updatePassengerField(passenger.id, "pickupAddress", value)}
+          onChange={(event) =>
+            updatePassengerField(passenger.id, "pickupAddress", event.target.value)
+          }
           placeholder="Abholadresse"
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
         />
 
         {rideType === "theme" ? null : (
-          <AddressAutocomplete
+          <input
+            type="text"
             value={passenger.destinationAddress ?? ""}
-            onChange={(value) => updatePassengerField(passenger.id, "destinationAddress", value)}
+            onChange={(event) =>
+              updatePassengerField(passenger.id, "destinationAddress", event.target.value)
+            }
             placeholder="Zieladresse"
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
           />
         )}
 

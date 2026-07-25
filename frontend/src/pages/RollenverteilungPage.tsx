@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useInitiative } from '../context/InitiativeContext'
 import ProtectedSideMenu from '../components/ProtectedSideMenu'
 import AdminRoleConfirmationDialog from '../features/users/components/AdminRoleConfirmationDialog'
 import CreateUserModal from '../features/users/components/CreateUserModal'
@@ -28,6 +29,7 @@ import type { InitiativeSummary, RoleSummary, UserSummary } from '../types/UserP
 function RollenverteilungPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
+  const { activeInitiativeId } = useInitiative()
   const { canManageRoleAssignments, isAdmin, isDisponent } = useRoleVisibility()
   const currentInitiativeId = currentUser?.initiative?.id ?? null
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
@@ -103,11 +105,19 @@ function RollenverteilungPage() {
     let isActive = true
 
     async function loadUsers() {
+      if (isAdmin && activeInitiativeId == null) {
+        setUsers([])
+        setTotalItems(0)
+        setTotalPages(0)
+        setIsLoading(false)
+        return
+      }
       setIsLoading(true)
       setLoadError('')
+      setUsers([])
 
       try {
-        const response = await getUsers(page, pageSize, searchQuery)
+        const response = await getUsers(page, pageSize, searchQuery, activeInitiativeId)
         if (!isActive) {
           return
         }
@@ -131,7 +141,7 @@ function RollenverteilungPage() {
     return () => {
       isActive = false
     }
-  }, [page, pageSize, searchQuery])
+  }, [activeInitiativeId, isAdmin, page, pageSize, searchQuery])
 
   function closeSideMenu() {
     setIsSideMenuOpen(false)

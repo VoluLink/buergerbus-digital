@@ -297,6 +297,7 @@ public static class UserEndpoints
             int page,
             int pageSize,
             string? search,
+            int? initiativeId,
             HttpContext httpContext,
             AppDbContext db
         ) =>
@@ -321,9 +322,20 @@ public static class UserEndpoints
 
             var query = db.Benutzer.AsNoTracking();
 
+            if (!isAdmin && initiativeId.HasValue && initiativeId.Value != requesterInitiativeId!.Value)
+            {
+                return Results.Forbid();
+            }
+
             if (isDisponent)
             {
                 query = query.Where(b => b.InitiativeId == requesterInitiativeId!.Value);
+            }
+            else if (initiativeId.HasValue)
+            {
+                // Admin is the explicitly global initiative-management role; the
+                // selected initiative still constrains this database query.
+                query = query.Where(b => b.InitiativeId == initiativeId.Value);
             }
 
             if (!string.IsNullOrWhiteSpace(search))

@@ -9,6 +9,7 @@ import { useDashboardCalendarModel } from "../features/dashboard/hooks/useDashbo
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useInitiative } from "../context/InitiativeContext";
 import { useDashboardData } from "../features/dashboard/hooks/useDashboardData";
 import { useRideDialogState } from "../features/dashboard/hooks/useRideDialogState";
 import { useRoleVisibility } from "../hooks/useRoleVisibility";
@@ -79,9 +80,7 @@ function DashboardPage() {
   const [nextRideId, setNextRideId] = useState(1);
 
   // Aktive Initiative für Admins / initiativeübergreifende Ansicht
-  const [selectedInitiativeId, setSelectedInitiativeId] = useState<
-    number | null
-  >(currentUser?.initiative?.id ?? null);
+  const { activeInitiativeId: selectedInitiativeId, setActiveInitiativeId: setSelectedInitiativeId } = useInitiative();
 
   // Lädt Fahrten, Fahrer, Fahrzeuge, Fahrgäste und Initiativen
   const {

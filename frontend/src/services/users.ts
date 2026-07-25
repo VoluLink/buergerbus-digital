@@ -14,6 +14,7 @@ export async function getUsers(
   page = 1,
   pageSize = 25,
   search = '',
+  initiativeId?: number | null,
 ): Promise<PagedUsersResponse> {
   const params = new URLSearchParams({
     page: String(page),
@@ -22,6 +23,9 @@ export async function getUsers(
 
   if (search.trim()) {
     params.set('search', search.trim())
+  }
+  if (initiativeId) {
+    params.set('initiativeId', String(initiativeId))
   }
 
   const response = await apiFetch(`${API_BASE_URL}/api/v1/users?${params.toString()}`, {

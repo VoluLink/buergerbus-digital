@@ -144,16 +144,6 @@ Dadurch wird eine hohe Wartbarkeit und klare Trennung der Verantwortlichkeiten e
 * Fahrerregistrierung
 * Fahrtteilnahme stornieren
 
-### Adressvorschläge
-
-Die Fahrtformulare verwenden den öffentlichen Dienst OpenStreetMap Nominatim über den
-authentifizierten Backend-Endpunkt `GET /api/v1/adressen`. Die Suche wird im Browser
-um 350 ms verzögert und erst ab drei Zeichen ausgelöst. Es wird auf Deutschland
-beschränkt; ein API-Schlüssel ist nicht erforderlich und wird daher auch nicht im
-Frontend hinterlegt. Für produktive Nutzung müssen die [Nominatim-Nutzungsbedingungen](https://operations.osmfoundation.org/policies/nominatim/)
-beachtet werden, insbesondere ein aussagekräftiger User-Agent und angemessene
-Ratenbegrenzung. Bei Nichtverfügbarkeit bleibt jedes Adressfeld frei editierbar.
-
 ### Benachrichtigungssystem
 
 * Automatische Benachrichtigungen

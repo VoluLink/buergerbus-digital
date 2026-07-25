@@ -5,9 +5,13 @@ import type { FahrerListItem } from '../types/FahrerListItem'
 import { getAllFahrer } from '../services/fahrerList'
 import UserMenuButton from '../components/UserMenuButton'
 import ProtectedSideMenu from '../components/ProtectedSideMenu'
+import { useInitiative } from '../context/InitiativeContext'
+import { useRoleVisibility } from '../hooks/useRoleVisibility'
 
 function FahrerinfosPage() {
   const navigate = useNavigate()
+  const { activeInitiativeId } = useInitiative()
+  const { canManageInitiatives } = useRoleVisibility()
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [drivers, setDrivers] = useState<FahrerListItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -16,10 +20,16 @@ function FahrerinfosPage() {
 
   useEffect(() => {
     let isMounted = true
+    if (canManageInitiatives && activeInitiativeId == null) {
+      setDrivers([])
+      setIsLoading(false)
+      return () => { isMounted = false }
+    }
+    setDrivers([])
     setIsLoading(true)
     setError(null)
 
-    getAllFahrer()
+    getAllFahrer(activeInitiativeId)
       .then((data) => {
         if (!isMounted) return
         setDrivers(data)
@@ -37,7 +47,7 @@ function FahrerinfosPage() {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [activeInitiativeId, canManageInitiatives])
 
   function closeSideMenu() {
     setIsSideMenuOpen(false)
@@ -115,7 +125,9 @@ function FahrerinfosPage() {
           </div>
 
           <div className="p-5 sm:p-6">
-            {isLoading ? (
+            {canManageInitiatives && activeInitiativeId == null ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">Bitte zuerst eine Initiative im Dashboard auswählen.</div>
+            ) : isLoading ? (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
                 Lade Fahrer ...
               </div>

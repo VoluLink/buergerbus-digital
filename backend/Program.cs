@@ -8,7 +8,6 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using System.Net;
 using System.Net.Sockets;
 
 /// <summary>
@@ -35,52 +34,6 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IPasswordHasher<Benutzer>, PasswordHasher<Benutzer>>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddHttpClient("Nominatim", client =>
-{
-    client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
-    // The endpoint owns the 10-second request budget so it can distinguish it
-    // from a browser cancellation and the shorter TCP connect timeout.
-    client.Timeout = TimeSpan.FromSeconds(15);
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("BuergerbusDigital/1.0 (kontakt@buergerbus.info)");
-    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
-    client.DefaultRequestVersion = HttpVersion.Version11;
-    client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact;
-})
-.ConfigurePrimaryHttpMessageHandler(() =>
-{
-    var handler = new SocketsHttpHandler
-    {
-        ConnectTimeout = TimeSpan.FromSeconds(5),
-        PooledConnectionLifetime = TimeSpan.FromMinutes(5),
-        PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
-        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-        UseProxy = false
-    };
-
-    // Restrict only Nominatim to IPv4. Socket.ConnectAsync resolves the host
-    // itself and therefore tries the IPv4 DNS endpoint without custom lookup.
-    handler.ConnectCallback = async (context, cancellationToken) =>
-    {
-        var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        try
-        {
-            var endpoint = new DnsEndPoint(
-                context.DnsEndPoint.Host,
-                context.DnsEndPoint.Port,
-                AddressFamily.InterNetwork);
-
-            await socket.ConnectAsync(endpoint, cancellationToken);
-            return new NetworkStream(socket, ownsSocket: true);
-        }
-        catch
-        {
-            socket.Dispose();
-            throw;
-        }
-    };
-
-    return handler;
-});
 builder.Services.AddSingleton(new EmailSettings
 {
     SmtpHost = GetRequiredSetting(builder, "EMAIL_SMTP_HOST"),
@@ -232,7 +185,6 @@ app.MapInitiativeEndpoints();
 app.MapFahrzeugServiceEndpoints();
 app.MapFahrgastEndpoints();
 app.MapFahrerEndpoints();
-app.MapAddressEndpoints();
 
 app.MapFahrtenEndpoints();
 app.MapControllers(); 

@@ -1,5 +1,4 @@
 import type { RideFormState } from "../../types/rideFormTypes";
-import { AddressAutocomplete } from "../../../../components/AddressAutocomplete";
 
 type ThemeRideFormProps = {
   activeRideForm: RideFormState | null;
@@ -38,12 +37,15 @@ export function ThemeRideForm({
         Zieladresse
       </label>
 
-      <AddressAutocomplete
+      <input
         id="theme-destination"
+        type="text"
         value={activeRideForm?.themeDestination ?? ""}
-        onChange={(value) => updateRideField("themeDestination", value)}
+        onChange={(event) =>
+          updateRideField("themeDestination", event.target.value)
+        }
         placeholder="z. B. Marktplatz 1, Frankfurt"
-        className="mt-2 py-3 pl-9 focus:ring-4"
+        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/15"
       />
     </div>
   );

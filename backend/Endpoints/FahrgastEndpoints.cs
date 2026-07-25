@@ -42,10 +42,15 @@ public static class FahrgastEndpoints
 
             var targetInitiativeId = initiativeId ?? claimInitiativeId;
 
+            if (!targetInitiativeId.HasValue)
+            {
+                return Results.BadRequest("Initiative ist erforderlich.");
+            }
+
             var fahrgaeste = await db.Fahrgaeste
                 .Include(f => f.Initiative)
                 .AsNoTracking()
-                .Where(f => (!targetInitiativeId.HasValue || f.InitiativeId == targetInitiativeId.Value))
+                .Where(f => f.InitiativeId == targetInitiativeId.Value)
                 .OrderBy(f => f.Nachname)
                 .ThenBy(f => f.Vorname)
                 .ToListAsync();

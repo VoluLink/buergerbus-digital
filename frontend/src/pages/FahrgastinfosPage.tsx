@@ -19,6 +19,7 @@ import {
 } from '../services/fahrgastApi'
 import { getInitiativen } from '../services/initiativeApi'
 import { useAuth } from '../context/AuthContext'
+import { useInitiative } from '../context/InitiativeContext'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
 import type { Fahrgast, FahrgastFormData } from '../types/Fahrgast'
 import type { Initiative } from '../types/Initiative'
@@ -26,6 +27,7 @@ import type { Initiative } from '../types/Initiative'
 function FahrgastinfosPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
+  const { activeInitiativeId } = useInitiative()
   const { canManageDataCrud, isAdmin } = useRoleVisibility()
   const isCrudRestricted = !canManageDataCrud
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
@@ -50,10 +52,19 @@ function FahrgastinfosPage() {
   useEffect(() => {
     let isActive = true
 
+    if (isAdmin && activeInitiativeId == null) {
+      setGuests([])
+      setSelectedGuestId(null)
+      setIsLoading(false)
+      return () => { isActive = false }
+    }
+
     setIsLoading(true)
     setLoadError('')
+    setGuests([])
+    setSelectedGuestId(null)
 
-    void getFahrgaeste()
+    void getFahrgaeste(activeInitiativeId)
       .then((loadedGuests) => {
         if (!isActive) {
           return
@@ -76,7 +87,7 @@ function FahrgastinfosPage() {
     return () => {
       isActive = false
     }
-  }, [])
+  }, [activeInitiativeId, isAdmin])
 
   useEffect(() => {
     if (!isAdmin) {
@@ -154,6 +165,10 @@ function FahrgastinfosPage() {
     try {
       const payload = toFahrgastUpsertRequest(editForm, { isAdmin })
 
+      if (isAdmin && activeInitiativeId != null) {
+        payload.initiativeId = activeInitiativeId
+      }
+
       if (isAdmin) {
         if (!payload.initiativeId || payload.initiativeId <= 0) {
           setEditError('Bitte eine Initiative auswählen.')
@@ -210,11 +225,11 @@ function FahrgastinfosPage() {
   }
 
   function handleOpenCreateModal() {
-    if (isCrudRestricted) {
+    if (isCrudRestricted || (isAdmin && activeInitiativeId == null)) {
       return
     }
 
-    const defaultInitiativeId = isAdmin && initiatives.length > 0 ? String(initiatives[0].id) : ''
+    const defaultInitiativeId = isAdmin ? String(activeInitiativeId ?? '') : ''
     setCreateForm({
       ...createEmptyForm(),
       initiativeId: defaultInitiativeId,
@@ -236,6 +251,10 @@ function FahrgastinfosPage() {
 
     try {
       const payload = toFahrgastUpsertRequest(createForm, { isAdmin })
+
+      if (isAdmin && activeInitiativeId != null) {
+        payload.initiativeId = activeInitiativeId
+      }
 
       if (isAdmin) {
         if (!payload.initiativeId || payload.initiativeId <= 0) {
@@ -271,6 +290,10 @@ function FahrgastinfosPage() {
             <PassengerSearchBar searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} />
           </div>
 
+          {isAdmin && activeInitiativeId == null ? (
+            <div className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800 sm:px-6">Bitte zuerst eine Initiative im Dashboard auswählen.</div>
+          ) : null}
+
           {deleteError ? (
             <div className="border-b border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-800 sm:px-6">
               {deleteError}
@@ -290,6 +313,7 @@ function FahrgastinfosPage() {
               <button
                 type="button"
                 onClick={handleOpenCreateModal}
+                disabled={isAdmin && activeInitiativeId == null}
                 className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 sm:py-2.5"
               >
                 Fahrgast hinzufügen
@@ -297,7 +321,7 @@ function FahrgastinfosPage() {
               <button
                 type="button"
                 onClick={handleOpenEditModal}
-                disabled={!selectedGuestId}
+                disabled={!selectedGuestId || (isAdmin && activeInitiativeId == null)}
                 className={`rounded-xl px-5 py-3 text-sm font-semibold transition sm:py-2.5 ${
                   selectedGuestId
                     ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
@@ -309,7 +333,7 @@ function FahrgastinfosPage() {
               <button
                 type="button"
                 onClick={handleDeleteGuest}
-                disabled={!selectedGuestId}
+                disabled={!selectedGuestId || (isAdmin && activeInitiativeId == null)}
                 className={`rounded-xl px-5 py-3 text-sm font-semibold text-white transition sm:py-2.5 ${
                   selectedGuestId ? 'bg-rose-500 hover:bg-rose-600' : 'cursor-not-allowed bg-rose-200'
                 }`}
@@ -326,7 +350,7 @@ function FahrgastinfosPage() {
           closeLabel="Bearbeiten schließen"
           error={editError}
           form={editForm}
-          initiatives={initiatives}
+          initiatives={isAdmin ? initiatives.filter((initiative) => initiative.id === activeInitiativeId) : initiatives}
           isAdmin={isAdmin}
           nonAdminInitiativeName={selectedGuest?.initiativeName ?? currentUser?.initiative?.name ?? '-'}
           submitClassName="rounded-xl bg-[#0053a0] px-5 py-3 text-sm font-semibold text-white hover:brightness-110 sm:py-2.5"
@@ -345,7 +369,7 @@ function FahrgastinfosPage() {
           closeLabel="Hinzufügen schließen"
           error={createError}
           form={createForm}
-          initiatives={initiatives}
+          initiatives={isAdmin ? initiatives.filter((initiative) => initiative.id === activeInitiativeId) : initiatives}
           initiativesError={initiativesError}
           isAdmin={isAdmin}
           nonAdminInitiativeName={currentUser?.initiative?.name ?? '-'}

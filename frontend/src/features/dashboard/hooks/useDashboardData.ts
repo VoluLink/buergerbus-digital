@@ -68,7 +68,12 @@ export function useDashboardData({
     let isCancelled = false;
 
     async function loadFahrer() {
-      const loadPromise = getAllFahrer();
+      if (canManageInitiatives && selectedInitiativeId == null) {
+        setFahrerListe([]);
+        return;
+      }
+      setFahrerListe([]);
+      const loadPromise = getAllFahrer(selectedInitiativeId);
       fahrerLoadPromiseRef.current = loadPromise;
 
       try {
@@ -95,7 +100,7 @@ export function useDashboardData({
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [canManageInitiatives, selectedInitiativeId]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -103,6 +108,12 @@ export function useDashboardData({
     async function hydrateRides() {
       try {
         setIsDashboardHydrated(false);
+        setCalendarRides([]);
+
+        if (canManageInitiatives && selectedInitiativeId == null) {
+          setIsDashboardHydrated(true);
+          return;
+        }
 
         if (fahrerLoadPromiseRef.current) {
           await fahrerLoadPromiseRef.current.catch(() => undefined);
@@ -129,7 +140,7 @@ export function useDashboardData({
     return () => {
       isCancelled = true;
     };
-  }, [selectedInitiativeId]);
+  }, [canManageInitiatives, selectedInitiativeId]);
 
   useEffect(() => {
     if (!canManageInitiatives) {
@@ -165,6 +176,11 @@ export function useDashboardData({
     async function loadKnownGuests() {
       try {
         setKnownGuestsLoaded(false);
+        setKnownGuests([]);
+        if (canManageInitiatives && selectedInitiativeId == null) {
+          setKnownGuestsLoaded(true);
+          return;
+        }
 
         const guests = await getFahrgaeste(selectedInitiativeId);
 
@@ -185,7 +201,7 @@ export function useDashboardData({
     return () => {
       isCancelled = true;
     };
-  }, [selectedInitiativeId]);
+  }, [canManageInitiatives, selectedInitiativeId]);
 
   useEffect(() => {
     let isCancelled = false;

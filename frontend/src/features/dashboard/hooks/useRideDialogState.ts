@@ -126,6 +126,18 @@ export function useRideDialogState({
     null,
   );
 
+  // A dialog belongs to exactly one initiative. Closing it on a switch prevents
+  // an already opened dialog from saving a driver or regular passenger selected
+  // for the previous initiative.
+  useEffect(() => {
+    setIsRideDialogOpen(false);
+    setRideInEditId(null);
+    setRideFormsByType(createInitialRideForms());
+    setRentalVehicleId(null);
+    setRideSaveError(null);
+    setRideCapacityWarning(null);
+  }, [selectedInitiativeId]);
+
   const visibleFahrzeuge = useMemo(() => {
     if (canManageInitiatives && selectedInitiativeId != null) {
       return fahrzeugListe.filter(
