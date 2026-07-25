@@ -9,12 +9,6 @@ type DashboardStateSnapshot = {
   nextRideId: number
 }
 
-type StoredCalendarRide = Omit<CalendarRide, 'date' | 'dateBis' | 'createdByName'> & {
-  date: string | Date
-  dateBis?: string | Date | null
-  createdByName?: string | null
-}
-
 export type BackendFahrtDto = {
   id: number
   titel: string
@@ -361,46 +355,6 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide, initiativeI
   }
 }
 
-function parseStoredState(raw: string | null): DashboardStateSnapshot {
-  if (!raw) {
-    return { rides: [], completedPassengerKeys: [], nextRideId: 1 }
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as {
-      rides?: StoredCalendarRide[]
-      completedPassengerKeys?: string[]
-      nextRideId?: number
-    }
-
-    return {
-      rides: (parsed.rides ?? []).map((r) => ({
-        ...r,
-        createdByName: r.createdByName ?? '',
-        date: new Date(r.date ?? Date.now()),
-        dateBis: r.dateBis ? new Date(r.dateBis) : null,
-      })),
-      completedPassengerKeys: Array.isArray(parsed.completedPassengerKeys)
-        ? parsed.completedPassengerKeys
-        : [],
-      nextRideId: typeof parsed.nextRideId === 'number' ? parsed.nextRideId : 1,
-    }
-  } catch {
-    return { rides: [], completedPassengerKeys: [], nextRideId: 1 }
-  }
-}
-
-function serializeState(state: DashboardStateSnapshot) {
-  return JSON.stringify({
-    ...state,
-    rides: state.rides.map((r) => ({
-      ...r,
-      date: r.date.toISOString(),
-      dateBis: r.dateBis ? r.dateBis.toISOString() : null,
-    })),
-  })
-}
-
 async function tryLoadFromBackend(
   fahrerListe: FahrerListItem[],
   initiativeId?: number | null,
@@ -428,19 +382,22 @@ export async function loadDashboardState(
   fahrerListe: FahrerListItem[],
   initiativeId?: number | null,
 ): Promise<DashboardStateSnapshot> {
-  const local = parseStoredState(localStorage.getItem(DASHBOARD_STORAGE_KEY))
   const backend = await tryLoadFromBackend(fahrerListe, initiativeId)
 
-  if (!backend) return local
+  if (!backend) return { rides: [], completedPassengerKeys: [], nextRideId: 1 }
 
   return {
     rides: backend,
-    completedPassengerKeys: local.completedPassengerKeys,
+    completedPassengerKeys: [],
     nextRideId:
       backend.reduce((m, r) => Math.max(m, r.id), 0) + 1,
   }
 }
 
 export async function saveDashboardState(state: DashboardStateSnapshot): Promise<void> {
-  localStorage.setItem(DASHBOARD_STORAGE_KEY, serializeState(state))
+  void state
+}
+
+export function removeLegacyDashboardStorage(): void {
+  localStorage.removeItem(DASHBOARD_STORAGE_KEY)
 }
