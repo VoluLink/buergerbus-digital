@@ -3,12 +3,12 @@
 ## Global admin management
 
 - `GET /api/v1/users` is global for `Admin`, including name/email search and the initiative column. An optional `initiativeId` can be used by future admin filters, but the roles page intentionally does not send it.
-- `GET /api/v1/fahrgaeste` is global for `Admin`. The passenger page shows every initiative by default and provides an initiative filter in addition to its existing search.
+- `GET /api/v1/passengers` is global for `Admin`. The passenger page shows every initiative by default and provides an initiative filter in addition to its existing search.
 - Admins may create, edit, move and deactivate passengers across initiatives through the existing management endpoints.
 
 ## Initiative-bound operation
 
-- `GET /api/v1/fahrer?initiativeId={id}` filters `Fahrer` through `Fahrer.Benutzer.InitiativeId` in the database.
+- `GET /api/v1/drivers?initiativeId={id}` filters `Fahrer` through `Fahrer.Benutzer.InitiativeId` in the database.
 - The dashboard requests drivers and known passengers with its active initiative ID. It clears these lists on a switch and closes any open ride dialog.
 - Ride writes in `ValidateRideWriteAsync` already verify that the assigned driver and referenced regular passengers belong to the ride initiative. A driver from another initiative is rejected even if an API request is manipulated.
 
