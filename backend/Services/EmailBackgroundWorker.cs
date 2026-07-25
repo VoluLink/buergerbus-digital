@@ -64,7 +64,7 @@ public sealed class EmailBackgroundWorker(IServiceScopeFactory scopeFactory, ILo
             email.LastError = "SMTP-Versand fehlgeschlagen.";
             if (email.Attempts >= Math.Clamp(maxAttempts, 1, 5))
             {
-                email.Status = "Failed"; email.TemplateDataJson = null; email.Recipient = MaskEmail(email.Recipient);
+                email.Status = "Failed";
                 await UpdateNotificationAsync(db, email, "Failed", ct);
                 await db.SaveChangesAsync(ct);
                 await audit.WriteAsync("EMAIL_FAILED", "EmailOutbox", "failure", entityId: email.Id.ToString(), initiativeId: email.InitiativeId, metadata: new { email.EmailType, email.Attempts });

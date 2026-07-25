@@ -9,7 +9,7 @@ export interface SendNotificationRequest {
   message: string
   type: NotificationType
   initiativeIds: number[]
-  roles: NotificationRecipientRole[]
+  roles: string[]
   recipientGroup?: NotificationRecipientGroup
 }
 

@@ -98,6 +98,43 @@ public static class AdminNotificationEndpoints
         })
         .RequireAuthorization("AdminOnly");
 
+        app.MapGet("/api/v1/admin/email/dashboard", async (AppDbContext db, SystemSettingsService settings, CancellationToken ct) =>
+        {
+            var today = DateTime.UtcNow.Date;
+            var active = await settings.GetAsync(ct);
+            return Results.Ok(new EmailDashboardDto(
+                await db.EmailOutbox.CountAsync(x => x.Status == "Pending", ct),
+                await db.EmailOutbox.CountAsync(x => x.Status == "Processing", ct),
+                await db.EmailOutbox.CountAsync(x => x.Status == "Sent" && x.SentAtUtc >= today, ct),
+                await db.EmailOutbox.CountAsync(x => x.Status == "Failed", ct),
+                (active.EnableDriverAssignmentEmails ? 1 : 0) + (active.EnableSelfRegistrationEmails ? 1 : 0)));
+        }).RequireAuthorization("AdminOnly");
+
+        app.MapGet("/api/v1/admin/email/outbox", async (int? page, int? pageSize, string? status, string? type, DateTime? fromUtc, DateTime? toUtc, AppDbContext db, CancellationToken ct) =>
+        {
+            var currentPage = Math.Max(1, page ?? 1); var size = pageSize is 50 or 100 ? pageSize.Value : 25;
+            var query = db.EmailOutbox.AsNoTracking().AsQueryable();
+            if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.Status == status);
+            if (!string.IsNullOrWhiteSpace(type)) query = query.Where(x => x.EmailType == type);
+            if (fromUtc.HasValue) query = query.Where(x => x.CreatedAtUtc >= fromUtc.Value);
+            if (toUtc.HasValue) query = query.Where(x => x.CreatedAtUtc <= toUtc.Value);
+            var total = await query.CountAsync(ct);
+            var items = await query.OrderByDescending(x => x.CreatedAtUtc).Skip((currentPage - 1) * size).Take(size).Select(x => new EmailOutboxItemDto(x.Id, x.EmailType, MaskEmail(x.Recipient), x.Subject, x.Status, x.Attempts, x.CreatedAtUtc, x.SentAtUtc, x.NextAttemptUtc, x.LastError)).ToListAsync(ct);
+            return Results.Ok(new PagedEmailOutboxDto(items, currentPage, size, total));
+        }).RequireAuthorization("AdminOnly");
+
+        app.MapPost("/api/v1/admin/email/outbox/{id:guid}/retry", async (Guid id, HttpContext context, AppDbContext db, AuditService audit, CancellationToken ct) =>
+        {
+            var item = await db.EmailOutbox.FirstOrDefaultAsync(x => x.Id == id, ct);
+            if (item is null) return Results.NotFound();
+            if (item.Status != "Failed") return Results.BadRequest("Nur fehlgeschlagene E-Mails können erneut versendet werden.");
+            item.Status = "Pending"; item.Attempts = 0; item.NextAttemptUtc = DateTime.UtcNow; item.LastError = null; item.ProcessingStartedAtUtc = null;
+            await db.SaveChangesAsync(ct);
+            var userId = int.TryParse(context.User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsed) ? parsed : (int?)null;
+            await audit.WriteAsync("EMAIL_RETRY_MANUAL", "EmailOutbox", "success", userId, item.Id.ToString(), item.InitiativeId, new { item.EmailType });
+            return Results.Ok();
+        }).RequireAuthorization("AdminOnly");
+
         app.MapGet("/api/v1/admin/broadcast-emails", async (
             int? page, int? pageSize, string? status, string? type, DateTime? fromUtc, INotificationService notificationService) =>
         {
@@ -141,4 +178,5 @@ public static class AdminNotificationEndpoints
     private static bool TryValidate(AdminNotificationRequestDto request, out string error)
     { error = string.Empty; if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Trim().Length > 150) { error = "Der Titel ist erforderlich und darf höchstens 150 Zeichen lang sein."; return false; } if (string.IsNullOrWhiteSpace(request.Message) || request.Message.Trim().Length > 4000) { error = "Die Nachricht ist erforderlich und darf höchstens 4000 Zeichen lang sein."; return false; } if (request.ValidUntilUtc.HasValue && request.ValidUntilUtc <= request.ValidFromUtc) { error = "Das Gültigkeitsende muss nach dem Beginn liegen."; return false; } return true; }
     private static AdminNotificationDto ToDto(AdminNotification x) => new(x.Id,x.Title,x.Message,x.Audience,x.InitiativeId,null,x.Priority,x.ValidFromUtc,x.ValidUntilUtc,x.IsActive,x.CreatedAtUtc,x.UpdatedAtUtc);
+    private static string MaskEmail(string email) { var at = email.IndexOf('@'); return at <= 1 ? "***" : $"{email[0]}***{email[at..]}"; }
 }
