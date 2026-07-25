@@ -4,7 +4,7 @@ import type { FahrerListItem } from '../types/FahrerListItem'
 
 export async function getAllFahrer(initiativeId?: number | null): Promise<FahrerListItem[]> {
   const query = initiativeId ? `?initiativeId=${initiativeId}` : ''
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrer${query}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/drivers${query}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',

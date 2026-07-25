@@ -361,7 +361,7 @@ async function tryLoadFromBackend(
 ): Promise<CalendarRide[] | null> {
   try {
     const query = initiativeId ? `?initiativeId=${initiativeId}` : ''
-    const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten${query}`)
+    const res = await apiFetch(`${API_BASE_URL}/api/v1/rides${query}`)
     if (!res.ok) return null
 
     const data: BackendFahrtDto[] = await res.json()

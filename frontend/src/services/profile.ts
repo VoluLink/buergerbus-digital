@@ -52,7 +52,7 @@ export async function getCurrentUserProfile(): Promise<UserProfile> {
 }
 
 export async function getUserProfileById(userId: number): Promise<UserProfile> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/users/${userId}/profile`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/users/${userId}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -71,7 +71,7 @@ export async function getUserProfileById(userId: number): Promise<UserProfile> {
 }
 
 export async function updateUserProfile(userId: number, request: UpdateUserProfileRequest): Promise<UserProfile> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/users/${userId}/profile`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/users/${userId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -91,7 +91,7 @@ export async function updateUserProfile(userId: number, request: UpdateUserProfi
 }
 
 export async function deleteUserProfile(userId: number): Promise<void> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/users/${userId}/profile`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/users/${userId}`, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',

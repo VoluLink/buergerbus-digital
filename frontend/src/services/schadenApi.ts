@@ -28,7 +28,7 @@ export async function getSchaedenByFahrzeug(
   userId: number,
 ): Promise<Schaden[]> {
   const response = await apiFetch(
-    `${API_BASE_URL}/api/v1/fahrzeuge/${fahrzeugId}/schaeden?userId=${userId}`,
+    `${API_BASE_URL}/api/v1/vehicles/${fahrzeugId}/damages?userId=${userId}`,
     {
       method: 'GET',
       headers: {
@@ -46,7 +46,7 @@ export async function createSchaden(
   request: CreateSchadenRequest,
 ): Promise<Schaden> {
   const response = await apiFetch(
-    `${API_BASE_URL}/api/v1/fahrzeuge/${fahrzeugId}/schaeden?userId=${userId}`,
+    `${API_BASE_URL}/api/v1/vehicles/${fahrzeugId}/damages?userId=${userId}`,
     {
       method: 'POST',
       headers: {
@@ -64,7 +64,7 @@ export async function updateSchaden(
   userId: number,
   request: UpdateSchadenRequest,
 ): Promise<Schaden> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/schaeden/${schadenId}?userId=${userId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/damages/${schadenId}?userId=${userId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -76,7 +76,7 @@ export async function updateSchaden(
 }
 
 export async function deleteSchaden(schadenId: number, userId: number): Promise<void> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/schaeden/${schadenId}?userId=${userId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/damages/${schadenId}?userId=${userId}`, {
     method: 'DELETE',
   })
 

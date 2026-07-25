@@ -10,7 +10,7 @@ import type {
 export async function sendNotification(
   payload: SendNotificationRequest,
 ): Promise<NotificationSendResult> {
-  const response = await apiFetch(`${API_BASE_URL}/api/admin/notifications/send`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/admin/broadcast-emails`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -27,7 +27,7 @@ export async function sendNotification(
 }
 
 export async function getNotifications(): Promise<NotificationSummary[]> {
-  const response = await apiFetch(`${API_BASE_URL}/api/admin/notifications`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/admin/broadcast-emails`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -47,7 +47,7 @@ export async function getNotifications(): Promise<NotificationSummary[]> {
 }
 
 export async function getNotificationDetails(id: string): Promise<NotificationDetails> {
-  const response = await apiFetch(`${API_BASE_URL}/api/admin/notifications/${id}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/admin/broadcast-emails/${id}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',

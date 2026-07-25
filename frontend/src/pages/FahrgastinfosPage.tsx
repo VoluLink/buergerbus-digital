@@ -198,7 +198,7 @@ function FahrgastinfosPage() {
     setDeleteError('')
 
     try {
-      console.info('Deleting passenger', { passengerId: selectedGuest.id, route: '/api/v1/fahrgaeste/:id' })
+      console.info('Deleting passenger', { passengerId: selectedGuest.id, route: '/api/v1/passengers/:id' })
       await deletePassenger(selectedGuest.id)
 
       setGuests((prev) => prev.filter((entry) => entry.id !== selectedGuest.id))
@@ -206,7 +206,7 @@ function FahrgastinfosPage() {
     } catch (err) {
       console.error('Failed to delete passenger', {
         passengerId: selectedGuest.id,
-        route: '/api/v1/fahrgaeste/:id',
+        route: '/api/v1/passengers/:id',
         error: err,
       })
       setDeleteError(err instanceof Error ? err.message : 'Fahrgast konnte nicht gelöscht werden.')
