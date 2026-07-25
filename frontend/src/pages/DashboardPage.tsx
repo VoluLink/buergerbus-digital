@@ -45,6 +45,7 @@ function DashboardPage() {
     isAdmin,
     isDisponent,
     isFahrer,
+    hasFahrerRole,
     isGast,
   } = useRoleVisibility();
 
@@ -219,6 +220,7 @@ function DashboardPage() {
     reloadFahrten,
 
     canManageAsStaff: isAdmin || isDisponent,
+    canSelfRegisterAsDriver: hasFahrerRole,
   });
 
   // Admins bekommen automatisch eine Initiative vorausgewählt, falls noch keine gesetzt ist

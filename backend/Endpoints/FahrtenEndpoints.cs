@@ -861,16 +861,23 @@ public static class FahrtenEndpoints
 
             var fahrer = await db.Fahrer
                 .Include(f => f.Benutzer)
+                    .ThenInclude(u => u!.BenutzerRollen)
+                        .ThenInclude(br => br.Rolle)
                 .FirstOrDefaultAsync(f => f.Id == fahrerId);
 
             if (fahrer is null)
                 return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
 
-            if (fahrer.Benutzer?.InitiativeId != fahrt.InitiativeId)
+            if (fahrer!.Benutzer?.InitiativeId != fahrt.InitiativeId)
                 return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
 
-            if (!fahrer.Aktiv)
-                return Results.BadRequest("Fahrer ist inaktiv.");
+            var isAvailableDriver = fahrer.Aktiv
+                && fahrer.Benutzer?.Aktiv == true
+                && fahrer.Benutzer.BenutzerRollen.Any(br =>
+                    br.Rolle != null
+                    && br.Rolle.Rollenname == AuthUtils.FahrerRole);
+            if (!isAvailableDriver)
+                return Results.Conflict("Fahrer ist nicht mehr für neue Zuweisungen verfügbar.");
 
             var previous = fahrt.FahrerId;
             fahrt.FahrerId = fahrerId;
@@ -940,14 +947,22 @@ public static class FahrtenEndpoints
 
             var fahrer = await db.Fahrer
                 .Include(f => f.Benutzer)
+                    .ThenInclude(u => u!.BenutzerRollen)
+                        .ThenInclude(br => br.Rolle)
                 .FirstOrDefaultAsync(f => f.BenutzerId == userId.Value);
 
-            if (fahrer is null || !fahrer.Aktiv)
+            var isAvailableDriver = fahrer is not null
+                && fahrer.Aktiv
+                && fahrer.Benutzer?.Aktiv == true
+                && fahrer.Benutzer.BenutzerRollen.Any(br =>
+                    br.Rolle != null
+                    && br.Rolle.Rollenname == AuthUtils.FahrerRole);
+            if (!isAvailableDriver)
             {
-                return Results.BadRequest("Angemeldeter Benutzer ist kein aktiver Fahrer.");
+                return Results.Forbid();
             }
 
-            if (fahrer.Benutzer?.InitiativeId != fahrt.InitiativeId)
+            if (fahrer!.Benutzer?.InitiativeId != fahrt.InitiativeId)
             {
                 return Results.Forbid();
             }

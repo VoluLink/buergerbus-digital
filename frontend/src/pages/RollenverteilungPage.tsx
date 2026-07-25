@@ -27,7 +27,7 @@ import type { InitiativeSummary, RoleSummary, UserSummary } from '../types/UserP
 
 function RollenverteilungPage() {
   const navigate = useNavigate()
-  const { currentUser } = useAuth()
+  const { currentUser, refreshProfile } = useAuth()
   const { canManageRoleAssignments, canManageUsers, isAdmin, isDisponent } = useRoleVisibility()
   const currentInitiativeId = currentUser?.initiative?.id ?? null
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
@@ -206,9 +206,10 @@ function RollenverteilungPage() {
     setSavingUserId(userId)
 
     void updateUserRoles(userId, nextRoles, nextActiveRole)
-      .then((saved) => {
+      .then(async (saved) => {
         if (saved.newToken) {
           setStoredToken(saved.newToken)
+          await refreshProfile()
         }
 
         setUsers((prev) =>

@@ -487,7 +487,8 @@ public static class UserEndpoints
             int id,
             HttpContext httpContext,
             UpdateUserProfileRequest request,
-            AppDbContext db
+            AppDbContext db,
+            RefreshSessionService refreshSessions
         ) =>
         {
             var principal = httpContext.User;
@@ -591,6 +592,18 @@ public static class UserEndpoints
 
             // Änderungen dauerhaft in der Datenbank speichern
             await db.SaveChangesAsync();
+
+            if (request.Aktiv.HasValue && user.Fahrer is not null)
+            {
+                user.Fahrer.Aktiv = user.Aktiv && hasFahrerRole;
+                user.Fahrer.GeaendertAm = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+            }
+
+            if (request.Aktiv.HasValue)
+            {
+                await refreshSessions.RevokeAllAsync(user.Id, "user_status_changed");
+            }
 
             return Results.Ok(UserMapper.CreateUserProfile(user));
         })
@@ -702,7 +715,8 @@ public static class UserEndpoints
             UpdateRolesRequest request,
             HttpContext httpContext,
             AppDbContext db,
-            JwtService jwtService
+            JwtService jwtService,
+            RefreshSessionService refreshSessions
         ) =>
         {
             var principal = httpContext.User;
@@ -750,6 +764,13 @@ public static class UserEndpoints
                 .Select(role => role!.ToLowerInvariant())
                 .Distinct()
                 .ToList();
+            var previousRoles = user.BenutzerRollen
+                .Select(br => br.Rolle?.Rollenname?.ToLowerInvariant())
+                .Where(role => !string.IsNullOrWhiteSpace(role))
+                .Select(role => role!)
+                .ToHashSet();
+            var hadFahrerRole = user.BenutzerRollen.Any(br =>
+                string.Equals(br.Rolle?.Rollenname, AuthUtils.FahrerRole, StringComparison.OrdinalIgnoreCase));
 
             if (isDisponent)
             {
@@ -819,9 +840,15 @@ public static class UserEndpoints
                 db.Fahrer.Add(new Fahrer
                 {
                     BenutzerId = user.Id,
-                    Aktiv = true,
+                    Aktiv = user.Aktiv,
                     AngelegtAm = DateTime.UtcNow
                 });
+            }
+
+            if (hasFahrerRole && !hadFahrerRole && user.Fahrer != null)
+            {
+                user.Fahrer.Aktiv = user.Aktiv;
+                user.Fahrer.GeaendertAm = DateTime.UtcNow;
             }
 
             // Wenn die Rolle "Fahrer" entfernt wurde, Fahrer-Datensatz deaktivieren
@@ -831,10 +858,21 @@ public static class UserEndpoints
                 user.Fahrer.GeaendertAm = DateTime.UtcNow;
             }
 
+            var rolesChanged = !previousRoles.SetEquals(normalizedRoles);
+            if (rolesChanged)
+            {
+                user.AuthVersion++;
+            }
+
             user.AktiveRolle = RolePriorityResolver.ResolveHighestRole(
                 user.BenutzerRollen.Select(br => br.Rolle?.Rollenname));
             // Rollenänderungen und Fahrerstatus dauerhaft speichern
             await db.SaveChangesAsync();
+
+            if (rolesChanged)
+            {
+                await refreshSessions.RevokeAllAsync(user.Id, "roles_changed");
+            }
 
             string? refreshedToken = null;
             var principalUserId = AuthUtils.GetUserId(httpContext.User);

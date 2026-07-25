@@ -80,6 +80,7 @@ type UseDashboardRideActionsParams = {
   reloadFahrten: () => Promise<void>;
 
   canManageAsStaff: boolean;
+  canSelfRegisterAsDriver: boolean;
 };
 
 function normalizeErrorMessage(error: unknown) {
@@ -120,10 +121,11 @@ export function useDashboardRideActions({
   fahrerListe,
   reloadFahrten,
   canManageAsStaff,
+  canSelfRegisterAsDriver,
 }: UseDashboardRideActionsParams) {
   const toggleDriverSelfAssignment = useCallback(
     async (ride: CalendarRide) => {
-      if (!currentDriverIdentity) {
+      if (!canSelfRegisterAsDriver || !currentDriverIdentity) {
         return;
       }
 
@@ -135,14 +137,15 @@ export function useDashboardRideActions({
 
       await reloadFahrten();
     },
-    [currentDriverIdentity, reloadFahrten],
+    [canSelfRegisterAsDriver, currentDriverIdentity, reloadFahrten],
   );
 
   const canToggleDriverAssignment = useCallback(
     (ride: CalendarRide) => {
-      return canToggleDriverAssignmentForRide(ride, currentDriverIdentity);
+      return canSelfRegisterAsDriver
+        && canToggleDriverAssignmentForRide(ride, currentDriverIdentity);
     },
-    [currentDriverIdentity],
+    [canSelfRegisterAsDriver, currentDriverIdentity],
   );
 
   const canManagePassengerChecks = useCallback(

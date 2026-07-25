@@ -42,7 +42,13 @@ public static class FahrerEndpoints
             var fahrerList = await db.Fahrer
                 .AsNoTracking()
                 .Include(f => f.Benutzer)
-                .Where(f => f.Benutzer != null && f.Benutzer.InitiativeId == targetInitiativeId.Value)
+                .Where(f => f.Aktiv
+                    && f.Benutzer != null
+                    && f.Benutzer.Aktiv
+                    && f.Benutzer.InitiativeId == targetInitiativeId.Value
+                    && f.Benutzer.BenutzerRollen.Any(br =>
+                        br.Rolle != null
+                        && br.Rolle.Rollenname == AuthUtils.FahrerRole))
                 .OrderBy(f => f.Id)
                 .ToListAsync();
 

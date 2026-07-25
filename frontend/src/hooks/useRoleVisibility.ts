@@ -51,6 +51,7 @@ export function useRoleVisibility() {
       isAdmin,
       isDisponent: effectiveRole === 'disponent',
       isFahrer: effectiveRole === 'fahrer',
+      hasFahrerRole: normalizedRoles.includes('fahrer'),
       isGast: isGuestOnly,
       canManageDataCrud: isStaff,
       canManagePassengers: isStaff,
