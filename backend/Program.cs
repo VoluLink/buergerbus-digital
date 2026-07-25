@@ -10,6 +10,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Net.Sockets;
 using System.Threading.RateLimiting;
+using System.Text.Json.Serialization;
 
 /// <summary>
 /// Einstiegspunkt der Anwendung.
@@ -60,6 +61,8 @@ builder.Services.AddScoped<PageService>();
 builder.Services.AddScoped<FooterService>();
 builder.Services.AddHostedService<TemporaryParticipantCleanupBackgroundService>();
 builder.Services.AddControllers();
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
