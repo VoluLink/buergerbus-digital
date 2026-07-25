@@ -8,6 +8,8 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Net;
+using System.Net.Sockets;
 
 /// <summary>
 /// Einstiegspunkt der Anwendung.
@@ -36,8 +38,35 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient("Nominatim", client =>
 {
     client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("Buergerbus-Digital/1.0 (address-autocomplete)");
-    client.Timeout = TimeSpan.FromSeconds(5);
+    client.Timeout = TimeSpan.FromSeconds(10);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("BuergerbusDigital/1.0 (kontakt@buergerbus.info)");
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    ConnectTimeout = TimeSpan.FromSeconds(5),
+    ConnectCallback = async (context, cancellationToken) =>
+    {
+        var addresses = await Dns.GetHostAddressesAsync(context.DnsEndPoint.Host, cancellationToken);
+        var ipv4Address = addresses.FirstOrDefault(address => address.AddressFamily == AddressFamily.InterNetwork);
+
+        if (ipv4Address is null)
+        {
+            throw new HttpRequestException("Für den Adressdienst konnte keine IPv4-Adresse aufgelöst werden.");
+        }
+
+        var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        try
+        {
+            await socket.ConnectAsync(new IPEndPoint(ipv4Address, context.DnsEndPoint.Port), cancellationToken);
+            return new NetworkStream(socket, ownsSocket: true);
+        }
+        catch
+        {
+            socket.Dispose();
+            throw;
+        }
+    }
 });
 builder.Services.AddSingleton(new EmailSettings
 {

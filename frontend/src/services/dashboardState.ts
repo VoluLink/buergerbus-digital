@@ -44,6 +44,7 @@ type BackendTeilstreckeDto = {
   abholadresse: string
   zieladresse: string
   startzeit?: string | null
+  endzeit?: string | null
   status?: string | null
   fahrgastId?: number | null
   fahrgast?: BackendFahrgastDto | null
@@ -173,7 +174,9 @@ function mapTeilnehmerToPassengers(teilnehmer?: BackendFahrtTeilnehmerDto[] | nu
   if (!teilnehmer) return []
 
   return teilnehmer.map((item) => {
-    const firstSegment = item.teilstrecken?.[0]
+    const segments = item.teilstrecken ?? []
+    const firstSegment = segments[0]
+    const lastSegment = segments.at(-1)
     const fullName = `${safeText(item.vorname)} ${safeText(item.nachname)}`.trim()
 
     return {
@@ -185,6 +188,7 @@ function mapTeilnehmerToPassengers(teilnehmer?: BackendFahrtTeilnehmerDto[] | nu
       pickupAddress: safeText(firstSegment?.abholadresse ?? item.adresse),
       destinationAddress: safeText(firstSegment?.zieladresse),
       time: extractHourMinute(firstSegment?.startzeit),
+      endTime: extractHourMinute(lastSegment?.endzeit) || null,
       istAbgehakt: item.istAbgehakt,
       abgehaktAm: item.abgehaktAm ?? null,
     }

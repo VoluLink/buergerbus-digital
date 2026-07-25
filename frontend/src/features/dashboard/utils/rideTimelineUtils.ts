@@ -3,6 +3,7 @@ import { normalizeDate, isSameDay } from "./dateUtils";
 import { parseTimeToMinutes } from "./timeUtils";
 import {
   getRideCalendarDisplayTime,
+  getTripTimeRange,
   normalizePassengerText,
 } from "./rideDisplayUtils";
 
@@ -71,11 +72,13 @@ export function getRideTimelineRange(
     return null;
   }
 
-  const parsedEndMinutes = parseTimeToMinutes(ride.endTime);
-  const endMinutes =
-    parsedEndMinutes !== null && parsedEndMinutes > startMinutes
-      ? parsedEndMinutes
-      : Math.min(startMinutes + 60, 24 * 60);
+  const { end } = getTripTimeRange(ride);
+  const parsedEndMinutes = parseTimeToMinutes(end);
+  const endMinutes = parsedEndMinutes === null
+    ? Math.min(startMinutes + 60, 24 * 60)
+    : parsedEndMinutes < startMinutes
+      ? parsedEndMinutes + 24 * 60
+      : parsedEndMinutes;
 
   return {
     startMinutes,

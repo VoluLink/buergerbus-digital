@@ -4,6 +4,7 @@ import {
   getRentalStartTime,
   getRentalEndTime,
   formatMinutesAsTime,
+  parseTimeToMinutes,
 } from './timeUtils'
 import {
   isSameDay,
@@ -32,6 +33,46 @@ export function getEarliestPassengerTime(passengers: PassengerForm[]) {
       const [rightHours, rightMinutes] = right.split(':').map(Number)
       return leftHours * 60 + leftMinutes - (rightHours * 60 + rightMinutes)
     })[0] ?? ''
+}
+
+type TimeRangeRide = Pick<CalendarRide, 'type' | 'time' | 'endTime' | 'passengers'>
+
+function getValidTimes(values: Array<string | null | undefined>) {
+  return values
+    .map((value) => normalizePassengerText(value).trim())
+    .filter((value) => parseTimeToMinutes(value) !== null)
+}
+
+/**
+ * Determines the display range once for month, week, day, and detail views.
+ * Passenger pickup times define the start; arrival times, then the ride end,
+ * define the end. The latest pickup is only an end-time fallback.
+ */
+export function getTripTimeRange(ride: TimeRangeRide) {
+  if (ride.type === 'rental') {
+    const start = getRentalStartTime(ride.time)
+    const end = getRentalEndTime(ride.time) || normalizePassengerText(ride.endTime).trim()
+    return { start: getValidTimes([start])[0] ?? '', end: getValidTimes([end])[0] ?? '' }
+  }
+
+  const pickupTimes = getValidTimes(ride.passengers.map((passenger) => passenger.time))
+  const start = pickupTimes.sort((left, right) => parseTimeToMinutes(left)! - parseTimeToMinutes(right)!)[0]
+    ?? getValidTimes([ride.time])[0]
+    ?? ''
+  const arrivalTimes = getValidTimes(ride.passengers.map((passenger) => passenger.endTime))
+  const end = arrivalTimes.sort((left, right) => parseTimeToMinutes(right)! - parseTimeToMinutes(left)!)[0]
+    ?? getValidTimes([ride.endTime])[0]
+    ?? pickupTimes.sort((left, right) => parseTimeToMinutes(right)! - parseTimeToMinutes(left)!)[0]
+    ?? ''
+
+  return { start, end }
+}
+
+export function formatTripTimeRange(ride: TimeRangeRide) {
+  const { start, end } = getTripTimeRange(ride)
+  if (!start) return 'Keine Zeit angegeben'
+  if (!end || start === end) return `${start} Uhr`
+  return `${start} – ${end} Uhr`
 }
 
 // Display time functions
@@ -63,14 +104,10 @@ export function getDayTimelineRideDisplayTime(
       return `${rentalRangeDateFormatter.format(ride.date)} ${getRentalStartTime(ride.time)} - ${rentalRangeDateFormatter.format(ride.dateBis)} ${rentalEndTime}`
     }
 
-    return `${formatMinutesAsTime(startMinutes)}-${formatMinutesAsTime(endMinutes)}`
+    return `${formatMinutesAsTime(startMinutes)} – ${formatMinutesAsTime(endMinutes)} Uhr`
   }
 
-  if (normalizePassengerText(ride.endTime).trim()) {
-    return `${formatMinutesAsTime(startMinutes)}-${formatMinutesAsTime(endMinutes)}`
-  }
-
-  return getRideCalendarDisplayTime(ride)
+  return formatTripTimeRange(ride)
 }
 
 // Title functions
@@ -81,47 +118,19 @@ export function getDayTimelineRideTitle(
 ) {
   const displayTime = getDayTimelineRideDisplayTime(ride, startMinutes, endMinutes)
 
-  if (!displayTime) {
-    return `${ride.title} • Keine Uhrzeit (${statusMetadata[ride.status].label})`
-  }
-
   if (ride.type === 'rental') {
-    return `${ride.title} • Vermietet ${displayTime} Uhr (${statusMetadata[ride.status].label})`
+    return `${ride.title} • Vermietet ${displayTime} (${statusMetadata[ride.status].label})`
   }
 
-  if (normalizePassengerText(ride.endTime).trim()) {
-    return `${ride.title} • ${displayTime} Uhr (${statusMetadata[ride.status].label})`
-  }
-
-  return getRideCalendarTitle(ride)
+  return `${ride.title} • ${displayTime} (${statusMetadata[ride.status].label})`
 }
 
-export function getRideTimeSummary(ride: Pick<CalendarRide, 'type' | 'time' | 'passengers'>) {
-  const rideTime = getRideDisplayTime(ride)
-
-  if (!rideTime) {
-    return 'Keine Uhrzeit'
-  }
-
-  if (ride.type === 'rental') {
-    return `${rideTime} Uhr`
-  }
-
-  return `Erste Abholung ${rideTime} Uhr`
+export function getRideTimeSummary(ride: TimeRangeRide) {
+  return formatTripTimeRange(ride)
 }
 
 export function getRideCalendarTitle(ride: CalendarRide) {
-  const calendarTime = getRideCalendarDisplayTime(ride)
-
-  if (!calendarTime) {
-    return `${ride.title} • Keine Uhrzeit (${statusMetadata[ride.status].label})`
-  }
-
-  if (ride.type === 'rental') {
-    return `${ride.title} • Von ${calendarTime} Uhr (${statusMetadata[ride.status].label})`
-  }
-
-  return `${ride.title} • Erste Abholung ${calendarTime} Uhr (${statusMetadata[ride.status].label})`
+  return `${ride.title} • ${formatTripTimeRange(ride)} (${statusMetadata[ride.status].label})`
 }
 
 // Status and type functions
