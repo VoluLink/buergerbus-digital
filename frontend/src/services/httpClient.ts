@@ -1,6 +1,7 @@
 const TOKEN_STORAGE_KEY = 'bb.auth.token'
 const USER_ID_STORAGE_KEY = 'bb.auth.userId'
 let accessToken: string | null = null
+let refreshInFlight: Promise<string | null> | null = null
 
 export function getStoredToken(): string | null {
   return accessToken
@@ -30,12 +31,23 @@ export async function apiFetch(
     headers.set('Authorization', `Bearer ${token}`)
   }
 
-  const response = await fetch(input, {
+  let response = await fetch(input, {
     ...init,
     headers,
+    credentials: 'include',
   })
 
   if (response.status === 401 && authEnabled) {
+    refreshInFlight ??= fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' })
+      .then(async refreshResponse => refreshResponse.ok ? (await refreshResponse.json() as { token?: string }).token ?? null : null)
+      .finally(() => { refreshInFlight = null })
+    const refreshedToken = await refreshInFlight
+    if (refreshedToken) {
+      setStoredToken(refreshedToken)
+      headers.set('Authorization', `Bearer ${refreshedToken}`)
+      response = await fetch(input, { ...init, headers, credentials: 'include' })
+      if (response.status !== 401) return response
+    }
     clearStoredAuth()
     window.dispatchEvent(new Event('bb:auth:unauthorized'))
   }

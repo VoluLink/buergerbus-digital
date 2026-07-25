@@ -22,9 +22,11 @@ public static class AuthEndpoints
     {
         app.MapPost("/api/v1/auth/login", async (
             LoginRequest request,
+            HttpContext httpContext,
             AppDbContext db,
             IPasswordHasher<Benutzer> passwordHasher,
             JwtService jwtService,
+            RefreshSessionService refreshSessions,
             AuditService audit
         ) =>
         {
@@ -81,6 +83,9 @@ public static class AuthEndpoints
             }
 
             var token = jwtService.CreateToken(user);
+            var refresh = await refreshSessions.CreateAsync(user, httpContext);
+            refreshSessions.WriteCookie(httpContext.Response, refresh.Token, refresh.Session.ExpiresAtUtc);
+            await audit.WriteAsync("RefreshSessionCreated", "RefreshSession", "success", user.Id, refresh.Session.Id.ToString(), user.InitiativeId);
             await audit.WriteAsync("login", "Benutzer", "success", user.Id, user.Id.ToString(), user.InitiativeId);
 
             return Results.Ok(new LoginResponseDto(
@@ -89,6 +94,19 @@ public static class AuthEndpoints
                 token,
                 UserMapper.CreateUserProfile(user)));
         }).RequireRateLimiting("auth-login");
+
+        app.MapPost("/api/v1/auth/refresh", async (HttpContext context, JwtService jwtService, RefreshSessionService refreshSessions, AuditService audit, CancellationToken ct) =>
+        {
+            var rotated = await refreshSessions.RotateAsync(RefreshSessionService.ReadCookie(context.Request), context, ct);
+            if (rotated is null) { refreshSessions.DeleteCookie(context.Response); return Results.Unauthorized(); }
+            refreshSessions.WriteCookie(context.Response, rotated.Value.Token, rotated.Value.New.ExpiresAtUtc);
+            await audit.WriteAsync("RefreshSessionRotated", "RefreshSession", "success", rotated.Value.User.Id, rotated.Value.New.Id.ToString(), rotated.Value.User.InitiativeId, new { sessionId = rotated.Value.New.Id });
+            return Results.Ok(new RefreshTokenResponseDto(jwtService.CreateToken(rotated.Value.User)));
+        });
+        app.MapPost("/api/v1/auth/logout", async (HttpContext context, RefreshSessionService refreshSessions, AuditService audit, CancellationToken ct) =>
+        {
+            var token=RefreshSessionService.ReadCookie(context.Request); await refreshSessions.RevokeAsync(token,"logout",ct); refreshSessions.DeleteCookie(context.Response); var userId=AuthUtils.GetUserId(context.User); if(userId.HasValue) await audit.WriteAsync("Logout","RefreshSession","success",userId.Value); return Results.NoContent();
+        });
 
         app.MapPost("/api/auth/forgot-password", async (
             ForgotPasswordRequest request,
@@ -167,6 +185,7 @@ public static class AuthEndpoints
             ResetPasswordRequest request,
             AppDbContext db,
             IPasswordHasher<Benutzer> passwordHasher,
+            RefreshSessionService refreshSessions,
             AuditService audit) =>
         {
             if (string.IsNullOrWhiteSpace(request.Token))
@@ -200,6 +219,7 @@ public static class AuthEndpoints
                 return Results.Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Inkonsistenter Passwort-Reset-Datensatz");
             user.PasswortHash = passwordHasher.HashPassword(user, newPassword);
             user.AuthVersion++;
+            await refreshSessions.RevokeAllAsync(user.Id, "password_reset");
             resetToken.UsedAt = DateTime.UtcNow;
 
             await db.SaveChangesAsync();
@@ -213,6 +233,7 @@ public static class AuthEndpoints
             HttpContext httpContext,
             AppDbContext db,
             IPasswordHasher<Benutzer> passwordHasher,
+            RefreshSessionService refreshSessions,
             AuditService audit) =>
         {
             var principal = httpContext.User;
@@ -261,6 +282,7 @@ public static class AuthEndpoints
             user.PasswortHash = passwordHasher.HashPassword(user, newPassword);
             user.GeaendertAm = DateTime.UtcNow;
             user.AuthVersion++;
+            await refreshSessions.RevokeAllAsync(user.Id, "password_changed");
 
             await db.SaveChangesAsync();
             await audit.WriteAsync("password_changed", "Benutzer", "success", user.Id, user.Id.ToString(), user.InitiativeId);

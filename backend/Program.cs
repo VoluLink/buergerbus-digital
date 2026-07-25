@@ -35,6 +35,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<IPasswordHasher<Benutzer>, PasswordHasher<Benutzer>>();
 builder.Services.AddScoped<JwtService>();
+builder.Services.AddScoped<RefreshSessionService>();
 builder.Services.AddScoped<AuditService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<SystemSettingsService>();

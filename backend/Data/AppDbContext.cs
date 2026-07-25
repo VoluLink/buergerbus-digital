@@ -19,6 +19,7 @@ namespace BuergerbusAPI.Data
         public DbSet<Rollen> Rollen { get; set; }
         public DbSet<BenutzerRolle> BenutzerRollen { get; set; }
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+        public DbSet<RefreshSession> RefreshSessions { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<NotificationRecipient> NotificationRecipients { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
@@ -159,6 +160,16 @@ namespace BuergerbusAPI.Data
             modelBuilder.Entity<PasswordResetToken>()
                 .HasIndex(t => t.TokenHash)
                 .IsUnique();
+
+            modelBuilder.Entity<RefreshSession>(entity =>
+            {
+                entity.Property(x => x.TokenHash).HasMaxLength(64).IsRequired();
+                entity.Property(x => x.UserAgentHash).HasMaxLength(64);
+                entity.Property(x => x.IpAddressHash).HasMaxLength(64);
+                entity.Property(x => x.RevokedReason).HasMaxLength(100);
+                entity.HasIndex(x => x.TokenHash).IsUnique(); entity.HasIndex(x => x.UserId); entity.HasIndex(x => x.ExpiresAtUtc);
+                entity.HasOne(x => x.Benutzer).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            });
 
             modelBuilder.Entity<Notification>()
                 .HasMany(n => n.Recipients)

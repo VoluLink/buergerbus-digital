@@ -28,6 +28,8 @@ export async function login(
 export async function refreshToken(): Promise<RefreshTokenResponse> {
   const response = await apiFetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
     method: 'POST',
+    auth: false,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
     },
@@ -42,4 +44,8 @@ export async function refreshToken(): Promise<RefreshTokenResponse> {
   }
 
   return response.json()
+}
+
+export async function logout(): Promise<void> {
+  await apiFetch(`${API_BASE_URL}/api/v1/auth/logout`, { method: 'POST', auth: false, credentials: 'include' })
 }

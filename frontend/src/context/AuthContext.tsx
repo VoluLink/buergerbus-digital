@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { login as loginRequest } from '../services/auth'
+import { login as loginRequest, logout as logoutRequest, refreshToken } from '../services/auth'
 import { getCurrentUserProfile } from '../services/profile'
 import { clearStoredAuth, getStoredToken, setStoredToken } from '../services/httpClient'
 import type { LoginCredentials } from '../types/Login'
@@ -28,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const idleTimeoutRef = useRef<number | null>(null)
 
   const logout = useCallback((message?: string) => {
+    void logoutRequest().catch(() => undefined)
     clearStoredAuth()
     setCurrentUser(null)
     setError(message ?? null)
@@ -54,9 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshProfile = useCallback(async () => {
     const token = getStoredToken()
     if (!token) {
-      setCurrentUser(null)
-      setIsLoading(false)
-      return null
+      try { const refreshed = await refreshToken(); setStoredToken(refreshed.token) } catch { setCurrentUser(null); setIsLoading(false); return null }
     }
 
     setIsLoading(true)
