@@ -218,8 +218,8 @@ export function useRideDialogState({
       resetRideForms();
       resetRentalForm(dateValue);
       setRideFormsByType((currentState) => ({
-        standard: { ...currentState.standard, fahrzeugId: initialVehicleId },
-        theme: { ...currentState.theme, fahrzeugId: initialVehicleId },
+        standard: { ...currentState.standard, date: dateValue, fahrzeugId: initialVehicleId },
+        theme: { ...currentState.theme, date: dateValue, fahrzeugId: initialVehicleId },
       }));
       setRentalVehicleId(initialVehicleId);
       setIsRideDialogOpen(true);
@@ -270,6 +270,7 @@ export function useRideDialogState({
         ride.type === "theme" ? "theme" : "standard";
 
       seededForms[rideFormKey] = {
+        date: rideDateValue,
         driverName: ride.driverName,
         fahrerId: ride.fahrerId,
         fahrzeugId: ride.fahrzeugId,

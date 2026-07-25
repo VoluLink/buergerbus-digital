@@ -33,6 +33,12 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IPasswordHasher<Benutzer>, PasswordHasher<Benutzer>>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient("Nominatim", client =>
+{
+    client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Buergerbus-Digital/1.0 (address-autocomplete)");
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
 builder.Services.AddSingleton(new EmailSettings
 {
     SmtpHost = GetRequiredSetting(builder, "EMAIL_SMTP_HOST"),
@@ -184,6 +190,7 @@ app.MapInitiativeEndpoints();
 app.MapFahrzeugServiceEndpoints();
 app.MapFahrgastEndpoints();
 app.MapFahrerEndpoints();
+app.MapAddressEndpoints();
 
 app.MapFahrtenEndpoints();
 app.MapControllers(); 

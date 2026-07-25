@@ -27,7 +27,11 @@ export function getEarliestPassengerTime(passengers: PassengerForm[]) {
   return passengers
     .map((passenger) => normalizePassengerText(passenger.time).trim())
     .filter((time): time is string => time.length > 0)
-    .sort()[0] ?? ''
+    .sort((left, right) => {
+      const [leftHours, leftMinutes] = left.split(':').map(Number)
+      const [rightHours, rightMinutes] = right.split(':').map(Number)
+      return leftHours * 60 + leftMinutes - (rightHours * 60 + rightMinutes)
+    })[0] ?? ''
 }
 
 // Display time functions

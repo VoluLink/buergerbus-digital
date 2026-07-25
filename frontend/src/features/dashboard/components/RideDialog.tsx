@@ -174,6 +174,19 @@ export function RideDialog({
 
           <RideTypeTabs rideType={rideType} onRideTypeChange={setRideType} />
 
+          {rideType !== "rental" ? (
+            <label className="mt-6 block text-sm font-semibold text-slate-700">
+              Datum der Fahrt
+              <input
+                type="date"
+                value={activeRideForm?.date ?? ""}
+                onChange={(event) => updateRideField("date", event.target.value)}
+                required
+                className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/15"
+              />
+            </label>
+          ) : null}
+
           {rideType === "theme" ? (
             <ThemeRideForm
               activeRideForm={activeRideForm}

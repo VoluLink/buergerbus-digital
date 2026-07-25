@@ -72,7 +72,7 @@ export function RegularRideForm({
   const driverQuery = (activeRideForm?.driverName ?? "").trim().toLowerCase();
 
   const matchingDrivers =
-    driverQuery.length > 0 && !isDriverAssigned
+    driverQuery.length > 0
       ? fahrerListe
           .filter((driver) => {
             const searchable =

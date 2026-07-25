@@ -101,6 +101,12 @@ function safeText(value?: string | null) {
   return value ?? ''
 }
 
+function parseLocalDate(value: string): Date {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!match) return new Date(value)
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+}
+
 function extractHourMinute(value?: string | null) {
   if (!value) return ''
   const match = value.match(/(\d{2}:\d{2})/)
@@ -182,6 +188,10 @@ function mapTeilnehmerToPassengers(teilnehmer?: BackendFahrtTeilnehmerDto[] | nu
       istAbgehakt: item.istAbgehakt,
       abgehaktAm: item.abgehaktAm ?? null,
     }
+  }).sort((left, right) => {
+    const leftTime = extractHourMinute(left.time) || '99:99'
+    const rightTime = extractHourMinute(right.time) || '99:99'
+    return leftTime.localeCompare(rightTime) || left.name.localeCompare(right.name, 'de') || left.id - right.id
   })
 }
 
@@ -236,8 +246,8 @@ export function mapBackendRideToCalendarRide(dto: BackendFahrtDto, fahrerListe: 
 
   return {  
     id: dto.id,
-    date: new Date(dto.datum),
-    dateBis: dto.datumBis ? new Date(dto.datumBis) : null,
+    date: parseLocalDate(dto.datum),
+    dateBis: dto.datumBis ? parseLocalDate(dto.datumBis) : null,
     type,
     status: mapBackendStatusToRideStatus(dto.status, type, dto.fahrerId),
     title: dto.titel,

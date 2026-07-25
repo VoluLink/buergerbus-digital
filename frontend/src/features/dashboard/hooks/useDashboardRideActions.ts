@@ -333,6 +333,11 @@ export function useDashboardRideActions({
         return;
       }
 
+      if (!activeRideForm.date) {
+        setRideSaveError("Bitte ein gültiges Fahrtdatum auswählen.");
+        return;
+      }
+
       const driverName = normalizePassengerText(
         activeRideForm.driverName,
       ).trim();
@@ -375,7 +380,7 @@ export function useDashboardRideActions({
 
         const tempRide: CalendarRide = {
           id: rideInEditId,
-          date: normalizeDate(selectedDate),
+          date: normalizeDate(new Date(activeRideForm.date || toDateInputValue(selectedDate))),
           dateBis: rentalDateTo ? normalizeDate(new Date(rentalDateTo)) : null,
           type: rideType,
           status: baseStatus,
@@ -436,7 +441,7 @@ export function useDashboardRideActions({
 
       const nextRide: CalendarRide = {
         id: nextRideId,
-        date: normalizeDate(selectedDate),
+        date: normalizeDate(new Date(activeRideForm.date || toDateInputValue(selectedDate))),
         dateBis: null,
         type: rideType,
         status: baseStatus,

@@ -49,6 +49,13 @@ public static class FahrtenEndpoints
         => string.Equals(status, "Gespeichert", StringComparison.OrdinalIgnoreCase)
            || string.Equals(status, "Saved", StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsDraft(string? status)
+        => IsSavedRideStatus(status)
+           || string.Equals(status, "Entwurf", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(status, "Draft", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsVisibleToGuestOrDriver(Fahrten ride) => !IsDraft(ride.Status);
+
     private static bool IsDriverSelfAssignableRide(Fahrten ride)
         => IsThemeRide(ride.Fahrttyp) || IsStandardRide(ride.Fahrttyp);
 
@@ -121,14 +128,15 @@ public static class FahrtenEndpoints
             return Results.Forbid();
         }
 
-        if (isGuest && !IsPublished(ride.Status))
+        // Guests never receive detail records, even for a visible ride.
+        if (isGuest)
         {
             return Results.Forbid();
         }
 
         if (isDriver && allowDriverInitiativeRead)
         {
-            if (!IsPublished(ride.Status))
+            if (!IsVisibleToGuestOrDriver(ride))
             {
                 return Results.Forbid();
             }
@@ -136,7 +144,7 @@ public static class FahrtenEndpoints
             return null;
         }
 
-        if (isDriver && !IsPublished(ride.Status) && ride.FahrerId.HasValue && fahrerId.HasValue && ride.FahrerId.Value != fahrerId.Value)
+        if (isDriver && !IsVisibleToGuestOrDriver(ride))
         {
             return Results.Forbid();
         }
@@ -185,47 +193,12 @@ public static class FahrtenEndpoints
 
         if (isGuest)
         {
-            return query.Where(f =>
-                !string.IsNullOrWhiteSpace(f.Status)
-                && (
-                    f.Status.Contains("veröffentlicht")
-                    || f.Status.Contains("published")
-                ));
+            return query.Where(f => f.Status != "Gespeichert" && f.Status != "Saved" && f.Status != "Entwurf" && f.Status != "Draft");
         }
 
         if (isDriver)
         {
-            if (fahrerId.HasValue)
-            {
-                var currentFahrerId = fahrerId.Value;
-
-                return query.Where(f =>
-                    (!string.IsNullOrWhiteSpace(f.Status)
-                    && (
-                        f.Status.Contains("veröffentlicht")
-                        || f.Status.Contains("published")
-                        || f.Status == "Offen"
-                        || f.Status == "Open"
-                    ))
-                    || f.Fahrttyp == "Themenfahrt"
-                    || f.Fahrttyp == "theme"
-                    || f.Fahrttyp == "Vermietung"
-                    || f.Fahrttyp == "rental"
-                    || f.FahrerId == currentFahrerId);
-            }
-
-            return query.Where(f =>
-                (!string.IsNullOrWhiteSpace(f.Status)
-                && (
-                    f.Status.Contains("veröffentlicht")
-                    || f.Status.Contains("published")
-                    || f.Status == "Offen"
-                    || f.Status == "Open"
-                ))
-                || f.Fahrttyp == "Themenfahrt"
-                || f.Fahrttyp == "theme"
-                || f.Fahrttyp == "Vermietung"
-                || f.Fahrttyp == "rental");
+            return query.Where(f => f.Status != "Gespeichert" && f.Status != "Saved" && f.Status != "Entwurf" && f.Status != "Draft");
         }
 
         return query;
@@ -624,11 +597,23 @@ public static class FahrtenEndpoints
             var fahrerId = await ResolveFahrerIdAsync(db, AuthUtils.GetUserId(user));
             var query = BuildAccessFilteredQuery(db, user, initiativeId, fahrerId);
             var fahrten = await query
-                .OrderByDescending(f => f.Datum)
-                .ThenByDescending(f => f.Startzeit)
+                .OrderBy(f => f.Datum)
+                .ThenBy(f => f.Startzeit)
+                .ThenBy(f => f.Id)
                 .ToListAsync();
 
-            return Results.Ok(fahrten.Select(FahrtenMapper.ToDto));
+            // A guest needs only the calendar overview. Do not leak passengers,
+            // remarks, creator information, or other protected ride details.
+            var result = AuthUtils.IsGast(user)
+                ? fahrten.Select(f => FahrtenMapper.ToDto(f) with
+                {
+                    Bemerkung = null,
+                    AngelegtVonUserName = string.Empty,
+                    Teilnehmer = []
+                })
+                : fahrten.Select(FahrtenMapper.ToDto);
+
+            return Results.Ok(result);
         })
         .RequireAuthorization();
 

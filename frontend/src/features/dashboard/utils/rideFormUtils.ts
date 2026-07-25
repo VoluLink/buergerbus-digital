@@ -25,6 +25,7 @@ export function applyThemeDestinationToPassengers(passengers: PassengerForm[], d
 
 function createRideFormState(): RideFormState {
   return {
+    date: '',
     fahrerId: null,
     fahrzeugId: null,
     driverName: '',
