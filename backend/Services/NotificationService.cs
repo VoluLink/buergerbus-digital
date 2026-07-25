@@ -33,6 +33,7 @@ public class NotificationService : INotificationService
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<NotificationService> _logger;
     private readonly EmailOutboxService _outbox;
+    private readonly EmailTemplateService _templates;
 
     public NotificationService(
         AppDbContext db,
@@ -40,7 +41,8 @@ public class NotificationService : INotificationService
         EmailSettings emailSettings,
         IHttpContextAccessor httpContextAccessor,
         ILogger<NotificationService> logger,
-        EmailOutboxService outbox)
+        EmailOutboxService outbox,
+        EmailTemplateService templates)
     {
         _db = db;
         _emailService = emailService;
@@ -48,6 +50,7 @@ public class NotificationService : INotificationService
         _httpContextAccessor = httpContextAccessor;
         _logger = logger;
         _outbox = outbox;
+        _templates = templates;
     }
 
     public async Task<NotificationResultDto> SendBroadcastAsync(SendBroadcastNotificationRequest request, string createdByUserId)
@@ -134,7 +137,10 @@ public class NotificationService : INotificationService
         await _db.SaveChangesAsync();
 
         var resetLink = PasswordResetTokenHelper.BuildResetLink(_emailSettings.FrontendUrl, inviteOrResetToken);
-        await _outbox.EnqueueAsync("UserCreated", user.Email, user.Nutzername, notification.Subject, BuildUserCreatedHtml(user, resetLink), notification.Id, recipient.Id);
+        var rendered = await _templates.RenderAsync("UserCreated", new InvitationTemplateContext(user.Nutzername, resetLink));
+        notification.Subject = rendered.Subject;
+        await _db.SaveChangesAsync();
+        await _outbox.EnqueueAsync("UserCreated", user.Email, user.Nutzername, rendered.Subject, rendered.Html, notification.Id, recipient.Id);
     }
 
     public async Task<PagedNotificationResultDto> GetNotificationsAsync(int page, int pageSize, string? status, string? type, DateTime? fromUtc)

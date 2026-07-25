@@ -12,12 +12,12 @@ public sealed class SystemSettingsService(AppDbContext db, IMemoryCache cache)
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
 
     public async Task<SystemSettings> GetAsync(CancellationToken cancellationToken = default) =>
-        await cache.GetOrCreateAsync(CacheKey, async entry =>
+        Normalize(await cache.GetOrCreateAsync(CacheKey, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = CacheDuration;
             return await db.SystemSettings.AsNoTracking().SingleOrDefaultAsync(cancellationToken)
                 ?? new SystemSettings { UpdatedAtUtc = DateTime.UtcNow };
-        }) ?? new SystemSettings { UpdatedAtUtc = DateTime.UtcNow };
+        }) ?? new SystemSettings { UpdatedAtUtc = DateTime.UtcNow });
 
     public async Task<SystemSettings> UpdateAsync(SystemSettingsDto request, int userId, CancellationToken cancellationToken)
     {
@@ -41,5 +41,21 @@ public sealed class SystemSettingsService(AppDbContext db, IMemoryCache cache)
         return settings;
     }
 
-    public static SystemSettingsDto ToDto(SystemSettings item) => new(item.TemporaryParticipantRetentionDays, item.EnableDriverAssignmentEmails, item.EnableSelfRegistrationEmails, item.DefaultRideDurationMinutes, item.ShowDashboardNotifications, item.MaxEmailAttempts, item.EmailHistoryRetentionDays, item.MaxEmailsPerMinute, item.EnableEmailHistoryCleanup, item.UpdatedAtUtc);
+    public static SystemSettingsDto ToDto(SystemSettings item)
+    {
+        var normalized = Normalize(item);
+        return new(normalized.TemporaryParticipantRetentionDays, normalized.EnableDriverAssignmentEmails, normalized.EnableSelfRegistrationEmails, normalized.DefaultRideDurationMinutes, normalized.ShowDashboardNotifications, normalized.MaxEmailAttempts, normalized.EmailHistoryRetentionDays, normalized.MaxEmailsPerMinute, normalized.EnableEmailHistoryCleanup, normalized.UpdatedAtUtc);
+    }
+
+    private static SystemSettings Normalize(SystemSettings settings)
+    {
+        // Existing rows predate the Outbox columns. Their SQL migration defaults are 0/false;
+        // use the same safe values as a newly created SystemSettings instance.
+        var legacyOutboxDefaults = settings.MaxEmailAttempts < 1 && settings.EmailHistoryRetentionDays < 1 && settings.MaxEmailsPerMinute < 1;
+        if (settings.MaxEmailAttempts < 1) settings.MaxEmailAttempts = 5;
+        if (settings.EmailHistoryRetentionDays < 1) settings.EmailHistoryRetentionDays = 180;
+        if (settings.MaxEmailsPerMinute < 1) settings.MaxEmailsPerMinute = 100;
+        if (legacyOutboxDefaults) settings.EnableEmailHistoryCleanup = true;
+        return settings;
+    }
 }

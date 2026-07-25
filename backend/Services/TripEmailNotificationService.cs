@@ -24,6 +24,7 @@ public class TripEmailNotificationService
     private readonly SystemSettingsService _settingsService;
     private readonly AuditService _audit;
     private readonly EmailOutboxService _outbox;
+    private readonly EmailTemplateService _templates;
 
     public TripEmailNotificationService(
         AppDbContext db,
@@ -33,7 +34,8 @@ public class TripEmailNotificationService
         ILogger<TripEmailNotificationService> logger,
         SystemSettingsService settingsService,
         AuditService audit,
-        EmailOutboxService outbox)
+        EmailOutboxService outbox,
+        EmailTemplateService templates)
     {
         _db = db;
         _emailService = emailService;
@@ -43,6 +45,7 @@ public class TripEmailNotificationService
         _settingsService = settingsService;
         _audit = audit;
         _outbox = outbox;
+        _templates = templates;
     }
 
     private int GetCurrentUserId()
@@ -170,9 +173,9 @@ public class TripEmailNotificationService
         var user = await _db.Benutzer.FirstOrDefaultAsync(u => u.Id == fahrer.BenutzerId);
         if (user is null) return;
 
-        var intro = "du hast dich erfolgreich für eine Fahrt angemeldet.";
-        var html = BuildTripHtml(ride, user.Nutzername ?? user.Vorname ?? "", intro);
-        await SendNotificationAsync("TripSelfRegistered", "Anmeldung zur Fahrt bestätigt", html, user, ride.InitiativeId);
+        var context = new SelfRegistrationTemplateContext(user.Nutzername ?? user.Vorname ?? "", ride.Datum.ToString("dd.MM.yyyy"), ride.Startzeit.ToString("HH:mm"), ride.Zielort ?? "nicht angegeben", ride.Initiative?.Name ?? "Bürgerbus");
+        var rendered = await _templates.RenderAsync("TripSelfRegistered", context);
+        await SendNotificationAsync("TripSelfRegistered", rendered.Subject, rendered.Html, user, ride.InitiativeId);
     }
 
     public async Task SendTripDriverAssignedEmailAsync(Fahrten ride, Fahrer fahrer, ClaimsPrincipal assignedBy)
@@ -187,16 +190,9 @@ public class TripEmailNotificationService
         var user = await _db.Benutzer.FirstOrDefaultAsync(u => u.Id == fahrer.BenutzerId);
         if (user is null) return;
 
-        string intro;
-        if (AuthUtils.IsAdmin(assignedBy))
-            intro = "du wurdest von einem Admin für eine Fahrt eingetragen.";
-        else if (assignedBy.IsInRole("Disponent"))
-            intro = "du wurdest von einem Disponenten für eine Fahrt eingetragen.";
-        else
-            intro = "du wurdest durch das Bürgerbus-Team für eine Fahrt eingetragen.";
-
-        var html = BuildTripHtml(ride, user.Nutzername ?? user.Vorname ?? "", intro);
-        await SendNotificationAsync("TripDriverAssigned", "Du wurdest einer Fahrt zugewiesen", html, user, ride.InitiativeId);
+        var context = new DriverAssignmentTemplateContext(user.Nutzername ?? user.Vorname ?? "", ride.Datum.ToString("dd.MM.yyyy"), ride.Startzeit.ToString("HH:mm"), ride.Zielort ?? "nicht angegeben", ride.Initiative?.Name ?? "Bürgerbus");
+        var rendered = await _templates.RenderAsync("TripDriverAssigned", context);
+        await SendNotificationAsync("TripDriverAssigned", rendered.Subject, rendered.Html, user, ride.InitiativeId);
     }
 
     public async Task SendTripChangedEmailAsync(Fahrten ride, Fahrer fahrer)

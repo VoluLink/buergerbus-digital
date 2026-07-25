@@ -55,6 +55,7 @@ builder.Services.AddSingleton(new EmailSettings
 });
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<EmailOutboxService>();
+builder.Services.AddScoped<EmailTemplateService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<TripEmailNotificationService>();
 builder.Services.AddScoped<InitiativeDeletionService>();
@@ -225,6 +226,7 @@ app.UseAuthorization();
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapAdminNotificationEndpoints();
+app.MapEmailTemplateEndpoints();
 app.MapAdminAuditLogEndpoints();
 app.MapAdminSettingsEndpoints();
 app.MapNotificationEndpoints();

@@ -304,6 +304,62 @@ namespace BuergerbusAPI.Migrations
                     b.ToTable("EmailOutbox", (string)null);
                 });
 
+            modelBuilder.Entity("BuergerbusAPI.Models.EmailTemplate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Closing")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Footer")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Heading")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Intro")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Signature")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("varchar(250)");
+
+                    b.Property<string>("TemplateType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TemplateType")
+                        .IsUnique();
+
+                    b.ToTable("EmailTemplates", (string)null);
+                });
+
             modelBuilder.Entity("BuergerbusAPI.Models.Fahrer", b =>
                 {
                     b.Property<int>("Id")

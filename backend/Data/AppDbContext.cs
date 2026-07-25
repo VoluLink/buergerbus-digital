@@ -26,6 +26,7 @@ namespace BuergerbusAPI.Data
         public DbSet<AdminNotification> AdminNotifications { get; set; }
         public DbSet<SystemSettings> SystemSettings { get; set; }
         public DbSet<EmailOutbox> EmailOutbox { get; set; }
+        public DbSet<EmailTemplate> EmailTemplates { get; set; }
 
         // Fahrten-System
         public DbSet<Fahrten> Fahrten { get; set; }
@@ -257,6 +258,12 @@ namespace BuergerbusAPI.Data
                 entity.HasIndex(item => new { item.Status, item.NextAttemptUtc });
                 entity.HasIndex(item => item.CreatedAtUtc);
                 entity.HasIndex(item => item.NotificationId);
+            });
+
+            modelBuilder.Entity<EmailTemplate>(entity =>
+            {
+                entity.ToTable("EmailTemplates"); entity.HasIndex(item => item.TemplateType).IsUnique();
+                entity.Property(item => item.TemplateType).HasMaxLength(80).IsRequired(); entity.Property(item => item.Subject).HasMaxLength(250).IsRequired();
             });
 
             modelBuilder.Entity<Benutzer>()
