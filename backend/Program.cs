@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Net;
+using System.Net.Sockets;
 
 /// <summary>
 /// Einstiegspunkt der Anwendung.
@@ -45,13 +46,40 @@ builder.Services.AddHttpClient("Nominatim", client =>
     client.DefaultRequestVersion = HttpVersion.Version11;
     client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact;
 })
-.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+.ConfigurePrimaryHttpMessageHandler(() =>
 {
-    ConnectTimeout = TimeSpan.FromSeconds(5),
-    PooledConnectionLifetime = TimeSpan.FromMinutes(5),
-    PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
-    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-    UseProxy = false
+    var handler = new SocketsHttpHandler
+    {
+        ConnectTimeout = TimeSpan.FromSeconds(5),
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+        PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+        UseProxy = false
+    };
+
+    // Restrict only Nominatim to IPv4. Socket.ConnectAsync resolves the host
+    // itself and therefore tries the IPv4 DNS endpoint without custom lookup.
+    handler.ConnectCallback = async (context, cancellationToken) =>
+    {
+        var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        try
+        {
+            var endpoint = new DnsEndPoint(
+                context.DnsEndPoint.Host,
+                context.DnsEndPoint.Port,
+                AddressFamily.InterNetwork);
+
+            await socket.ConnectAsync(endpoint, cancellationToken);
+            return new NetworkStream(socket, ownsSocket: true);
+        }
+        catch
+        {
+            socket.Dispose();
+            throw;
+        }
+    };
+
+    return handler;
 });
 builder.Services.AddSingleton(new EmailSettings
 {
