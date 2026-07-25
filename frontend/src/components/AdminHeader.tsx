@@ -1,4 +1,5 @@
 import { CircleUserRound } from 'lucide-react'
+import { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import UserMenuButton from './UserMenuButton'
@@ -19,10 +20,15 @@ function AdminHeader() {
   const { currentUser } = useAuth()
   const title = adminTitles[location.pathname]
 
+  useEffect(() => {
+    document.body.dataset.adminPage = title ? 'true' : ''
+    return () => { delete document.body.dataset.adminPage }
+  }, [title])
+
   if (!currentUser || !title) return null
 
   return (
-    <div className="fixed right-3 top-1.5 z-20 sm:right-6 sm:top-3">
+    <div className="fixed right-3 top-2 z-20 sm:right-6 sm:top-2">
       <span className="sr-only">Administration: {title}</span>
       <UserMenuButton onClick={() => navigate('/profil')} icon={<CircleUserRound className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />} />
     </div>

@@ -1,1 +1,8 @@
 @import "tailwindcss";
+
+/* Adminseiten reservieren eine volle Kopfzeile für Navigation und Profil. */
+body[data-admin-page="true"] main > header {
+  min-height: 4.5rem;
+  display: flex;
+  align-items: center;
+}
