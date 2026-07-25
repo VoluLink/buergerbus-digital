@@ -41,6 +41,7 @@ function DashboardPage() {
   const {
     canManageDataCrud,
     canManageInitiatives,
+    canManagePassengers,
     isAdmin,
     isDisponent,
     isFahrer,
@@ -97,6 +98,7 @@ function DashboardPage() {
   } = useDashboardData({
     selectedInitiativeId,
     canManageInitiatives,
+    canManagePassengers,
   });
 
   // Verwaltet den kompletten Zustand vom Fahrt-erstellen/-bearbeiten-Dialog

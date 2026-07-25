@@ -26,7 +26,7 @@ import type { Initiative } from '../types/Initiative'
 function FahrgastinfosPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
-  const { canManageDataCrud, isAdmin } = useRoleVisibility()
+  const { canManageDataCrud, canManagePassengers, isAdmin } = useRoleVisibility()
   const isCrudRestricted = !canManageDataCrud
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -52,6 +52,13 @@ function FahrgastinfosPage() {
   )
 
   useEffect(() => {
+    if (!canManagePassengers) {
+      setGuests([])
+      setSelectedGuestId(null)
+      setIsLoading(false)
+      return
+    }
+
     let isActive = true
 
     setIsLoading(true)
@@ -80,7 +87,7 @@ function FahrgastinfosPage() {
     return () => {
       isActive = false
     }
-  }, [])
+  }, [canManagePassengers])
 
   useEffect(() => {
     if (!isAdmin) {

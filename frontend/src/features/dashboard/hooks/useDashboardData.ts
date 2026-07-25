@@ -24,6 +24,7 @@ import type { CalendarRide } from "../../../types/DashboardRide";
 type UseDashboardDataParams = {
   selectedInitiativeId: number | null;
   canManageInitiatives: boolean;
+  canManagePassengers: boolean;
 };
 
 type UseDashboardDataResult = {
@@ -48,6 +49,7 @@ function mapRidesToCalendarRides(
 export function useDashboardData({
   selectedInitiativeId,
   canManageInitiatives,
+  canManagePassengers,
 }: UseDashboardDataParams): UseDashboardDataResult {
   const [calendarRides, setCalendarRides] = useState<CalendarRide[]>([]);
   const [knownGuests, setKnownGuests] = useState<Fahrgast[]>([]);
@@ -174,6 +176,12 @@ export function useDashboardData({
     let isCancelled = false;
 
     async function loadKnownGuests() {
+      if (!canManagePassengers) {
+        setKnownGuests([]);
+        setKnownGuestsLoaded(true);
+        return;
+      }
+
       try {
         setKnownGuestsLoaded(false);
         setKnownGuests([]);
@@ -201,7 +209,7 @@ export function useDashboardData({
     return () => {
       isCancelled = true;
     };
-  }, [canManageInitiatives, selectedInitiativeId]);
+  }, [canManageInitiatives, canManagePassengers, selectedInitiativeId]);
 
   useEffect(() => {
     let isCancelled = false;

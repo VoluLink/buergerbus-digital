@@ -50,8 +50,10 @@ function App() {
           <Route path="/users/:id/profile" element={<UserProfilePage />} />
           <Route path="/fahrerinfos" element={<FahrerinfosPage />} />
           <Route path="/fahrzeuginfos" element={<FahrzeuginfosPage />} />
-          <Route path="/fahrgastinfos" element={<FahrgastinfosPage />} />
-          <Route path="/rollenverteilung" element={<RollenverteilungPage />} />
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'disponent']} />}>
+            <Route path="/fahrgastinfos" element={<FahrgastinfosPage />} />
+            <Route path="/rollenverteilung" element={<RollenverteilungPage />} />
+          </Route>
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
             <Route path="/admin/benachrichtigungen" element={<AdminNotificationsPage />} />
             <Route path="/admin/audit-logs" element={<AdminAuditLogsPage />} />
