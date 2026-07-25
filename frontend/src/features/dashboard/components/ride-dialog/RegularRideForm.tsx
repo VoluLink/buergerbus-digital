@@ -218,6 +218,15 @@ export function RegularRideForm({
 
       <div className="mt-6">
         <label className="block text-sm font-semibold text-slate-700">
+          Enddatum
+          <input
+            type="date"
+            value={activeRideForm?.endDate ?? ""}
+            onChange={(event) => updateRideField("endDate", event.target.value)}
+            className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/15"
+          />
+        </label>
+        <label className="block text-sm font-semibold text-slate-700">
           Geschätzte Endzeit
         </label>
 

@@ -200,28 +200,6 @@ function toLocalDateString(date: Date) {
   return `${yyyy}-${mm}-${dd}`
 }
 
-function buildDefaultRideEndzeit(date: Date, latestPassengerTime?: string | null) {
-  const normalizedTime = safeText(latestPassengerTime).trim()
-  const match = normalizedTime.match(/^(\d{2}):(\d{2})$/)
-
-  if (!match) {
-    return null
-  }
-
-  const hours = Number(match[1])
-  const minutes = Number(match[2])
-
-  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) {
-    return null
-  }
-
-  const endDate = new Date(date)
-  endDate.setHours(hours, minutes, 0, 0)
-  endDate.setMinutes(endDate.getMinutes() + 60)
-
-  return `${toLocalDateString(endDate)}T${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}:00`
-}
-
 function hasPassengerDraftContent(passenger: PassengerForm) {
   return Boolean(
     passenger.sourceGuestId ||
@@ -271,12 +249,6 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide, initiativeI
     .map(p => p.time)
     .filter((t): t is string => !!t)
     .sort()[0]
-  const latestTime = writablePassengers
-    .map(p => p.time)
-    .filter((t): t is string => !!t)
-    .sort()
-    .at(-1)
-  const fallbackEndzeit = buildDefaultRideEndzeit(ride.date, latestTime)
 
   if (ride.type === 'rental') {
     const [timeFrom, timeTo] = (ride.time ?? '').split('-')
@@ -321,15 +293,15 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide, initiativeI
     fahrt: {
       titel: ride.title,
       datum: toLocalDateString(ride.date),
-      datumBis: null,
+      datumBis: ride.dateBis ? toLocalDateString(ride.dateBis) : null,
       zielort: firstPassenger?.destinationAddress || '',
       fahrttyp: ride.type,
       startzeit: earliestTime
         ? `${toLocalDateString(ride.date)}T${earliestTime}:00`
         : `${toLocalDateString(ride.date)}T00:00:00`,
       endzeit: ride.endTime
-        ? `${toLocalDateString(ride.date)}T${ride.endTime}:00`
-        : fallbackEndzeit,
+        ? `${toLocalDateString(ride.dateBis ?? ride.date)}T${ride.endTime}:00`
+        : null,
       bemerkung: safeText(ride.remarks).trim() || null,
       status: mapRideStatusToBackendStatus(ride.status),
       fahrerId: ride.fahrerId,

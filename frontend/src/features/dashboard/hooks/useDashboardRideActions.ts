@@ -384,7 +384,9 @@ export function useDashboardRideActions({
         const tempRide: CalendarRide = {
           id: rideInEditId,
           date: normalizeDate(new Date(activeRideForm.date || toDateInputValue(selectedDate))),
-          dateBis: rentalDateTo ? normalizeDate(new Date(rentalDateTo)) : null,
+          dateBis: activeRideForm.endDate && activeRideForm.endDate !== activeRideForm.date
+            ? normalizeDate(new Date(activeRideForm.endDate))
+            : null,
           type: rideType,
           status: baseStatus,
           title:
@@ -445,7 +447,9 @@ export function useDashboardRideActions({
       const nextRide: CalendarRide = {
         id: nextRideId,
         date: normalizeDate(new Date(activeRideForm.date || toDateInputValue(selectedDate))),
-        dateBis: null,
+        dateBis: activeRideForm.endDate && activeRideForm.endDate !== activeRideForm.date
+          ? normalizeDate(new Date(activeRideForm.endDate))
+          : null,
         type: rideType,
         status: baseStatus,
         title:

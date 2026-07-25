@@ -23,6 +23,7 @@ import type { Fahrgast } from "../../../types/Fahrgast";
 import type { Fahrzeug } from "../../../types/Fahrzeug";
 import type { FahrerListItem } from "../../../types/FahrerListItem";
 import { toDateInputValue } from "../utils/dateUtils";
+import { calculateDefaultRideEnd } from "../utils/defaultRideEnd";
 import { apiFetch } from "../../../services/httpClient";
 
 type UseRideDialogStateParams = {
@@ -99,12 +100,6 @@ type PassengerFormView = RideFormState["passengers"][number];
 
 function isRideFormType(value: RideType): value is RideFormType {
   return value === "standard" || value === "theme";
-}
-
-function addMinutesToTime(value: string, minutes: number) {
-  const [hours, mins] = value.split(":").map(Number);
-  const total = (hours * 60 + mins + minutes) % (24 * 60);
-  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
 export function useRideDialogState({
@@ -252,8 +247,8 @@ export function useRideDialogState({
       resetRideForms();
       resetRentalForm(dateValue);
       setRideFormsByType((currentState) => ({
-        standard: { ...currentState.standard, date: dateValue, fahrzeugId: initialVehicleId },
-        theme: { ...currentState.theme, date: dateValue, fahrzeugId: initialVehicleId },
+        standard: { ...currentState.standard, date: dateValue, endDate: dateValue, fahrzeugId: initialVehicleId },
+        theme: { ...currentState.theme, date: dateValue, endDate: dateValue, fahrzeugId: initialVehicleId },
       }));
       setRentalVehicleId(initialVehicleId);
       setIsRideDialogOpen(true);
@@ -306,6 +301,7 @@ export function useRideDialogState({
 
       seededForms[rideFormKey] = {
         date: rideDateValue,
+        endDate: ride.dateBis ? toDateInputValue(ride.dateBis) : rideDateValue,
         driverName: ride.driverName,
         fahrerId: ride.fahrerId,
         fahrzeugId: ride.fahrzeugId,
@@ -389,7 +385,7 @@ export function useRideDialogState({
         },
       }));
     },
-    [defaultRideDurationMinutes, rideType],
+    [rideType],
   );
 
   const updateRideField = useCallback(
@@ -401,25 +397,37 @@ export function useRideDialogState({
       const rideFormKey: RideFormType =
         rideType === "theme" ? "theme" : "standard";
 
-      setRideFormsByType((currentState) => ({
-        ...currentState,
-        [rideFormKey]: {
-          ...currentState[rideFormKey],
+      setRideFormsByType((currentState) => {
+        const currentRideForm = currentState[rideFormKey];
+        const earliestPickupTime = currentRideForm.passengers
+          .map((passenger) => passenger.time)
+          .filter((time): time is string => /^\d{2}:\d{2}$/.test(time))
+          .sort()[0];
+        const defaultEnd = field === "date" && !endTimeWasManuallyEdited.current && earliestPickupTime
+          ? calculateDefaultRideEnd(value, earliestPickupTime, defaultRideDurationMinutes)
+          : null;
+
+        return {
+          ...currentState,
+          [rideFormKey]: {
+          ...currentRideForm,
           [field]: value,
+          ...(defaultEnd ? { endDate: defaultEnd.date, endTime: defaultEnd.time } : {}),
           ...(field === "driverName" ? { fahrerId: null } : {}),
-          ...(field === "endTime" ? (endTimeWasManuallyEdited.current = true, {}) : {}),
+          ...(field === "endTime" || field === "endDate" ? (endTimeWasManuallyEdited.current = true, {}) : {}),
           ...(rideFormKey === "theme" && field === "themeDestination"
             ? {
                 passengers: applyThemeDestinationToPassengers(
-                  currentState.theme.passengers,
+                  currentRideForm.passengers,
                   value,
                 ),
               }
             : {}),
         },
-      }));
+        };
+      });
     },
-    [rideType],
+    [defaultRideDurationMinutes, rideType],
   );
 
   const updatePassengerField = useCallback(
@@ -438,29 +446,35 @@ export function useRideDialogState({
       const rideFormKey: RideFormType =
         rideType === "theme" ? "theme" : "standard";
 
-      setRideFormsByType((currentState) => ({
-        ...currentState,
-        [rideFormKey]: {
-          ...currentState[rideFormKey],
-          ...(field === "time" && !endTimeWasManuallyEdited.current && typeof value === "string" && /^\d{2}:\d{2}$/.test(value)
-            ? { endTime: addMinutesToTime(value, defaultRideDurationMinutes) }
-            : {}),
-          passengers: currentState[rideFormKey].passengers.map((passenger) =>
-            passenger.id === passengerId
-              ? {
-                  ...passenger,
-                  ...(field === "name" ? { sourceGuestId: null } : {}),
-                  [field]:
-                    field === "time" && typeof value === "string"
-                      ? snapTimeToFiveMinuteStep(value)
-                      : value,
-                }
-              : passenger,
-          ),
-        },
-      }));
+      setRideFormsByType((currentState) => {
+        const currentRideForm = currentState[rideFormKey];
+        const passengerValue = field === "time" && typeof value === "string"
+          ? snapTimeToFiveMinuteStep(value)
+          : value;
+        const passengers = currentRideForm.passengers.map((passenger) =>
+          passenger.id === passengerId
+            ? { ...passenger, ...(field === "name" ? { sourceGuestId: null } : {}), [field]: passengerValue }
+            : passenger,
+        );
+        const earliestPickupTime = passengers
+          .map((passenger) => passenger.time)
+          .filter((time): time is string => /^\d{2}:\d{2}$/.test(time))
+          .sort()[0];
+        const defaultEnd = field === "time" && !endTimeWasManuallyEdited.current && earliestPickupTime
+          ? calculateDefaultRideEnd(currentRideForm.date, earliestPickupTime, defaultRideDurationMinutes)
+          : null;
+
+        return {
+          ...currentState,
+          [rideFormKey]: {
+            ...currentRideForm,
+            ...(defaultEnd ? { endDate: defaultEnd.date, endTime: defaultEnd.time } : {}),
+            passengers,
+          },
+        };
+      });
     },
-    [rideType],
+    [defaultRideDurationMinutes, rideType],
   );
 
   const autofillPassengerFromKnownGuest = useCallback(
