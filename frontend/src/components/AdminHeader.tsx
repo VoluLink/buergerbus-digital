@@ -1,5 +1,6 @@
 import { CircleUserRound } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import UserMenuButton from './UserMenuButton'
@@ -19,19 +20,33 @@ function AdminHeader() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
   const title = adminTitles[location.pathname]
+  const [headerTarget, setHeaderTarget] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     document.body.dataset.adminPage = title ? 'true' : ''
-    return () => { delete document.body.dataset.adminPage }
+    const findHeader = () => {
+      const target = title ? document.querySelector<HTMLElement>('main > header') : null
+      setHeaderTarget((current) => current === target ? current : target)
+    }
+    findHeader()
+    const observer = new MutationObserver(findHeader)
+    observer.observe(document.getElementById('root')!, { childList: true, subtree: true })
+    return () => {
+      observer.disconnect()
+      delete document.body.dataset.adminPage
+      setHeaderTarget(null)
+    }
   }, [title])
 
-  if (!currentUser || !title) return null
+  if (!currentUser || !title || !headerTarget) return null
 
-  return (
-    <div className="fixed right-3 top-1.5 z-20 sm:right-6 sm:top-3">
+  return createPortal(
+    <div className="ml-auto shrink-0">
       <span className="sr-only">Administration: {title}</span>
       <UserMenuButton onClick={() => navigate('/profil')} icon={<CircleUserRound className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />} />
     </div>
+    ,
+    headerTarget,
   )
 }
 
