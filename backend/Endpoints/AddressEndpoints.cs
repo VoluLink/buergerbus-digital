@@ -36,8 +36,7 @@ public static class AddressEndpoints
             string? q,
             HttpContext httpContext,
             IHttpClientFactory httpClientFactory,
-            ILoggerFactory loggerFactory,
-            CancellationToken cancellationToken) =>
+            ILoggerFactory loggerFactory) =>
         {
             var query = q?.Trim() ?? string.Empty;
             if (query.Length < 3)
@@ -54,14 +53,20 @@ public static class AddressEndpoints
             var stopwatch = Stopwatch.StartNew();
             var requestId = httpContext.TraceIdentifier;
             var requestUri = $"search?format=jsonv2&addressdetails=1&countrycodes=de&limit=5&q={Uri.EscapeDataString(query)}";
+            using var externalTimeoutCts = CancellationTokenSource.CreateLinkedTokenSource(httpContext.RequestAborted);
+            externalTimeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
 
             try
             {
                 var client = httpClientFactory.CreateClient("Nominatim");
+                logger.LogInformation(
+                    "Nominatim client configured. TimeoutMs={TimeoutMs} RequestId={RequestId}",
+                    client.Timeout.TotalMilliseconds,
+                    requestId);
                 using var response = await client.GetAsync(
                     requestUri,
                     HttpCompletionOption.ResponseHeadersRead,
-                    cancellationToken);
+                    externalTimeoutCts.Token);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -75,7 +80,7 @@ public static class AddressEndpoints
                         statusCode: StatusCodes.Status502BadGateway);
                 }
 
-                var addresses = await response.Content.ReadFromJsonAsync<List<NominatimAddress>>(cancellationToken: cancellationToken) ?? [];
+                var addresses = await response.Content.ReadFromJsonAsync<List<NominatimAddress>>(cancellationToken: externalTimeoutCts.Token) ?? [];
                 var suggestions = addresses
                     .Where(address => !string.IsNullOrWhiteSpace(address.DisplayName))
                     .Select(address => new AddressSuggestionDto(
@@ -91,11 +96,20 @@ public static class AddressEndpoints
 
                 return Results.Ok(suggestions);
             }
-            catch (OperationCanceledException) when (!httpContext.RequestAborted.IsCancellationRequested)
+            catch (OperationCanceledException) when (httpContext.RequestAborted.IsCancellationRequested)
+            {
+                // The browser cancelled its request while typing; this is expected.
+                return Results.StatusCode(499);
+            }
+            catch (OperationCanceledException) when (externalTimeoutCts.IsCancellationRequested)
             {
                 logger.LogWarning(
-                    "Nominatim request timed out. QueryLength={QueryLength} DurationMs={DurationMs} RequestId={RequestId}",
-                    query.Length, stopwatch.ElapsedMilliseconds, requestId);
+                    "Nominatim request timed out. ClientTimeoutMs={ClientTimeoutMs} DurationMs={DurationMs} BrowserAborted={BrowserAborted} ExternalTimeoutTriggered={ExternalTimeoutTriggered} RequestId={RequestId}",
+                    15_000,
+                    stopwatch.ElapsedMilliseconds,
+                    false,
+                    true,
+                    requestId);
 
                 return Results.Problem(
                     title: "Adresssuche nicht erreichbar",
@@ -104,8 +118,21 @@ public static class AddressEndpoints
             }
             catch (OperationCanceledException)
             {
-                // The browser cancelled its request while typing; this is expected.
-                return Results.StatusCode(499);
+                // SocketsHttpHandler.ConnectTimeout (5 seconds) cancelled the
+                // connection attempt. This is a connectivity issue, not the
+                // endpoint's 10-second external request timeout.
+                logger.LogWarning(
+                    "Nominatim connection attempt cancelled. ClientTimeoutMs={ClientTimeoutMs} DurationMs={DurationMs} BrowserAborted={BrowserAborted} ExternalTimeoutTriggered={ExternalTimeoutTriggered} RequestId={RequestId}",
+                    15_000,
+                    stopwatch.ElapsedMilliseconds,
+                    false,
+                    false,
+                    requestId);
+
+                return Results.Problem(
+                    title: "Adresssuche nicht erreichbar",
+                    detail: "Der externe Adressdienst ist momentan nicht erreichbar. Die Adresse kann weiterhin manuell eingegeben werden.",
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
             }
             catch (HttpRequestException exception)
             {

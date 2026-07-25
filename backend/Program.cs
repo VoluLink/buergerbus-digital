@@ -38,7 +38,9 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient("Nominatim", client =>
 {
     client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
-    client.Timeout = TimeSpan.FromSeconds(10);
+    // The endpoint owns the 10-second request budget so it can distinguish it
+    // from a browser cancellation and the shorter TCP connect timeout.
+    client.Timeout = TimeSpan.FromSeconds(15);
     client.DefaultRequestHeaders.UserAgent.ParseAdd("BuergerbusDigital/1.0 (kontakt@buergerbus.info)");
     client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
 })
