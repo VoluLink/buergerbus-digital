@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
   type SetStateAction,
@@ -22,6 +23,7 @@ import type { Fahrgast } from "../../../types/Fahrgast";
 import type { Fahrzeug } from "../../../types/Fahrzeug";
 import type { FahrerListItem } from "../../../types/FahrerListItem";
 import { toDateInputValue } from "../utils/dateUtils";
+import { apiFetch } from "../../../services/httpClient";
 
 type UseRideDialogStateParams = {
   initialDateValue: string;
@@ -99,6 +101,12 @@ function isRideFormType(value: RideType): value is RideFormType {
   return value === "standard" || value === "theme";
 }
 
+function addMinutesToTime(value: string, minutes: number) {
+  const [hours, mins] = value.split(":").map(Number);
+  const total = (hours * 60 + mins + minutes) % (24 * 60);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
 export function useRideDialogState({
   initialDateValue,
   selectedInitiativeId,
@@ -110,6 +118,19 @@ export function useRideDialogState({
 }: UseRideDialogStateParams): UseRideDialogStateResult {
   const [isRideDialogOpen, setIsRideDialogOpen] = useState(false);
   const [rideInEditId, setRideInEditId] = useState<number | null>(null);
+  const [defaultRideDurationMinutes, setDefaultRideDurationMinutes] = useState(60);
+  const endTimeWasManuallyEdited = useRef(false);
+
+  useEffect(() => {
+    void apiFetch("/api/v1/app-settings")
+      .then(async response => response.ok ? response.json() as Promise<{ defaultRideDurationMinutes?: number }> : null)
+      .then(settings => {
+        if (settings && Number.isFinite(settings.defaultRideDurationMinutes) && settings.defaultRideDurationMinutes! >= 15 && settings.defaultRideDurationMinutes! <= 1440) {
+          setDefaultRideDurationMinutes(settings.defaultRideDurationMinutes!);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
   const [rideType, setRideType] = useState<RideType>("standard");
   const [rideFormsByType, setRideFormsByType] = useState<
     Record<RideFormType, RideFormState>
@@ -227,6 +248,7 @@ export function useRideDialogState({
     (dateValue: string, initialVehicleId: number | null) => {
       clearRideMessages();
       setRideInEditId(null);
+      endTimeWasManuallyEdited.current = false;
       resetRideForms();
       resetRentalForm(dateValue);
       setRideFormsByType((currentState) => ({
@@ -249,6 +271,7 @@ export function useRideDialogState({
     (ride: CalendarRide) => {
       clearRideMessages();
       setRideInEditId(ride.id);
+      endTimeWasManuallyEdited.current = true;
       setRideType(ride.type);
       setIsRideDialogOpen(true);
 
@@ -366,7 +389,7 @@ export function useRideDialogState({
         },
       }));
     },
-    [rideType],
+    [defaultRideDurationMinutes, rideType],
   );
 
   const updateRideField = useCallback(
@@ -384,6 +407,7 @@ export function useRideDialogState({
           ...currentState[rideFormKey],
           [field]: value,
           ...(field === "driverName" ? { fahrerId: null } : {}),
+          ...(field === "endTime" ? (endTimeWasManuallyEdited.current = true, {}) : {}),
           ...(rideFormKey === "theme" && field === "themeDestination"
             ? {
                 passengers: applyThemeDestinationToPassengers(
@@ -418,6 +442,9 @@ export function useRideDialogState({
         ...currentState,
         [rideFormKey]: {
           ...currentState[rideFormKey],
+          ...(field === "time" && !endTimeWasManuallyEdited.current && typeof value === "string" && /^\d{2}:\d{2}$/.test(value)
+            ? { endTime: addMinutesToTime(value, defaultRideDurationMinutes) }
+            : {}),
           passengers: currentState[rideFormKey].passengers.map((passenger) =>
             passenger.id === passengerId
               ? {

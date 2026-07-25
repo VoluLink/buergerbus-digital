@@ -21,19 +21,22 @@ public class TripEmailNotificationService
     private readonly EmailSettings _emailSettings;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<TripEmailNotificationService> _logger;
+    private readonly SystemSettingsService _settingsService;
 
     public TripEmailNotificationService(
         AppDbContext db,
         IEmailService emailService,
         EmailSettings emailSettings,
         IHttpContextAccessor httpContextAccessor,
-        ILogger<TripEmailNotificationService> logger)
+        ILogger<TripEmailNotificationService> logger,
+        SystemSettingsService settingsService)
     {
         _db = db;
         _emailService = emailService;
         _emailSettings = emailSettings;
         _httpContextAccessor = httpContextAccessor;
         _logger = logger;
+        _settingsService = settingsService;
     }
 
     private int GetCurrentUserId()
@@ -169,6 +172,11 @@ public class TripEmailNotificationService
 
     public async Task SendTripSelfRegistrationEmailAsync(Fahrten ride, Fahrer fahrer)
     {
+        if (!(await _settingsService.GetAsync()).EnableSelfRegistrationEmails)
+        {
+            _logger.LogInformation("Selbstanmeldungs-E-Mail aufgrund der Systemeinstellung übersprungen.");
+            return;
+        }
         if (ride is null || fahrer is null) return;
 
         var user = await _db.Benutzer.FirstOrDefaultAsync(u => u.Id == fahrer.BenutzerId);
@@ -181,6 +189,11 @@ public class TripEmailNotificationService
 
     public async Task SendTripDriverAssignedEmailAsync(Fahrten ride, Fahrer fahrer, ClaimsPrincipal assignedBy)
     {
+        if (!(await _settingsService.GetAsync()).EnableDriverAssignmentEmails)
+        {
+            _logger.LogInformation("Fahrerzuweisungs-E-Mail aufgrund der Systemeinstellung übersprungen.");
+            return;
+        }
         if (ride is null || fahrer is null) return;
 
         var user = await _db.Benutzer.FirstOrDefaultAsync(u => u.Id == fahrer.BenutzerId);

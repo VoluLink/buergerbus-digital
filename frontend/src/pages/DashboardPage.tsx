@@ -24,6 +24,7 @@ import {
 } from "../features/dashboard/utils/dateUtils";
 import { StatusLegend } from "../features/dashboard/components/StatusLegend";
 import ProtectedSideMenu from "../components/ProtectedSideMenu";
+import { DashboardNotificationBanner } from "../features/dashboard/components/DashboardNotificationBanner";
 
 import type { CalendarRide } from "../types/DashboardRide";
 type DayRole = "dispo" | "fahrer";
@@ -421,6 +422,7 @@ function DashboardPage() {
       />
 
       <div className="p-2 sm:p-4 lg:p-6">
+        <DashboardNotificationBanner />
         <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-3xl sm:p-6 lg:p-8">
           <DashboardToolbar
             monthHeading={monthHeading}
