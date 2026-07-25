@@ -104,7 +104,7 @@ export function RegularRideForm({
 
   return (
     <>
-      <div className="mt-6" ref={driverSearchRef}>
+      <div className="mt-6">
         <label
           htmlFor="vehicle-name"
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700"
@@ -140,7 +140,7 @@ export function RegularRideForm({
         ) : null}
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6" ref={driverSearchRef}>
         <label
           htmlFor="driver-name"
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700"
@@ -185,7 +185,13 @@ export function RegularRideForm({
               <button
                 key={driver.fahrerId}
                 type="button"
-                onClick={() => selectDriver(driver.fahrerId)}
+                onMouseDown={(event) => {
+                  // This fires before an input blur/outside-click handler can
+                  // unmount the result list. `fahrerId` is the persisted ride
+                  // foreign key, not the linked BenutzerId.
+                  event.preventDefault();
+                  selectDriver(driver.fahrerId);
+                }}
                 className="flex w-full flex-col items-start border-b border-slate-100 px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 last:border-b-0"
               >
                 <span className="font-semibold text-slate-800">

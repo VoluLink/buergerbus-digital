@@ -18,7 +18,7 @@ The existing `Admin` role is the documented global management role. A `Disponent
 
 ## Driver autocomplete
 
-The driver autocomplete now closes immediately after click or Enter selection, updates the selected driver normally, closes on Escape or outside click, and opens again only after the user focuses or edits the search field.
+The driver autocomplete now closes immediately after click or Enter selection, updates the selected driver normally, closes on Escape or outside click, and opens again only after the user focuses or edits the search field. The result list uses `onMouseDown` and shares its containment ref with the actual driver search area, so an outside-click handler cannot close the list before `autofillFahrer` writes the persisted `fahrerId` and display name into the ride form.
 
 ## Verification
 
