@@ -293,7 +293,7 @@ public static class FahrtenEndpoints
                 if (draftDriver is null)
                     return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
 
-                if (draftDriver.Benutzer.InitiativeId != targetInitiativeId.Value)
+                if (draftDriver.Benutzer?.InitiativeId != targetInitiativeId.Value)
                     return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
 
                 if (!draftDriver.Aktiv)
@@ -381,7 +381,7 @@ public static class FahrtenEndpoints
             if (driver is null)
                 return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
 
-            if (driver.Benutzer.InitiativeId != targetInitiativeId.Value)
+            if (driver.Benutzer?.InitiativeId != targetInitiativeId.Value)
                 return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
 
             if (!driver.Aktiv)
@@ -866,7 +866,7 @@ public static class FahrtenEndpoints
             if (fahrer is null)
                 return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
 
-            if (fahrer.Benutzer.InitiativeId != fahrt.InitiativeId)
+            if (fahrer.Benutzer?.InitiativeId != fahrt.InitiativeId)
                 return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
 
             if (!fahrer.Aktiv)
@@ -947,7 +947,7 @@ public static class FahrtenEndpoints
                 return Results.BadRequest("Angemeldeter Benutzer ist kein aktiver Fahrer.");
             }
 
-            if (fahrer.Benutzer.InitiativeId != fahrt.InitiativeId)
+            if (fahrer.Benutzer?.InitiativeId != fahrt.InitiativeId)
             {
                 return Results.Forbid();
             }
@@ -1091,7 +1091,6 @@ public static class FahrtenEndpoints
         {
             var teilnehmer = await db.FahrtTeilnehmer
                 .Include(tp => tp.Fahrt)
-                    .ThenInclude(f => f.Teilnehmer)
                 .FirstOrDefaultAsync(tp => tp.Id == id);
 
             if (teilnehmer is null)
@@ -1109,6 +1108,11 @@ public static class FahrtenEndpoints
             {
                 return Results.Forbid();
             }
+
+            if (teilnehmer.Fahrt is null)
+                return Results.Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Inkonsistenter Fahrtteilnehmer-Datensatz");
+
+            await db.Entry(teilnehmer.Fahrt).Collection(f => f.Teilnehmer).LoadAsync();
 
             var access = await ValidateRideAccessAsync(user, db, teilnehmer.Fahrt);
             if (access is not null)

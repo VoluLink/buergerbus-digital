@@ -12,6 +12,6 @@ namespace BuergerbusAPI.Models
         public DateTime? SentAt { get; set; }
         public DateTime CreatedAt { get; set; }
 
-        public Notification Notification { get; set; } = null!;
+        public Notification? Notification { get; set; }
     }
 }

@@ -33,6 +33,7 @@ public class TemporaryParticipantCleanupService : ITemporaryParticipantCleanupSe
                 t.IstTemporaer &&
                 t.FahrgastId == null &&
                 t.AnonymisiertAm == null &&
+                t.Fahrt != null &&
                 t.Fahrt.Status == FahrtAbgeschlossenStatus &&
                 (t.Fahrt.Endzeit ?? t.Fahrt.Startzeit) <= grenze)
             .ToListAsync(cancellationToken);

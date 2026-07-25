@@ -22,7 +22,8 @@ public class JwtService
         );
 
         var roles = user.BenutzerRollen
-            .Select(r => r.Rolle.Rollenname)
+            .Where(r => r.Rolle is not null)
+            .Select(r => r.Rolle!.Rollenname)
             .Where(role => !string.IsNullOrWhiteSpace(role))
             .Distinct()
             .ToList();

@@ -564,7 +564,7 @@ public static class UserEndpoints
 
             // Prüfen, ob der Benutzer die Rolle "Fahrer" besitzt
             var hasFahrerRole = user.BenutzerRollen.Any(br =>
-                br.Rolle.Rollenname.ToLower() == "fahrer");
+                string.Equals(br.Rolle?.Rollenname, "fahrer", StringComparison.OrdinalIgnoreCase));
 
             if (request.Fahrer != null && hasFahrerRole)
             {
@@ -676,7 +676,8 @@ public static class UserEndpoints
             }
 
             var roles = user.BenutzerRollen
-                .Select(br => br.Rolle.Rollenname)
+                .Where(br => br.Rolle is not null)
+                .Select(br => br.Rolle!.Rollenname)
                 .Where(name => !string.IsNullOrWhiteSpace(name))
                 .Distinct()
                 .ToList();
@@ -756,7 +757,7 @@ public static class UserEndpoints
                 }
 
                 var userHasAdminRole = user.BenutzerRollen.Any(br =>
-                    string.Equals(br.Rolle.Rollenname, "Admin", StringComparison.OrdinalIgnoreCase));
+                    string.Equals(br.Rolle?.Rollenname, "Admin", StringComparison.OrdinalIgnoreCase));
 
                 if (userHasAdminRole || normalizedRoles.Contains("admin"))
                 {
@@ -789,7 +790,7 @@ public static class UserEndpoints
             }
             // Rollen entfernen, die nicht mehr in der neuen Rollenliste enthalten sind
             user.BenutzerRollen.RemoveAll(br =>
-                !normalizedRoles.Contains(br.Rolle.Rollenname.ToLowerInvariant()));
+                br.Rolle is null || !normalizedRoles.Contains(br.Rolle.Rollenname.ToLowerInvariant()));
 
             // Neue Rollen dem Benutzer zuweisen
             foreach (var roleName in normalizedRoles)

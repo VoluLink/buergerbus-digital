@@ -196,6 +196,8 @@ public static class AuthEndpoints
             }
 
             var user = resetToken.Benutzer;
+            if (user is null)
+                return Results.Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Inkonsistenter Passwort-Reset-Datensatz");
             user.PasswortHash = passwordHasher.HashPassword(user, newPassword);
             user.AuthVersion++;
             resetToken.UsedAt = DateTime.UtcNow;

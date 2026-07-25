@@ -14,7 +14,7 @@ namespace BuergerbusAPI.Models
 
         // 1..n - Benutzer..Fahrer
         public int BenutzerId { get; set; }
-        public Benutzer Benutzer { get; set; }
+        public Benutzer? Benutzer { get; set; }
 
         //Liste für Fahrten
         public List<Fahrten> Fahrten { get; set; } = new();
