@@ -3,16 +3,31 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using BuergerbusAPI.Models;
+using BuergerbusAPI.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace BuergerbusAPI.Services;
 
 public class JwtService
 {
     private readonly IConfiguration _config;
+    private readonly AppDbContext _db;
 
-    public JwtService(IConfiguration config)
+    public JwtService(IConfiguration config, AppDbContext db)
     {
         _config = config;
+        _db = db;
+    }
+
+    public async Task<string> CreateTokenAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        var user = await _db.Benutzer
+            .AsNoTracking()
+            .Include(item => item.BenutzerRollen)
+                .ThenInclude(item => item.Rolle)
+            .SingleAsync(item => item.Id == userId, cancellationToken);
+
+        return CreateToken(user);
     }
 
     public string CreateToken(Benutzer user)

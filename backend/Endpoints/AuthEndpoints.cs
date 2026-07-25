@@ -82,7 +82,7 @@ public static class AuthEndpoints
                 await db.SaveChangesAsync();
             }
 
-            var token = jwtService.CreateToken(user);
+            var token = await jwtService.CreateTokenAsync(user.Id);
             var refresh = await refreshSessions.CreateAsync(user, httpContext);
             refreshSessions.WriteCookie(httpContext.Response, refresh.Token, refresh.Session.ExpiresAtUtc);
             await audit.WriteAsync("RefreshSessionCreated", "RefreshSession", "success", user.Id, refresh.Session.Id.ToString(), user.InitiativeId);
@@ -101,7 +101,7 @@ public static class AuthEndpoints
             if (rotated is null) { refreshSessions.DeleteCookie(context.Response); return Results.Unauthorized(); }
             refreshSessions.WriteCookie(context.Response, rotated.Value.Token, rotated.Value.New.ExpiresAtUtc);
             await audit.WriteAsync("RefreshSessionRotated", "RefreshSession", "success", rotated.Value.User.Id, rotated.Value.New.Id.ToString(), rotated.Value.User.InitiativeId, new { sessionId = rotated.Value.New.Id });
-            return Results.Ok(new RefreshTokenResponseDto(jwtService.CreateToken(rotated.Value.User)));
+            return Results.Ok(new RefreshTokenResponseDto(await jwtService.CreateTokenAsync(rotated.Value.User.Id, ct)));
         });
         app.MapPost("/api/v1/auth/logout", async (HttpContext context, RefreshSessionService refreshSessions, AuditService audit, CancellationToken ct) =>
         {
