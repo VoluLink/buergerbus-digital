@@ -28,12 +28,25 @@ function AdminEmailPage() {
   const [notice, setNotice] = useState('')
   const [details, setDetails] = useState<NotificationDetails | null>(null)
   const [query, setQuery] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+  const [statusFilter, setStatusFilter] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+  const [period, setPeriod] = useState('')
+  const [totalCount, setTotalCount] = useState(0)
+  void setPage
+  void setPageSize
+  void setStatusFilter
+  void setTypeFilter
+  void setPeriod
+  void totalCount
 
   async function load() {
     setLoading(true)
     try {
-      const [loadedInitiatives, loadedHistory, loadedSettings] = await Promise.all([getInitiativen(), getNotifications(), getSettings()])
-      setInitiatives(loadedInitiatives); setHistory(loadedHistory); setSettings(loadedSettings)
+      const fromUtc = period ? new Date(Date.now() - Number(period) * 86400000).toISOString() : ''
+      const [loadedInitiatives, loadedHistory, loadedSettings] = await Promise.all([getInitiativen(), getNotifications(page, pageSize, statusFilter, typeFilter, fromUtc), getSettings()])
+      setInitiatives(loadedInitiatives); setHistory(loadedHistory.items); setTotalCount(loadedHistory.totalCount); setSettings(loadedSettings)
     } catch (err) { setError(err instanceof Error ? err.message : 'E-Mail-Daten konnten nicht geladen werden.') } finally { setLoading(false) }
   }
   useEffect(() => { void load() }, [])
@@ -45,7 +58,7 @@ function AdminEmailPage() {
     setSending(true); setError('')
     try {
       const result = await sendNotification({ subject: subject.trim(), message: message.trim(), type: 'GeneralInfo', initiativeIds: initiativeId ? [Number(initiativeId)] : [], roles })
-      setNotice(result.failedCount ? `Rundmail abgeschlossen: ${result.sentCount} versendet, ${result.failedCount} fehlgeschlagen.` : `Rundmail an ${result.sentCount} Empfänger versendet.`)
+      setNotice(`Rundmail wurde mit ${result.status === 'Pending' ? '0' : result.sentCount} sofort versendeten Empfängern zur Zustellung eingereiht.`)
       setSubject(''); setMessage(''); setRoles([]); setInitiativeId(''); setConfirming(false); setTab('history'); await load()
     } catch (err) { setError(err instanceof Error ? err.message : 'Rundmail konnte nicht versendet werden.'); setConfirming(false) } finally { setSending(false) }
   }

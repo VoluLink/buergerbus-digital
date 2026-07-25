@@ -227,6 +227,83 @@ namespace BuergerbusAPI.Migrations
                     b.ToTable("BenutzerRollen");
                 });
 
+            modelBuilder.Entity("BuergerbusAPI.Models.EmailOutbox", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("EmailType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<int?>("InitiativeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<DateTime?>("NextAttemptUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("NotificationId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("NotificationRecipientId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("ProcessingStartedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Recipient")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("varchar(320)");
+
+                    b.Property<string>("RecipientName")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("SentAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("varchar(250)");
+
+                    b.Property<string>("TemplateDataJson")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TemplateName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("NotificationId");
+
+                    b.HasIndex("Status", "NextAttemptUtc");
+
+                    b.ToTable("EmailOutbox", (string)null);
+                });
+
             modelBuilder.Entity("BuergerbusAPI.Models.Fahrer", b =>
                 {
                     b.Property<int>("Id")
@@ -829,11 +906,23 @@ namespace BuergerbusAPI.Migrations
                     b.Property<int>("DefaultRideDurationMinutes")
                         .HasColumnType("int");
 
+                    b.Property<int>("EmailHistoryRetentionDays")
+                        .HasColumnType("int");
+
                     b.Property<bool>("EnableDriverAssignmentEmails")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("EnableEmailHistoryCleanup")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("EnableSelfRegistrationEmails")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("MaxEmailAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxEmailsPerMinute")
+                        .HasColumnType("int");
 
                     b.Property<bool>("ShowDashboardNotifications")
                         .HasColumnType("tinyint(1)");

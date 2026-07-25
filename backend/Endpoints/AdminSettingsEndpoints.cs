@@ -10,7 +10,7 @@ public static class AdminSettingsEndpoints
   app.MapPut("/api/v1/admin/settings", async (SystemSettingsDto request, HttpContext context, SystemSettingsService service, AuditService audit, CancellationToken ct) =>
   {
    if (!int.TryParse(context.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)) return Results.Forbid();
-   try { var settings = await service.UpdateAsync(request, userId, ct); await audit.WriteAsync("SystemSettingsUpdated", "SystemSettings", "success", userId, settings.Id.ToString(), metadata: new { fields = new[] { "TemporaryParticipantRetentionDays", "EnableDriverAssignmentEmails", "EnableSelfRegistrationEmails", "DefaultRideDurationMinutes", "ShowDashboardNotifications" } }); return Results.Ok(SystemSettingsService.ToDto(settings)); }
+   try { var settings = await service.UpdateAsync(request, userId, ct); await audit.WriteAsync("EMAIL_SETTINGS_CHANGED", "SystemSettings", "success", userId, settings.Id.ToString(), metadata: new { fields = new[] { "TemporaryParticipantRetentionDays", "EnableDriverAssignmentEmails", "EnableSelfRegistrationEmails", "DefaultRideDurationMinutes", "ShowDashboardNotifications", "MaxEmailAttempts", "EmailHistoryRetentionDays", "MaxEmailsPerMinute", "EnableEmailHistoryCleanup" } }); return Results.Ok(SystemSettingsService.ToDto(settings)); }
    catch (ArgumentOutOfRangeException) { return Results.BadRequest("Die Einstellungen sind ungültig."); }
   }).RequireAuthorization("AdminOnly");
   return app;

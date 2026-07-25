@@ -55,3 +55,5 @@ export interface NotificationDetails {
   sentAt?: string | null
   recipients: NotificationRecipient[]
 }
+
+export interface PagedNotifications { items: NotificationSummary[]; page: number; pageSize: number; totalCount: number }

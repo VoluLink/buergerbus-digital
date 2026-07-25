@@ -8,7 +8,7 @@ namespace BuergerbusAPI.Services;
 
 public class TripEmailNotificationService
 {
-    private const string StatusSending = "Sending";
+    private const string StatusSending = "Pending";
     private const string StatusSent = "Sent";
     private const string StatusFailed = "Failed";
 
@@ -23,6 +23,7 @@ public class TripEmailNotificationService
     private readonly ILogger<TripEmailNotificationService> _logger;
     private readonly SystemSettingsService _settingsService;
     private readonly AuditService _audit;
+    private readonly EmailOutboxService _outbox;
 
     public TripEmailNotificationService(
         AppDbContext db,
@@ -31,7 +32,8 @@ public class TripEmailNotificationService
         IHttpContextAccessor httpContextAccessor,
         ILogger<TripEmailNotificationService> logger,
         SystemSettingsService settingsService,
-        AuditService audit)
+        AuditService audit,
+        EmailOutboxService outbox)
     {
         _db = db;
         _emailService = emailService;
@@ -40,6 +42,7 @@ public class TripEmailNotificationService
         _logger = logger;
         _settingsService = settingsService;
         _audit = audit;
+        _outbox = outbox;
     }
 
     private int GetCurrentUserId()
@@ -152,28 +155,7 @@ public class TripEmailNotificationService
         _db.Notifications.Add(notification);
         await _db.SaveChangesAsync();
 
-        try
-        {
-            var htmlBody = message; // caller will pass already formatted HTML
-            await _emailService.SendEmailAsync(user.Email, subject, htmlBody);
-
-            recipient.Status = RecipientStatusSent;
-            recipient.SentAt = DateTime.UtcNow;
-            recipient.Email = MaskEmail(recipient.Email);
-            notification.Status = StatusSent;
-        }
-        catch (Exception ex)
-        {
-            recipient.Status = RecipientStatusFailed;
-            recipient.ErrorMessage = "E-Mail konnte nicht versendet werden.";
-            recipient.Email = MaskEmail(recipient.Email);
-            notification.Status = StatusFailed;
-            _logger.LogError(ex, "Fehler beim Versand der Fahrt-E-Mail an Benutzer {RecipientUserId}.", user.Id);
-            await _audit.WriteAsync("AutomaticEmailFailed", "EmailDelivery", "failure", GetCurrentUserId(), notification.Id.ToString(), initiativeId, new { Type = type, RecipientUserId = user.Id });
-        }
-
-        notification.SentAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
+        await _outbox.EnqueueAsync(type, user.Email, user.Nutzername, subject, message, notification.Id, recipient.Id, initiativeId);
     }
 
     public async Task SendTripSelfRegistrationEmailAsync(Fahrten ride, Fahrer fahrer)

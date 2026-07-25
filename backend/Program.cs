@@ -54,6 +54,7 @@ builder.Services.AddSingleton(new EmailSettings
     FrontendUrl = GetRequiredSetting(builder, "FRONTEND_URL")
 });
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<EmailOutboxService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<TripEmailNotificationService>();
 builder.Services.AddScoped<InitiativeDeletionService>();
@@ -61,6 +62,7 @@ builder.Services.AddScoped<ITemporaryParticipantCleanupService, TemporaryPartici
 builder.Services.AddScoped<PageService>();
 builder.Services.AddScoped<FooterService>();
 builder.Services.AddHostedService<TemporaryParticipantCleanupBackgroundService>();
+builder.Services.AddHostedService<EmailBackgroundWorker>();
 builder.Services.AddControllers();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));

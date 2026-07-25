@@ -9,7 +9,7 @@ namespace BuergerbusAPI.Services;
 public class NotificationService : INotificationService
 {
     private const string StatusDraft = "Draft";
-    private const string StatusSending = "Sending";
+    private const string StatusSending = "Pending";
     private const string StatusSent = "Sent";
     private const string StatusPartiallyFailed = "PartiallyFailed";
     private const string StatusFailed = "Failed";
@@ -32,19 +32,22 @@ public class NotificationService : INotificationService
     private readonly EmailSettings _emailSettings;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<NotificationService> _logger;
+    private readonly EmailOutboxService _outbox;
 
     public NotificationService(
         AppDbContext db,
         IEmailService emailService,
         EmailSettings emailSettings,
         IHttpContextAccessor httpContextAccessor,
-        ILogger<NotificationService> logger)
+        ILogger<NotificationService> logger,
+        EmailOutboxService outbox)
     {
         _db = db;
         _emailService = emailService;
         _emailSettings = emailSettings;
         _httpContextAccessor = httpContextAccessor;
         _logger = logger;
+        _outbox = outbox;
     }
 
     public async Task<NotificationResultDto> SendBroadcastAsync(SendBroadcastNotificationRequest request, string createdByUserId)
@@ -93,44 +96,11 @@ public class NotificationService : INotificationService
         _db.Notifications.Add(notification);
         await _db.SaveChangesAsync();
 
-        var sentCount = 0;
-        var failedCount = 0;
-
         foreach (var recipient in notification.Recipients)
         {
-            try
-            {
-                var htmlBody = BuildBroadcastHtml(notification, recipient);
-                await _emailService.SendEmailAsync(recipient.Email, subject, htmlBody);
-
-                recipient.Status = RecipientStatusSent;
-                recipient.SentAt = DateTime.UtcNow;
-                recipient.ErrorMessage = null;
-                recipient.Email = MaskEmail(recipient.Email);
-                sentCount++;
-            }
-            catch (Exception ex)
-            {
-                recipient.Status = RecipientStatusFailed;
-                recipient.ErrorMessage = "E-Mail konnte nicht versendet werden.";
-                recipient.Email = MaskEmail(recipient.Email);
-                failedCount++;
-                _logger.LogError(ex, "Fehler beim Versand der Benachrichtigung {NotificationId} an Benutzer {RecipientUserId}.", notification.Id, recipient.UserId);
-            }
-
-            await _db.SaveChangesAsync();
+            await _outbox.EnqueueAsync(type, recipient.Email, recipient.DisplayName, subject, BuildBroadcastHtml(notification, recipient), notification.Id, recipient.Id);
         }
-
-        notification.SentAt = DateTime.UtcNow;
-        notification.Status = failedCount == 0
-            ? StatusSent
-            : sentCount == 0
-                ? StatusFailed
-                : StatusPartiallyFailed;
-
-        await _db.SaveChangesAsync();
-
-        return new NotificationResultDto(notification.Id, sentCount, failedCount, notification.Status);
+        return new NotificationResultDto(notification.Id, 0, 0, notification.Status);
     }
 
     public async Task SendUserCreatedEmailAsync(Benutzer user, string inviteOrResetToken)
@@ -163,39 +133,20 @@ public class NotificationService : INotificationService
         _db.Notifications.Add(notification);
         await _db.SaveChangesAsync();
 
-        try
-        {
-            var resetLink = PasswordResetTokenHelper.BuildResetLink(_emailSettings.FrontendUrl, inviteOrResetToken);
-            var htmlBody = BuildUserCreatedHtml(user, resetLink);
-            await _emailService.SendEmailAsync(user.Email, notification.Subject, htmlBody);
-
-            recipient.Status = RecipientStatusSent;
-            recipient.SentAt = DateTime.UtcNow;
-            recipient.Email = MaskEmail(recipient.Email);
-            notification.Status = StatusSent;
-        }
-        catch (Exception ex)
-        {
-            recipient.Status = RecipientStatusFailed;
-            recipient.ErrorMessage = "E-Mail konnte nicht versendet werden.";
-            recipient.Email = MaskEmail(recipient.Email);
-            notification.Status = StatusFailed;
-            _logger.LogError(ex, "Fehler beim Versand der Einladungs-E-Mail an Benutzer {RecipientUserId}.", user.Id);
-        }
-
-        notification.SentAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
+        var resetLink = PasswordResetTokenHelper.BuildResetLink(_emailSettings.FrontendUrl, inviteOrResetToken);
+        await _outbox.EnqueueAsync("UserCreated", user.Email, user.Nutzername, notification.Subject, BuildUserCreatedHtml(user, resetLink), notification.Id, recipient.Id);
     }
 
-    public async Task<List<NotificationSummaryDto>> GetNotificationsAsync()
+    public async Task<PagedNotificationResultDto> GetNotificationsAsync(int page, int pageSize, string? status, string? type, DateTime? fromUtc)
     {
-        var notifications = await _db.Notifications
-            .AsNoTracking()
-            .Include(notification => notification.Recipients)
-            .OrderByDescending(notification => notification.CreatedAt)
-            .ToListAsync();
-
-        return notifications.Select(MapSummary).ToList();
+        page = Math.Max(page, 1); pageSize = pageSize is 50 or 100 ? pageSize : 25;
+        var query = _db.Notifications.AsNoTracking().Include(notification => notification.Recipients).AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(item => item.Status == status);
+        if (!string.IsNullOrWhiteSpace(type)) query = query.Where(item => item.Type == type);
+        if (fromUtc.HasValue) query = query.Where(item => item.CreatedAt >= fromUtc.Value);
+        var total = await query.CountAsync();
+        var notifications = await query.OrderByDescending(notification => notification.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return new PagedNotificationResultDto(notifications.Select(MapSummary).ToList(), page, pageSize, total);
     }
 
     public async Task<NotificationDetailsDto> GetNotificationDetailsAsync(Guid notificationId)

@@ -25,6 +25,7 @@ namespace BuergerbusAPI.Data
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<AdminNotification> AdminNotifications { get; set; }
         public DbSet<SystemSettings> SystemSettings { get; set; }
+        public DbSet<EmailOutbox> EmailOutbox { get; set; }
 
         // Fahrten-System
         public DbSet<Fahrten> Fahrten { get; set; }
@@ -241,6 +242,21 @@ namespace BuergerbusAPI.Data
             {
                 entity.ToTable("SystemSettings");
                 entity.HasKey(item => item.Id);
+            });
+
+            modelBuilder.Entity<EmailOutbox>(entity =>
+            {
+                entity.ToTable("EmailOutbox");
+                entity.Property(item => item.EmailType).HasMaxLength(80).IsRequired();
+                entity.Property(item => item.Recipient).HasMaxLength(320).IsRequired();
+                entity.Property(item => item.RecipientName).HasMaxLength(200);
+                entity.Property(item => item.Subject).HasMaxLength(250).IsRequired();
+                entity.Property(item => item.TemplateName).HasMaxLength(100).IsRequired();
+                entity.Property(item => item.Status).HasMaxLength(20).IsRequired();
+                entity.Property(item => item.LastError).HasMaxLength(300);
+                entity.HasIndex(item => new { item.Status, item.NextAttemptUtc });
+                entity.HasIndex(item => item.CreatedAtUtc);
+                entity.HasIndex(item => item.NotificationId);
             });
 
             modelBuilder.Entity<Benutzer>()

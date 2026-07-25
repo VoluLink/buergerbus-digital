@@ -21,7 +21,7 @@ public sealed class SystemSettingsService(AppDbContext db, IMemoryCache cache)
 
     public async Task<SystemSettings> UpdateAsync(SystemSettingsDto request, int userId, CancellationToken cancellationToken)
     {
-        if (request.TemporaryParticipantRetentionDays is < 1 or > 365 || request.DefaultRideDurationMinutes is < 15 or > 1440)
+        if (request.TemporaryParticipantRetentionDays is < 1 or > 365 || request.DefaultRideDurationMinutes is < 15 or > 1440 || request.MaxEmailAttempts is < 1 or > 5 || request.EmailHistoryRetentionDays is < 1 or > 3650 || request.MaxEmailsPerMinute is < 1 or > 500)
             throw new ArgumentOutOfRangeException(nameof(request), "Die Einstellungen liegen außerhalb der erlaubten Grenzen.");
         var settings = await db.SystemSettings.SingleOrDefaultAsync(cancellationToken);
         if (settings is null) { settings = new SystemSettings(); db.SystemSettings.Add(settings); }
@@ -30,6 +30,10 @@ public sealed class SystemSettingsService(AppDbContext db, IMemoryCache cache)
         settings.EnableSelfRegistrationEmails = request.EnableSelfRegistrationEmails;
         settings.DefaultRideDurationMinutes = request.DefaultRideDurationMinutes;
         settings.ShowDashboardNotifications = request.ShowDashboardNotifications;
+        settings.MaxEmailAttempts = request.MaxEmailAttempts;
+        settings.EmailHistoryRetentionDays = request.EmailHistoryRetentionDays;
+        settings.MaxEmailsPerMinute = request.MaxEmailsPerMinute;
+        settings.EnableEmailHistoryCleanup = request.EnableEmailHistoryCleanup;
         settings.UpdatedAtUtc = DateTime.UtcNow;
         settings.UpdatedByUserId = userId;
         await db.SaveChangesAsync(cancellationToken);
@@ -37,5 +41,5 @@ public sealed class SystemSettingsService(AppDbContext db, IMemoryCache cache)
         return settings;
     }
 
-    public static SystemSettingsDto ToDto(SystemSettings item) => new(item.TemporaryParticipantRetentionDays, item.EnableDriverAssignmentEmails, item.EnableSelfRegistrationEmails, item.DefaultRideDurationMinutes, item.ShowDashboardNotifications, item.UpdatedAtUtc);
+    public static SystemSettingsDto ToDto(SystemSettings item) => new(item.TemporaryParticipantRetentionDays, item.EnableDriverAssignmentEmails, item.EnableSelfRegistrationEmails, item.DefaultRideDurationMinutes, item.ShowDashboardNotifications, item.MaxEmailAttempts, item.EmailHistoryRetentionDays, item.MaxEmailsPerMinute, item.EnableEmailHistoryCleanup, item.UpdatedAtUtc);
 }

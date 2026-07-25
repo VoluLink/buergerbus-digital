@@ -8,6 +8,10 @@ public class SystemSettings
     public bool EnableSelfRegistrationEmails { get; set; } = true;
     public int DefaultRideDurationMinutes { get; set; } = 60;
     public bool ShowDashboardNotifications { get; set; } = true;
+    public int MaxEmailAttempts { get; set; } = 5;
+    public int EmailHistoryRetentionDays { get; set; } = 180;
+    public int MaxEmailsPerMinute { get; set; } = 100;
+    public bool EnableEmailHistoryCleanup { get; set; } = true;
     public DateTime UpdatedAtUtc { get; set; }
     public int? UpdatedByUserId { get; set; }
 }

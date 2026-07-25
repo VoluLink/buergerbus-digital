@@ -99,9 +99,9 @@ public static class AdminNotificationEndpoints
         .RequireAuthorization("AdminOnly");
 
         app.MapGet("/api/v1/admin/broadcast-emails", async (
-            INotificationService notificationService) =>
+            int? page, int? pageSize, string? status, string? type, DateTime? fromUtc, INotificationService notificationService) =>
         {
-            var notifications = await notificationService.GetNotificationsAsync();
+            var notifications = await notificationService.GetNotificationsAsync(page ?? 1, pageSize ?? 25, status, type, fromUtc);
             return Results.Ok(notifications);
         })
         .RequireAuthorization("AdminOnly");

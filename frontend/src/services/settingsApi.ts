@@ -1,4 +1,4 @@
 import { apiFetch } from './httpClient'
-export type Settings={temporaryParticipantRetentionDays:number;enableDriverAssignmentEmails:boolean;enableSelfRegistrationEmails:boolean;defaultRideDurationMinutes:number;showDashboardNotifications:boolean;updatedAtUtc:string}
+export type Settings={temporaryParticipantRetentionDays:number;enableDriverAssignmentEmails:boolean;enableSelfRegistrationEmails:boolean;defaultRideDurationMinutes:number;showDashboardNotifications:boolean;maxEmailAttempts:number;emailHistoryRetentionDays:number;maxEmailsPerMinute:number;enableEmailHistoryCleanup:boolean;updatedAtUtc:string}
 export async function getSettings(){const r=await apiFetch('/api/v1/admin/settings');if(!r.ok)throw new Error('Einstellungen konnten nicht geladen werden.');return r.json() as Promise<Settings>}
 export async function saveSettings(data:Settings){const r=await apiFetch('/api/v1/admin/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});if(!r.ok)throw new Error(r.status===400?'Bitte prüfen Sie die markierten Felder.':'Einstellungen konnten nicht gespeichert werden.');return r.json() as Promise<Settings>}
