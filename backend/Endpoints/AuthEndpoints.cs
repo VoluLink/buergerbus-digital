@@ -111,8 +111,9 @@ public static class AuthEndpoints
         app.MapPost("/api/v1/auth/forgot-password", async (
             ForgotPasswordRequest request,
             AppDbContext db,
-            IEmailService emailService,
             EmailSettings emailSettings,
+            EmailOutboxService outbox,
+            EmailTemplateService templates,
             ILoggerFactory loggerFactory,
             AuditService audit) =>
         {
@@ -164,12 +165,8 @@ public static class AuthEndpoints
                     await db.SaveChangesAsync();
 
                     var resetLink = BuildResetLink(emailSettings.FrontendUrl, token);
-                    var htmlBody = $@"<p>Hallo {System.Net.WebUtility.HtmlEncode(user.Nutzername)},</p>
-<p>du hast eine Zurücksetzung deines Passworts angefordert.</p>
-<p><a href=""{resetLink}"">Passwort jetzt zurücksetzen</a></p>
-<p>Der Link ist 60 Minuten gültig. Falls du das nicht angefordert hast, kannst du diese E-Mail ignorieren.</p>";
-
-                    await emailService.SendEmailAsync(user.Email, "Passwort zurücksetzen", htmlBody);
+                    var rendered = await templates.RenderAsync("PasswordReset", new PasswordResetTemplateContext(user.Nutzername, resetLink, "60", user.Initiative?.Name ?? "Bürgerbus", "Bürgerbus-Team"));
+                    await outbox.EnqueueAsync("PasswordReset", user.Email, user.Nutzername, rendered.Subject, rendered.Html, initiativeId: user.InitiativeId);
                     await audit.WriteAsync("password_reset_requested", "Benutzer", "success", user.Id, user.Id.ToString(), user.InitiativeId);
                 }
             }

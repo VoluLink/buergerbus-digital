@@ -738,7 +738,6 @@ public static class FahrtenEndpoints
                 Zielort = existing.Zielort,
                 FahrzeugId = existing.FahrzeugId,
                 Status = existing.Status,
-                Bemerkung = existing.Bemerkung,
                 FahrerId = existing.FahrerId
             };
 
@@ -770,8 +769,16 @@ public static class FahrtenEndpoints
                     || oldSnapshot.Endzeit != loaded.Endzeit
                     || !string.Equals(oldSnapshot.Zielort, loaded.Zielort, StringComparison.OrdinalIgnoreCase)
                     || oldSnapshot.FahrzeugId != loaded.FahrzeugId
-                    || !string.Equals(oldSnapshot.Status, loaded.Status, StringComparison.OrdinalIgnoreCase)
-                    || !string.Equals(oldSnapshot.Bemerkung, loaded.Bemerkung, StringComparison.OrdinalIgnoreCase);
+                    || !string.Equals(oldSnapshot.Status, loaded.Status, StringComparison.OrdinalIgnoreCase);
+
+                var changedFields = new List<string>();
+                if (oldSnapshot.Datum != loaded.Datum) changedFields.Add($"Datum: {oldSnapshot.Datum:dd.MM.yyyy} → {loaded.Datum:dd.MM.yyyy}");
+                if (oldSnapshot.Startzeit != loaded.Startzeit) changedFields.Add($"Startzeit: {oldSnapshot.Startzeit:HH\\:mm} → {loaded.Startzeit:HH\\:mm}");
+                if (oldSnapshot.Endzeit != loaded.Endzeit) changedFields.Add("Endzeit wurde geändert");
+                if (!string.Equals(oldSnapshot.Zielort, loaded.Zielort, StringComparison.OrdinalIgnoreCase)) changedFields.Add("Ziel wurde geändert");
+                if (!string.Equals(oldSnapshot.Fahrttyp, loaded.Fahrttyp, StringComparison.OrdinalIgnoreCase)) changedFields.Add("Fahrtart wurde geändert");
+                if (oldSnapshot.FahrzeugId != loaded.FahrzeugId) changedFields.Add("Fahrzeug wurde geändert");
+                if (!string.Equals(oldSnapshot.Status, loaded.Status, StringComparison.OrdinalIgnoreCase)) changedFields.Add($"Status: {oldSnapshot.Status ?? "nicht angegeben"} → {loaded.Status ?? "nicht angegeben"}");
 
                 try
                 {
@@ -789,7 +796,7 @@ public static class FahrtenEndpoints
                         var driver = await db.Fahrer.Include(f => f.Benutzer).FirstOrDefaultAsync(f => f.Id == loaded.FahrerId.Value);
                         if (driver is not null)
                         {
-                            await tripEmailService.SendTripChangedEmailAsync(loaded, driver);
+                            await tripEmailService.SendTripUpdatedEmailAsync(loaded, driver, string.Join("\n", changedFields));
                         }
                     }
                 }

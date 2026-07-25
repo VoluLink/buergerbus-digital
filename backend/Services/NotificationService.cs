@@ -28,27 +28,21 @@ public class NotificationService : INotificationService
     private const string RoleDriver = "Fahrer";
 
     private readonly AppDbContext _db;
-    private readonly IEmailService _emailService;
     private readonly EmailSettings _emailSettings;
     private readonly IHttpContextAccessor _httpContextAccessor;
-    private readonly ILogger<NotificationService> _logger;
     private readonly EmailOutboxService _outbox;
     private readonly EmailTemplateService _templates;
 
     public NotificationService(
         AppDbContext db,
-        IEmailService emailService,
         EmailSettings emailSettings,
         IHttpContextAccessor httpContextAccessor,
-        ILogger<NotificationService> logger,
         EmailOutboxService outbox,
         EmailTemplateService templates)
     {
         _db = db;
-        _emailService = emailService;
         _emailSettings = emailSettings;
         _httpContextAccessor = httpContextAccessor;
-        _logger = logger;
         _outbox = outbox;
         _templates = templates;
     }
@@ -109,12 +103,14 @@ public class NotificationService : INotificationService
     public async Task SendUserCreatedEmailAsync(Benutzer user, string inviteOrResetToken)
     {
         var creatorId = GetCurrentUserId();
+        var resetLink = PasswordResetTokenHelper.BuildResetLink(_emailSettings.FrontendUrl, inviteOrResetToken);
+        var rendered = await _templates.RenderAsync("UserCreated", new InvitationTemplateContext(user.Nutzername, resetLink));
         var notification = new Notification
         {
             Id = Guid.NewGuid(),
             Type = "UserCreated",
-            Subject = "Dein Bürgerbus-Account wurde erstellt",
-            Message = "Für dich wurde ein Benutzerkonto im Bürgerbus-System erstellt. Bitte setze über den folgenden Link dein Passwort.",
+            Subject = rendered.Subject,
+            Message = rendered.PlainText,
             CreatedByUserId = creatorId,
             CreatedAt = DateTime.UtcNow,
             Status = StatusSending,
@@ -136,10 +132,6 @@ public class NotificationService : INotificationService
         _db.Notifications.Add(notification);
         await _db.SaveChangesAsync();
 
-        var resetLink = PasswordResetTokenHelper.BuildResetLink(_emailSettings.FrontendUrl, inviteOrResetToken);
-        var rendered = await _templates.RenderAsync("UserCreated", new InvitationTemplateContext(user.Nutzername, resetLink));
-        notification.Subject = rendered.Subject;
-        await _db.SaveChangesAsync();
         await _outbox.EnqueueAsync("UserCreated", user.Email, user.Nutzername, rendered.Subject, rendered.Html, notification.Id, recipient.Id);
     }
 
