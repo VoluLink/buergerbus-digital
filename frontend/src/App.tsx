@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
+import AdminHeader from './components/AdminHeader'
 
 import { useAuth } from './context/AuthContext'
 import { getStoredToken } from './services/httpClient'
@@ -34,6 +35,7 @@ function App() {
 
   return (
     <Suspense fallback={<div className="p-6 text-sm text-slate-500">Lade Seite...</div>}>
+      <AdminHeader />
       <Routes>
         <Route
           path="/"
