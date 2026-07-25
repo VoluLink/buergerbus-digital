@@ -33,7 +33,7 @@ public static class InitiativeEndpoints
             return Results.Ok(initiatives);
         }
 
-        static async Task<IResult> CreateInitiative(CreateInitiativeRequest request, AppDbContext db)
+        static async Task<IResult> CreateInitiative(CreateInitiativeRequest request, HttpContext httpContext, AppDbContext db, AuditService audit)
         {
             var name = (request.Name ?? string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(name))
@@ -61,6 +61,7 @@ public static class InitiativeEndpoints
 
             db.Initiativen.Add(entity);
             await db.SaveChangesAsync();
+            await audit.WriteAsync("Created", "Initiative", "Success", AuthUtils.GetUserId(httpContext.User), entity.Id.ToString(), entity.Id, new { name = entity.Name });
 
             var dto = new InitiativeDetailsDto(
                 entity.Id,
@@ -73,7 +74,7 @@ public static class InitiativeEndpoints
             return Results.Created($"/api/v1/admin/initiatives/{entity.Id}", dto);
         }
 
-        static async Task<IResult> UpdateInitiative(int id, UpdateInitiativeDetailsRequest request, AppDbContext db)
+        static async Task<IResult> UpdateInitiative(int id, UpdateInitiativeDetailsRequest request, HttpContext httpContext, AppDbContext db, AuditService audit)
         {
             var entity = await db.Initiativen.FirstOrDefaultAsync(i => i.Id == id);
             if (entity is null)
@@ -97,11 +98,13 @@ public static class InitiativeEndpoints
                 ? null
                 : request.Beschreibung!.Trim();
 
+            var previousName = entity.Name;
             entity.Name = name;
             entity.Beschreibung = beschreibung;
             entity.GeaendertAm = DateTime.UtcNow;
 
             await db.SaveChangesAsync();
+            await audit.WriteAsync("Updated", "Initiative", "Success", AuthUtils.GetUserId(httpContext.User), entity.Id.ToString(), entity.Id, new { name = entity.Name, nameChanged = !string.Equals(previousName, entity.Name, StringComparison.Ordinal) });
 
             return Results.Ok(new InitiativeDetailsDto(
                 entity.Id,
@@ -112,13 +115,20 @@ public static class InitiativeEndpoints
             ));
         }
 
-        static async Task<IResult> DeleteInitiative(int id, InitiativeDeletionService initiativeDeletionService)
+        static async Task<IResult> DeleteInitiative(int id, HttpContext httpContext, AppDbContext db, InitiativeDeletionService initiativeDeletionService, AuditService audit)
         {
+            var initiative = await db.Initiativen.AsNoTracking().FirstOrDefaultAsync(i => i.Id == id);
+            if (initiative is null)
+            {
+                return Results.NotFound("Initiative wurde nicht gefunden.");
+            }
             var (ok, error) = await initiativeDeletionService.DeleteAsync(id);
             if (!ok)
             {
                 return Results.Conflict(error ?? "Die Initiative konnte nicht gelöscht werden.");
             }
+
+            await audit.WriteAsync("Deleted", "Initiative", "Success", AuthUtils.GetUserId(httpContext.User), id.ToString(), null, new { name = initiative.Name });
 
             return Results.NoContent();
         }
@@ -180,7 +190,8 @@ public static class InitiativeEndpoints
             int id,
             UpdateInitiativeRequest request,
             HttpContext httpContext,
-            AppDbContext db
+            AppDbContext db,
+            AuditService audit
         ) =>
         {
             var principal = httpContext.User;
@@ -218,8 +229,10 @@ public static class InitiativeEndpoints
                 return Results.NotFound("Initiative wurde nicht gefunden.");
             }
 
+            var previousInitiativeId = user.InitiativeId;
             user.InitiativeId = initiative.Id;
             await db.SaveChangesAsync();
+            await audit.WriteAsync("InitiativeAssigned", "User", "Success", AuthUtils.GetUserId(httpContext.User), user.Id.ToString(), initiative.Id, new { username = user.Nutzername, previousInitiativeId, initiativeId = initiative.Id, initiativeName = initiative.Name });
 
             return Results.Ok(new InitiativeDto(initiative.Id, initiative.Name));
         })

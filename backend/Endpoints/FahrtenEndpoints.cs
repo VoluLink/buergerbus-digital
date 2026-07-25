@@ -627,6 +627,7 @@ public static class FahrtenEndpoints
             CreateFahrtRequest request,
             AppDbContext db,
             HttpContext httpContext,
+            AuditService audit,
             TripEmailNotificationService tripEmailService,
             RideTimeValidationService timeValidation,
             RideConflictService conflictService
@@ -659,6 +660,16 @@ public static class FahrtenEndpoints
                     .Include(f => f.Teilstrecken)
                         .ThenInclude(t => t.Fahrgast)
                     .FirstAsync(f => f.Id == ride.Id);
+
+                await audit.WriteAsync("Created", "Ride", "Success", AuthUtils.GetUserId(httpContext.User), loaded.Id.ToString(), loaded.InitiativeId, new
+                {
+                    title = loaded.Titel,
+                    date = loaded.Datum.ToString("yyyy-MM-dd"),
+                    status = loaded.Status,
+                    driverId = loaded.FahrerId,
+                    vehicleId = loaded.FahrzeugId,
+                    participantCount = loaded.Teilnehmer.Count
+                });
 
                 // If a driver was assigned during creation, notify them
                 if (request.Fahrt.FahrerId.HasValue && !IsSavedRideStatus(loaded.Status))
@@ -695,6 +706,7 @@ public static class FahrtenEndpoints
             UpdateFahrtRequest request,
             AppDbContext db,
             HttpContext httpContext,
+            AuditService audit,
             TripEmailNotificationService tripEmailService,
             RideTimeValidationService timeValidation,
             RideConflictService conflictService
@@ -780,6 +792,14 @@ public static class FahrtenEndpoints
                 if (oldSnapshot.FahrzeugId != loaded.FahrzeugId) changedFields.Add("Fahrzeug wurde geändert");
                 if (!string.Equals(oldSnapshot.Status, loaded.Status, StringComparison.OrdinalIgnoreCase)) changedFields.Add($"Status: {oldSnapshot.Status ?? "nicht angegeben"} → {loaded.Status ?? "nicht angegeben"}");
 
+                await audit.WriteAsync("Updated", "Ride", "Success", AuthUtils.GetUserId(httpContext.User), loaded.Id.ToString(), loaded.InitiativeId, new
+                {
+                    title = loaded.Titel,
+                    changes = changedFields,
+                    driverChanged = oldSnapshot.FahrerId != loaded.FahrerId,
+                    participantCount = loaded.Teilnehmer.Count
+                });
+
                 try
                 {
                     // If driver changed and new driver assigned -> send assigned email
@@ -818,7 +838,8 @@ public static class FahrtenEndpoints
         app.MapDelete("/api/v1/rides/{id:int}", async (
             int id,
             AppDbContext db,
-            HttpContext httpContext
+            HttpContext httpContext,
+            AuditService audit
         ) =>
         {
             if (!AuthUtils.CanManageRides(httpContext.User))
@@ -845,11 +866,19 @@ public static class FahrtenEndpoints
             db.Fahrten.Remove(ride);
             await db.SaveChangesAsync();
 
+            await audit.WriteAsync("Deleted", "Ride", "Success", AuthUtils.GetUserId(httpContext.User), id.ToString(), ride.InitiativeId, new
+            {
+                title = ride.Titel,
+                date = ride.Datum.ToString("yyyy-MM-dd"),
+                status = ride.Status,
+                participantCount = ride.Teilnehmer.Count
+            });
+
             return Results.Ok("Fahrt wurde gelöscht.");
         })
         .RequireAuthorization();
 
-        app.MapPatch("/api/v1/rides/{id:int}/driver/{fahrerId:int}", async (int id, int fahrerId, AppDbContext db, HttpContext httpContext, TripEmailNotificationService tripEmailService) =>
+        app.MapPatch("/api/v1/rides/{id:int}/driver/{fahrerId:int}", async (int id, int fahrerId, AppDbContext db, HttpContext httpContext, TripEmailNotificationService tripEmailService, AuditService audit) =>
         {
             if (!AuthUtils.CanManageRides(httpContext.User))
             {
@@ -892,6 +921,8 @@ public static class FahrtenEndpoints
 
             await db.SaveChangesAsync();
 
+            await audit.WriteAsync("DriverAssigned", "Ride", "Success", AuthUtils.GetUserId(httpContext.User), fahrt.Id.ToString(), fahrt.InitiativeId, new { title = fahrt.Titel, previousDriverId = previous, driverId = fahrerId });
+
             // If assignment changed, notify new driver
             if (previous != fahrerId)
             {
@@ -913,7 +944,8 @@ public static class FahrtenEndpoints
             int fahrtId,
             AppDbContext db,
             HttpContext httpContext,
-            TripEmailNotificationService tripEmailService) =>
+            TripEmailNotificationService tripEmailService,
+            AuditService audit) =>
         {
             var user = httpContext.User;
             var userId = AuthUtils.GetUserId(user);
@@ -986,6 +1018,8 @@ public static class FahrtenEndpoints
 
             await db.SaveChangesAsync();
 
+            await audit.WriteAsync("DriverSelfRegistered", "Ride", "Success", userId, fahrt.Id.ToString(), fahrt.InitiativeId, new { title = fahrt.Titel, driverId = fahrer.Id });
+
             if (previousFahrerId != fahrer.Id)
             {
                 try
@@ -1010,7 +1044,8 @@ public static class FahrtenEndpoints
         app.MapDelete("/api/v1/rides/{fahrtId:int}/self-registration", async (
             int fahrtId,
             AppDbContext db,
-            HttpContext httpContext) =>
+            HttpContext httpContext,
+            AuditService audit) =>
         {
             var user = httpContext.User;
             var userId = AuthUtils.GetUserId(user);
@@ -1060,6 +1095,8 @@ public static class FahrtenEndpoints
             fahrt.Status = IsThemeRide(fahrt.Fahrttyp) ? "Themenfahrt" : "Offen";
 
             await db.SaveChangesAsync();
+
+            await audit.WriteAsync("DriverSelfRegistrationCancelled", "Ride", "Success", userId, fahrt.Id.ToString(), fahrt.InitiativeId, new { title = fahrt.Titel, driverId = fahrerId.Value });
 
             return Results.Ok(new
             {

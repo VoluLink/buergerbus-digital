@@ -75,7 +75,8 @@ public static class FahrzeugServiceEndpoints
             HttpContext httpContext,
             int? userId,
             CreateFahrzeugRequest request,
-            AppDbContext db
+            AppDbContext db,
+            AuditService audit
         ) =>
         {
             if (!AuthUtils.CanManageVehicles(httpContext.User))
@@ -133,6 +134,7 @@ public static class FahrzeugServiceEndpoints
 
             db.Fahrzeuge.Add(fahrzeug);
             await db.SaveChangesAsync();
+            await audit.WriteAsync("Created", "Vehicle", "Success", AuthUtils.GetUserId(httpContext.User), fahrzeug.Id.ToString(), fahrzeug.InitiativeId, new { label = fahrzeug.Bezeichnung, licensePlate = fahrzeug.Kennzeichen, status = fahrzeug.Status });
 
             var initiativeName = await db.Initiativen
                 .Where(i => i.Id == fahrzeug.InitiativeId)
@@ -165,7 +167,8 @@ public static class FahrzeugServiceEndpoints
             HttpContext httpContext,
             int? userId,
             UpdateFahrzeugRequest request,
-            AppDbContext db
+            AppDbContext db,
+            AuditService audit
         ) =>
         {
             if (!AuthUtils.CanManageVehicles(httpContext.User))
@@ -178,6 +181,7 @@ public static class FahrzeugServiceEndpoints
             {
                 return Results.NotFound("Fahrzeug wurde nicht gefunden.");
             }
+            var previous = new { fahrzeug.Kennzeichen, fahrzeug.Bezeichnung, fahrzeug.Status, fahrzeug.Aktiv, fahrzeug.Kilometerstand, fahrzeug.InitiativeId };
 
             var authResult = await EnsureUserCanAccessVehicleAsync(httpContext.User, id, userId, db, fahrzeug);
             if (authResult != null)
@@ -230,6 +234,14 @@ public static class FahrzeugServiceEndpoints
             fahrzeug.InitiativeId = request.InitiativeId;
 
             await db.SaveChangesAsync();
+            var changes = new List<string>();
+            if (!string.Equals(previous.Kennzeichen, fahrzeug.Kennzeichen, StringComparison.Ordinal)) changes.Add("Kennzeichen");
+            if (!string.Equals(previous.Bezeichnung, fahrzeug.Bezeichnung, StringComparison.Ordinal)) changes.Add("Bezeichnung");
+            if (!string.Equals(previous.Status, fahrzeug.Status, StringComparison.Ordinal)) changes.Add("Status");
+            if (previous.Aktiv != fahrzeug.Aktiv) changes.Add("Aktivstatus");
+            if (previous.Kilometerstand != fahrzeug.Kilometerstand) changes.Add("Kilometerstand");
+            if (previous.InitiativeId != fahrzeug.InitiativeId) changes.Add("Initiative");
+            await audit.WriteAsync("Updated", "Vehicle", "Success", AuthUtils.GetUserId(httpContext.User), fahrzeug.Id.ToString(), fahrzeug.InitiativeId, new { label = fahrzeug.Bezeichnung, changes });
 
             var initiativeName = await db.Initiativen
                 .Where(i => i.Id == fahrzeug.InitiativeId)
@@ -277,7 +289,8 @@ public static class FahrzeugServiceEndpoints
             int id,
             HttpContext httpContext,
             int? userId,
-            AppDbContext db
+            AppDbContext db,
+            AuditService audit
         ) =>
         {
             if (!AuthUtils.CanManageVehicles(httpContext.User))
@@ -290,6 +303,7 @@ public static class FahrzeugServiceEndpoints
             {
                 return Results.NotFound("Fahrzeug wurde nicht gefunden.");
             }
+            var auditVehicle = new { fahrzeug.Bezeichnung, fahrzeug.Kennzeichen, fahrzeug.InitiativeId };
 
             var authResult = await EnsureUserCanAccessVehicleAsync(httpContext.User, id, userId, db, fahrzeug);
             if (authResult != null)
@@ -299,6 +313,7 @@ public static class FahrzeugServiceEndpoints
 
             db.Fahrzeuge.Remove(fahrzeug);
             await db.SaveChangesAsync();
+            await audit.WriteAsync("Deleted", "Vehicle", "Success", AuthUtils.GetUserId(httpContext.User), id.ToString(), auditVehicle.InitiativeId, new { label = auditVehicle.Bezeichnung, licensePlate = auditVehicle.Kennzeichen });
 
             return Results.NoContent();
         })

@@ -43,7 +43,13 @@ public static class AdminAuditLogEndpoints
     {
         if (string.IsNullOrWhiteSpace(json)) return new Dictionary<string,string>();
         var blocked = new[] { "password", "token", "secret", "connection", "smtp", "cookie", "authorization" };
-        try { using var doc = JsonDocument.Parse(json); return doc.RootElement.ValueKind != JsonValueKind.Object ? new Dictionary<string,string>() : doc.RootElement.EnumerateObject().Where(p => !blocked.Any(x => p.Name.Contains(x, StringComparison.OrdinalIgnoreCase))).ToDictionary(p => p.Name, p => p.Value.ValueKind is JsonValueKind.String or JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False ? p.Value.ToString() : "[ausgeblendet]"); }
+        try { using var doc = JsonDocument.Parse(json); return doc.RootElement.ValueKind != JsonValueKind.Object ? new Dictionary<string,string>() : doc.RootElement.EnumerateObject().Where(p => !blocked.Any(x => p.Name.Contains(x, StringComparison.OrdinalIgnoreCase))).ToDictionary(p => p.Name, p => SafeValue(p.Value)); }
         catch (JsonException) { return new Dictionary<string,string>(); }
+    }
+    private static string SafeValue(JsonElement value)
+    {
+        if (value.ValueKind is JsonValueKind.String or JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False) return value.ToString();
+        if (value.ValueKind == JsonValueKind.Array) return string.Join(", ", value.EnumerateArray().Where(item => item.ValueKind is JsonValueKind.String or JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False).Select(item => item.ToString()));
+        return "[ausgeblendet]";
     }
 }
