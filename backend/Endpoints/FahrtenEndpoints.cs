@@ -227,6 +227,8 @@ public static class FahrtenEndpoints
         ClaimsPrincipal principal,
         FahrtMetaDto meta,
         List<CreateFahrtTeilnehmerDto> teilnehmer,
+        RideTimeValidationService timeValidation,
+        RideConflictService conflictService,
         int? ignoreRideId = null)
     {
         if (!AuthUtils.GetUserId(principal).HasValue)
@@ -249,6 +251,10 @@ public static class FahrtenEndpoints
             string.Equals(meta.Fahrttyp, "rental", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(meta.Fahrttyp, "Vermietung", StringComparison.OrdinalIgnoreCase);
         var isSaved = IsSavedRideStatus(meta.Status);
+
+        var timeError = timeValidation.Validate(meta, teilnehmer, isSaved, isRental);
+        if (timeError is not null)
+            return Results.BadRequest(timeError);
 
         if (isSaved)
         {
@@ -344,9 +350,6 @@ public static class FahrtenEndpoints
         if (teilnehmer.Count == 0 && !isRental)
             return Results.BadRequest("Mindestens ein Teilnehmer ist erforderlich.");
 
-        if (teilnehmer.Count > 8 && !isRental)
-            return Results.BadRequest("Eine Fahrt darf maximal 8 Teilnehmer haben.");
-
         if (!meta.FahrzeugId.HasValue)
             return Results.BadRequest("Ein Fahrzeug muss ausgewählt werden.");
 
@@ -362,6 +365,9 @@ public static class FahrtenEndpoints
 
         if (!vehicle.Aktiv)
             return Results.BadRequest("Fahrzeug ist inaktiv.");
+
+        if (!isRental && teilnehmer.Count > vehicle.Kapazitaet)
+            return Results.BadRequest($"Das ausgewählte Fahrzeug bietet nur {vehicle.Kapazitaet} Fahrgastplätze.");
 
         var requestedFahrerId = meta.FahrerId;
 
@@ -382,42 +388,9 @@ public static class FahrtenEndpoints
                 return Results.BadRequest("Fahrer ist inaktiv.");
         }
 
-        var rideStart = meta.Startzeit;
-        var endDate = meta.DatumBis ?? meta.Datum;
-        var rideExclusiveEnd = meta.Endzeit ?? meta.Startzeit.Date.AddDays(1);
-
-        if (meta.FahrzeugId.HasValue)
-        {
-            var vehicleBusy = await db.Fahrten.AsNoTracking().AnyAsync(f =>
-                f.FahrzeugId == meta.FahrzeugId.Value
-                && f.InitiativeId == targetInitiativeId.Value
-                && (!ignoreRideId.HasValue || f.Id != ignoreRideId.Value)
-                && f.Startzeit < rideExclusiveEnd
-                && (f.Endzeit ?? f.Startzeit.Date.AddDays(1)) > rideStart);
-
-            if (!vehicleBusy)
-                return null;
-
-            if (isRental)
-            {
-                return Results.Conflict("Fahrzeug ist in diesem Zeitraum bereits vermietet.");
-            }
-
-            return Results.Conflict("Fahrzeug ist in diesem Zeitraum bereits belegt.");
-        }
-
-        if (requestedFahrerId.HasValue && !isRental)
-        {
-            var driverBusy = await db.Fahrten.AsNoTracking().AnyAsync(f =>
-                f.FahrerId == requestedFahrerId.Value
-                && f.InitiativeId == targetInitiativeId.Value
-                && (!ignoreRideId.HasValue || f.Id != ignoreRideId.Value)
-                && f.Startzeit < rideExclusiveEnd
-                && (f.Endzeit ?? f.Startzeit.Date.AddDays(1)) > rideStart);
-
-            if (driverBusy)
-                return Results.Conflict("Fahrer ist in diesem Zeitraum bereits eingeplant.");
-        }
+        var conflictError = await conflictService.ValidateAsync(meta, targetInitiativeId.Value, ignoreRideId, isRental);
+        if (conflictError is not null)
+            return Results.Conflict(conflictError);
 
         foreach (var participant in teilnehmer)
         {
@@ -654,7 +627,9 @@ public static class FahrtenEndpoints
             CreateFahrtRequest request,
             AppDbContext db,
             HttpContext httpContext,
-            TripEmailNotificationService tripEmailService
+            TripEmailNotificationService tripEmailService,
+            RideTimeValidationService timeValidation,
+            RideConflictService conflictService
         ) =>
         {
             if (!AuthUtils.CanManageRides(httpContext.User))
@@ -662,7 +637,7 @@ public static class FahrtenEndpoints
                 return Results.Forbid();
             }
 
-            var validation = await ValidateRideWriteAsync(db, httpContext.User, request.Fahrt, request.Teilnehmer);
+            var validation = await ValidateRideWriteAsync(db, httpContext.User, request.Fahrt, request.Teilnehmer, timeValidation, conflictService);
             if (validation is not null)
             {
                 return validation;
@@ -720,7 +695,9 @@ public static class FahrtenEndpoints
             UpdateFahrtRequest request,
             AppDbContext db,
             HttpContext httpContext,
-            TripEmailNotificationService tripEmailService
+            TripEmailNotificationService tripEmailService,
+            RideTimeValidationService timeValidation,
+            RideConflictService conflictService
         ) =>
         {
             if (!AuthUtils.CanManageRides(httpContext.User))
@@ -745,7 +722,7 @@ public static class FahrtenEndpoints
                 return access;
             }
 
-            var writeValidation = await ValidateRideWriteAsync(db, httpContext.User, request.Fahrt, request.Teilnehmer, id);
+            var writeValidation = await ValidateRideWriteAsync(db, httpContext.User, request.Fahrt, request.Teilnehmer, timeValidation, conflictService, id);
             if (writeValidation is not null)
             {
                 return writeValidation;

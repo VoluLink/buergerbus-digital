@@ -21,6 +21,7 @@ namespace BuergerbusAPI.Data
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<NotificationRecipient> NotificationRecipients { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
 
         // Fahrten-System
         public DbSet<Fahrten> Fahrten { get; set; }
@@ -172,6 +173,9 @@ namespace BuergerbusAPI.Data
 
             modelBuilder.Entity<NotificationRecipient>()
                 .HasIndex(r => r.UserId);
+
+            modelBuilder.Entity<AuditLog>()
+                .HasIndex(log => new { log.TimestampUtc, log.Action });
 
             modelBuilder.Entity<SitePage>()
                 .HasIndex(page => page.Slug)

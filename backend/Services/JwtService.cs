@@ -33,7 +33,8 @@ public class JwtService
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.Email),
             new Claim(ClaimTypes.Email, user.Email),
-            new Claim("initiativeId", user.InitiativeId.ToString())
+            new Claim("initiativeId", user.InitiativeId.ToString()),
+            new Claim("authVersion", user.AuthVersion.ToString())
         };
 
         if (!string.IsNullOrWhiteSpace(activeRole))

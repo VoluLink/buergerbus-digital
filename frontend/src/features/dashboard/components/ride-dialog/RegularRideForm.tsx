@@ -138,6 +138,15 @@ export function RegularRideForm({
             Ein Fahrzeug wurde automatisch vorausgewählt.
           </p>
         ) : null}
+
+        {selectedRideVehicle ? (
+          <p className={`mt-2 text-sm ${activeRideForm && activeRideForm.passengers.length > selectedRideVehicle.kapazitaet ? "text-red-700" : "text-slate-600"}`}>
+            {activeRideForm?.passengers.length ?? 0} von {selectedRideVehicle.kapazitaet} Fahrgastplätzen belegt
+            {activeRideForm && activeRideForm.passengers.length > selectedRideVehicle.kapazitaet
+              ? ". Das ausgewählte Fahrzeug bietet nicht genügend Plätze."
+              : "."}
+          </p>
+        ) : null}
       </div>
 
       <div className="mt-6" ref={driverSearchRef}>

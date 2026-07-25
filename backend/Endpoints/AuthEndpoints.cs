@@ -24,7 +24,8 @@ public static class AuthEndpoints
             LoginRequest request,
             AppDbContext db,
             IPasswordHasher<Benutzer> passwordHasher,
-            JwtService jwtService
+            JwtService jwtService,
+            AuditService audit
         ) =>
         {
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
@@ -46,6 +47,7 @@ public static class AuthEndpoints
 
             if (user is null)
             {
+                await audit.WriteAsync("login", "Benutzer", "failed", metadata: new { reason = "invalid_credentials" });
                 return Results.Text(
                     "Ungültige Zugangsdaten.",
                     statusCode: StatusCodes.Status401Unauthorized
@@ -54,6 +56,7 @@ public static class AuthEndpoints
 
             if (!user.Aktiv)
             {
+                await audit.WriteAsync("login", "Benutzer", "failed", user.Id, user.Id.ToString(), user.InitiativeId, new { reason = "invalid_credentials" });
                 return Results.Text(
                     "UngÃ¼ltige Zugangsdaten.",
                     statusCode: StatusCodes.Status401Unauthorized
@@ -64,6 +67,7 @@ public static class AuthEndpoints
 
             if (passwordResult == PasswordVerificationResult.Failed)
             {
+                await audit.WriteAsync("login", "Benutzer", "failed", user.Id, user.Id.ToString(), user.InitiativeId, new { reason = "invalid_credentials" });
                 return Results.Text(
                     "Ungültige Zugangsdaten.",
                     statusCode: StatusCodes.Status401Unauthorized
@@ -77,50 +81,22 @@ public static class AuthEndpoints
             }
 
             var token = jwtService.CreateToken(user);
+            await audit.WriteAsync("login", "Benutzer", "success", user.Id, user.Id.ToString(), user.InitiativeId);
 
             return Results.Ok(new LoginResponseDto(
                 true,
                 "Login erfolgreich.",
                 token,
                 UserMapper.CreateUserProfile(user)));
-        });
-
-        app.MapPost("/api/v1/auth/refresh", async (
-            HttpContext httpContext,
-            AppDbContext db,
-            JwtService jwtService) =>
-        {
-            var currentUserId = AuthUtils.GetUserId(httpContext.User);
-            if (!currentUserId.HasValue)
-            {
-                return Results.Unauthorized();
-            }
-
-            var user = await db.Benutzer
-                .Include(u => u.Initiative)
-                .Include(u => u.BenutzerRollen)
-                    .ThenInclude(br => br.Rolle)
-                .Include(u => u.Fahrer)
-                .FirstOrDefaultAsync(u => u.Id == currentUserId.Value);
-
-            if (user is null || !user.Aktiv)
-            {
-                return Results.Unauthorized();
-            }
-
-            var token = jwtService.CreateToken(user);
-            return Results.Ok(new RefreshTokenResponseDto(token));
-        })
-        .Produces<RefreshTokenResponseDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status401Unauthorized)
-        .RequireAuthorization();
+        }).RequireRateLimiting("auth-login");
 
         app.MapPost("/api/auth/forgot-password", async (
             ForgotPasswordRequest request,
             AppDbContext db,
             IEmailService emailService,
             EmailSettings emailSettings,
-            ILoggerFactory loggerFactory) =>
+            ILoggerFactory loggerFactory,
+            AuditService audit) =>
         {
             var logger = loggerFactory.CreateLogger("AuthEndpoints");
             const string neutralResponse = "Falls ein Konto mit dieser E-Mail existiert, wurde eine E-Mail zum Zurücksetzen versendet.";
@@ -176,6 +152,7 @@ public static class AuthEndpoints
 <p>Der Link ist 60 Minuten gültig. Falls du das nicht angefordert hast, kannst du diese E-Mail ignorieren.</p>";
 
                     await emailService.SendEmailAsync(user.Email, "Passwort zurücksetzen", htmlBody);
+                    await audit.WriteAsync("password_reset_requested", "Benutzer", "success", user.Id, user.Id.ToString(), user.InitiativeId);
                 }
             }
             catch (Exception ex)
@@ -184,12 +161,13 @@ public static class AuthEndpoints
             }
 
             return Results.Ok(new { message = neutralResponse });
-        });
+        }).RequireRateLimiting("auth-forgot-password");
 
         app.MapPost("/api/auth/reset-password", async (
             ResetPasswordRequest request,
             AppDbContext db,
-            IPasswordHasher<Benutzer> passwordHasher) =>
+            IPasswordHasher<Benutzer> passwordHasher,
+            AuditService audit) =>
         {
             if (string.IsNullOrWhiteSpace(request.Token))
             {
@@ -219,18 +197,21 @@ public static class AuthEndpoints
 
             var user = resetToken.Benutzer;
             user.PasswortHash = passwordHasher.HashPassword(user, newPassword);
+            user.AuthVersion++;
             resetToken.UsedAt = DateTime.UtcNow;
 
             await db.SaveChangesAsync();
+            await audit.WriteAsync("password_reset", "Benutzer", "success", user.Id, user.Id.ToString(), user.InitiativeId);
 
             return Results.Ok(new { message = "Passwort wurde erfolgreich zurückgesetzt." });
-        });
+        }).RequireRateLimiting("auth-reset-password");
 
         app.MapPost("/api/v1/auth/change-password", async (
             ChangePasswordRequest request,
             HttpContext httpContext,
             AppDbContext db,
-            IPasswordHasher<Benutzer> passwordHasher) =>
+            IPasswordHasher<Benutzer> passwordHasher,
+            AuditService audit) =>
         {
             var principal = httpContext.User;
             var currentUserId = AuthUtils.GetUserId(principal);
@@ -277,8 +258,10 @@ public static class AuthEndpoints
 
             user.PasswortHash = passwordHasher.HashPassword(user, newPassword);
             user.GeaendertAm = DateTime.UtcNow;
+            user.AuthVersion++;
 
             await db.SaveChangesAsync();
+            await audit.WriteAsync("password_changed", "Benutzer", "success", user.Id, user.Id.ToString(), user.InitiativeId);
 
             return Results.Ok(new ChangePasswordResponse("Passwort wurde erfolgreich geändert."));
         })

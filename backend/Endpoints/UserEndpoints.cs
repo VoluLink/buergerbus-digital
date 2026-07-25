@@ -556,6 +556,8 @@ public static class UserEndpoints
             user.Bemerkung = request.Bemerkung;
             if (request.Aktiv.HasValue)
             {
+                if (user.Aktiv != request.Aktiv.Value)
+                    user.AuthVersion++;
                 user.Aktiv = request.Aktiv.Value;
             }
             user.GeaendertAm = DateTime.UtcNow;

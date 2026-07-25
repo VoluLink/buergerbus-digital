@@ -1,15 +1,18 @@
 const TOKEN_STORAGE_KEY = 'bb.auth.token'
 const USER_ID_STORAGE_KEY = 'bb.auth.userId'
+let accessToken: string | null = null
 
 export function getStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_STORAGE_KEY)
+  return accessToken
 }
 
 export function setStoredToken(token: string) {
-  localStorage.setItem(TOKEN_STORAGE_KEY, token)
+  accessToken = token
 }
 
 export function clearStoredAuth() {
+  accessToken = null
+  // Remove tokens from older application versions during the one-time upgrade.
   localStorage.removeItem(TOKEN_STORAGE_KEY)
   localStorage.removeItem(USER_ID_STORAGE_KEY)
 }

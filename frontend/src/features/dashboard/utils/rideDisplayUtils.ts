@@ -56,12 +56,14 @@ export function getTripTimeRange(ride: TimeRangeRide) {
   }
 
   const pickupTimes = getValidTimes(ride.passengers.map((passenger) => passenger.time))
-  const start = pickupTimes.sort((left, right) => parseTimeToMinutes(left)! - parseTimeToMinutes(right)!)[0]
-    ?? getValidTimes([ride.time])[0]
+  // The planned ride range is authoritative. Participant times remain a
+  // backwards-compatible fallback for legacy records without a ride start.
+  const start = getValidTimes([ride.time])[0]
+    ?? pickupTimes.sort((left, right) => parseTimeToMinutes(left)! - parseTimeToMinutes(right)!)[0]
     ?? ''
   const arrivalTimes = getValidTimes(ride.passengers.map((passenger) => passenger.endTime))
-  const end = arrivalTimes.sort((left, right) => parseTimeToMinutes(right)! - parseTimeToMinutes(left)!)[0]
-    ?? getValidTimes([ride.endTime])[0]
+  const end = getValidTimes([ride.endTime])[0]
+    ?? arrivalTimes.sort((left, right) => parseTimeToMinutes(right)! - parseTimeToMinutes(left)!)[0]
     ?? pickupTimes.sort((left, right) => parseTimeToMinutes(right)! - parseTimeToMinutes(left)!)[0]
     ?? ''
 

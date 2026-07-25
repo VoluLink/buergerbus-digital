@@ -15,6 +15,9 @@ export async function login(
   })
 
   if (!response.ok) {
+    if (response.status === 429) {
+      throw new Error('Zu viele Versuche. Bitte warten Sie kurz und versuchen Sie es erneut.')
+    }
     const errorText = await response.text()
     throw new Error(errorText || 'Login fehlgeschlagen.')
   }
@@ -31,6 +34,9 @@ export async function refreshToken(): Promise<RefreshTokenResponse> {
   })
 
   if (!response.ok) {
+    if (response.status === 429) {
+      throw new Error('Zu viele Versuche. Bitte warten Sie kurz und versuchen Sie es erneut.')
+    }
     const errorText = await response.text()
     throw new Error(errorText || 'Token konnte nicht erneuert werden.')
   }
