@@ -1,5 +1,3 @@
-const TOKEN_STORAGE_KEY = 'bb.auth.token'
-const USER_ID_STORAGE_KEY = 'bb.auth.userId'
 let accessToken: string | null = null
 let refreshInFlight: Promise<string | null> | null = null
 
@@ -13,9 +11,6 @@ export function setStoredToken(token: string) {
 
 export function clearStoredAuth() {
   accessToken = null
-  // Remove tokens from older application versions during the one-time upgrade.
-  localStorage.removeItem(TOKEN_STORAGE_KEY)
-  localStorage.removeItem(USER_ID_STORAGE_KEY)
 }
 
 export async function apiFetch(

@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
 import { login as loginRequest, logout as logoutRequest, refreshToken } from '../services/auth'
 import { getCurrentUserProfile } from '../services/profile'
 import { clearStoredAuth, getStoredToken, setStoredToken } from '../services/httpClient'
@@ -20,8 +19,16 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 const SESSION_EXPIRED_MESSAGE = 'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.'
 const SESSION_IDLE_MESSAGE = 'Deine Sitzung wurde wegen Inaktivität beendet. Bitte melde dich erneut an.'
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000
+let restoreAccessTokenInFlight: Promise<string | null> | null = null
+
+function restoreAccessTokenOnce() {
+  restoreAccessTokenInFlight ??= refreshToken()
+    .then(response => response.token)
+    .catch(() => null)
+    .finally(() => { restoreAccessTokenInFlight = null })
+  return restoreAccessTokenInFlight
+}
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const location = useLocation()
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -55,7 +62,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshProfile = useCallback(async () => {
     const token = getStoredToken()
     if (!token) {
-      try { const refreshed = await refreshToken(); setStoredToken(refreshed.token) } catch { setCurrentUser(null); setIsLoading(false); return null }
+      const refreshedToken = await restoreAccessTokenOnce()
+      if (!refreshedToken) { setCurrentUser(null); setIsLoading(false); return null }
+      setStoredToken(refreshedToken)
     }
 
     setIsLoading(true)
@@ -79,10 +88,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void refreshProfile()
   }, [refreshProfile])
-
-  useEffect(() => {
-    void refreshProfile()
-  }, [location.pathname, refreshProfile])
 
   useEffect(() => {
     if (!currentUser || !getStoredToken()) {
