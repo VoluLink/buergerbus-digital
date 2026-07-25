@@ -93,7 +93,7 @@ function ProtectedSideMenu({ isOpen, onClose }: ProtectedSideMenuProps) {
             .filter((item) => item.visible)
             .map((item) => {
               const Icon = item.icon
-              const isActive = location.pathname === item.path
+              const isActive = location.pathname === item.path || (item.path === '/admin/email' && location.pathname.startsWith('/admin/email/'))
 
               return (
                 <button
