@@ -1,25 +1,27 @@
-# Initiative filtering for drivers and regular passengers
+# Initiative and role contexts
 
-## Affected endpoints
+## Global admin management
 
-- `GET /api/v1/fahrer?initiativeId={id}` filters drivers through `Fahrer.Benutzer.InitiativeId`.
-- `GET /api/v1/fahrgaeste?initiativeId={id}` filters regular passengers through `Fahrgast.InitiativeId`.
-- `GET /api/v1/users?...&initiativeId={id}` filters the user management list, including users with a driver profile.
-- Existing ride writes already validate that a selected driver and every referenced regular passenger belong to the ride's `InitiativeId` in `ValidateRideWriteAsync`.
+- `GET /api/v1/users` is global for `Admin`, including name/email search and the initiative column. An optional `initiativeId` can be used by future admin filters, but the roles page intentionally does not send it.
+- `GET /api/v1/fahrgaeste` is global for `Admin`. The passenger page shows every initiative by default and provides an initiative filter in addition to its existing search.
+- Admins may create, edit, move and deactivate passengers across initiatives through the existing management endpoints.
+
+## Initiative-bound operation
+
+- `GET /api/v1/fahrer?initiativeId={id}` filters `Fahrer` through `Fahrer.Benutzer.InitiativeId` in the database.
+- The dashboard requests drivers and known passengers with its active initiative ID. It clears these lists on a switch and closes any open ride dialog.
+- Ride writes in `ValidateRideWriteAsync` already verify that the assigned driver and referenced regular passengers belong to the ride initiative. A driver from another initiative is rejected even if an API request is manipulated.
 
 ## Authorization
 
-The existing `Admin` role is the application's explicit global initiative-management role: it can select every initiative exposed by the existing initiative administration. It is therefore the documented super-administrator role in the current data model. A `Disponent` (and every non-admin role) is restricted to the initiative in its signed `initiativeId` claim; a differing query parameter is rejected with HTTP 403.
+The existing `Admin` role is the documented global management role. A `Disponent` is always constrained server-side to its signed `initiativeId`: user and passenger lists are filtered to that initiative, an explicit different `initiativeId` is rejected with HTTP 403, role changes on foreign users are forbidden, and `Admin` cannot be assigned by a disponent.
 
-All list filters are part of the EF Core database query. No global driver or passenger list is loaded and filtered in memory.
+## Driver autocomplete
 
-## Initiative switch behaviour
-
-The shared initiative context is used by the dashboard, driver list, passenger list and user management. A change clears the displayed list immediately, starts a fresh request with `initiativeId`, and ignores obsolete responses through effect cleanup. Without a selected initiative, admin-facing lists remain empty and passenger CRUD is disabled with a clear hint. This also prevents stale autocomplete data in the ride dialog.
+The driver autocomplete now closes immediately after click or Enter selection, updates the selected driver normally, closes on Escape or outside click, and opens again only after the user focuses or edits the search field.
 
 ## Verification
 
-- Run `dotnet build backend/BuergerbusAPI.sln`.
-- Run `npm run build` in `frontend`.
-- Verify with an admin: select initiative A and B in quick succession; only the most recently selected list may be rendered.
-- Verify with a disponent: call either list endpoint with another `initiativeId`; the API must return HTTP 403.
+- `dotnet build backend/BuergerbusAPI.sln`
+- `npm run build` in `frontend`
+- `git diff --check`

@@ -40,17 +40,14 @@ public static class FahrgastEndpoints
                 return Results.Forbid();
             }
 
-            var targetInitiativeId = initiativeId ?? claimInitiativeId;
-
-            if (!targetInitiativeId.HasValue)
-            {
-                return Results.BadRequest("Initiative ist erforderlich.");
-            }
+            // Admins use this management endpoint globally unless they explicitly
+            // apply an initiative filter. Non-admins always resolve to their claim.
+            var targetInitiativeId = isAdmin ? initiativeId : claimInitiativeId;
 
             var fahrgaeste = await db.Fahrgaeste
                 .Include(f => f.Initiative)
                 .AsNoTracking()
-                .Where(f => f.InitiativeId == targetInitiativeId.Value)
+                .Where(f => !targetInitiativeId.HasValue || f.InitiativeId == targetInitiativeId.Value)
                 .OrderBy(f => f.Nachname)
                 .ThenBy(f => f.Vorname)
                 .ToListAsync();

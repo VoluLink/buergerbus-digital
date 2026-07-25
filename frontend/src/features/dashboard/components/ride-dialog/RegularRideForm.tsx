@@ -1,4 +1,5 @@
 import { Bus, Check, UserRound } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { FiveMinuteTimeField } from "../FiveMinuteTimeField";
 import { PassengerList } from "./PassengerList";
@@ -68,6 +69,8 @@ export function RegularRideForm({
   addPassengerField,
   removePassengerField,
 }: RegularRideFormProps) {
+  const [isDriverDropdownOpen, setIsDriverDropdownOpen] = useState(false);
+  const driverSearchRef = useRef<HTMLDivElement>(null);
   const isDriverAssigned = Boolean(activeRideForm?.fahrerId);
   const driverQuery = (activeRideForm?.driverName ?? "").trim().toLowerCase();
 
@@ -83,9 +86,25 @@ export function RegularRideForm({
           .slice(0, 6)
       : [];
 
+  useEffect(() => {
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (!driverSearchRef.current?.contains(event.target as Node)) {
+        setIsDriverDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, []);
+
+  function selectDriver(fahrerId: number) {
+    autofillFahrer(fahrerId);
+    setIsDriverDropdownOpen(false);
+  }
+
   return (
     <>
-      <div className="mt-6">
+      <div className="mt-6" ref={driverSearchRef}>
         <label
           htmlFor="vehicle-name"
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700"
@@ -140,20 +159,33 @@ export function RegularRideForm({
           id="driver-name"
           type="text"
           value={activeRideForm?.driverName ?? ""}
-          onChange={(event) =>
-            updateRideField("driverName", event.target.value)
-          }
+          onChange={(event) => {
+            updateRideField("driverName", event.target.value);
+            setIsDriverDropdownOpen(true);
+          }}
+          onFocus={() => {
+            if (driverQuery.length > 0) setIsDriverDropdownOpen(true);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setIsDriverDropdownOpen(false);
+            }
+            if (event.key === "Enter" && isDriverDropdownOpen && matchingDrivers.length > 0) {
+              event.preventDefault();
+              selectDriver(matchingDrivers[0].fahrerId);
+            }
+          }}
           placeholder="Name des Fahrers"
           className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/15"
         />
 
-        {matchingDrivers.length > 0 ? (
+        {isDriverDropdownOpen && matchingDrivers.length > 0 ? (
           <div className="mt-1 max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm">
             {matchingDrivers.map((driver) => (
               <button
                 key={driver.fahrerId}
                 type="button"
-                onClick={() => autofillFahrer(driver.fahrerId)}
+                onClick={() => selectDriver(driver.fahrerId)}
                 className="flex w-full flex-col items-start border-b border-slate-100 px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 last:border-b-0"
               >
                 <span className="font-semibold text-slate-800">
