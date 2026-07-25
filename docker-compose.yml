@@ -158,7 +158,7 @@ services:
   # - Staging/Production
   # ==========================================================
   nginx:
-    image: jc21/nginx-proxy-manager:2.12.4
+    image: jc21/nginx-proxy-manager:latest
     container_name: nginx_proxy_manager
     profiles: ["staging", "prod"]
     restart: always
