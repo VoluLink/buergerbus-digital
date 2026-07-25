@@ -7,6 +7,9 @@ namespace BuergerbusAPI.Endpoints;
 
 public static class AddressEndpoints
 {
+    private const int NominatimConnectTimeoutMs = 5_000;
+    private const bool NominatimUseProxy = false;
+
     private sealed record NominatimAddress(
         [property: JsonPropertyName("display_name")] string? DisplayName,
         [property: JsonPropertyName("lat")] string? Latitude,
@@ -60,8 +63,11 @@ public static class AddressEndpoints
             {
                 var client = httpClientFactory.CreateClient("Nominatim");
                 logger.LogInformation(
-                    "Nominatim client configured. TimeoutMs={TimeoutMs} RequestId={RequestId}",
+                    "Nominatim client configured. ClientTimeoutMs={ClientTimeoutMs} ConnectTimeoutMs={ConnectTimeoutMs} HttpVersion={HttpVersion} UseProxy={UseProxy} RequestId={RequestId}",
                     client.Timeout.TotalMilliseconds,
+                    NominatimConnectTimeoutMs,
+                    client.DefaultRequestVersion,
+                    NominatimUseProxy,
                     requestId);
                 using var response = await client.GetAsync(
                     requestUri,
@@ -93,6 +99,12 @@ public static class AddressEndpoints
                         double.TryParse(address.Longitude, System.Globalization.CultureInfo.InvariantCulture, out var longitude) ? longitude : null))
                     .DistinctBy(address => address.DisplayName)
                     .ToList();
+
+                logger.LogInformation(
+                    "Nominatim request succeeded. StatusCode={StatusCode} DurationMs={DurationMs} RequestId={RequestId}",
+                    (int)response.StatusCode,
+                    stopwatch.ElapsedMilliseconds,
+                    requestId);
 
                 return Results.Ok(suggestions);
             }

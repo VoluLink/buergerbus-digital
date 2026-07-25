@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Net;
-using System.Net.Sockets;
 
 /// <summary>
 /// Einstiegspunkt der Anwendung.
@@ -43,32 +42,16 @@ builder.Services.AddHttpClient("Nominatim", client =>
     client.Timeout = TimeSpan.FromSeconds(15);
     client.DefaultRequestHeaders.UserAgent.ParseAdd("BuergerbusDigital/1.0 (kontakt@buergerbus.info)");
     client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+    client.DefaultRequestVersion = HttpVersion.Version11;
+    client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact;
 })
 .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
 {
     ConnectTimeout = TimeSpan.FromSeconds(5),
-    ConnectCallback = async (context, cancellationToken) =>
-    {
-        var addresses = await Dns.GetHostAddressesAsync(context.DnsEndPoint.Host, cancellationToken);
-        var ipv4Address = addresses.FirstOrDefault(address => address.AddressFamily == AddressFamily.InterNetwork);
-
-        if (ipv4Address is null)
-        {
-            throw new HttpRequestException("Für den Adressdienst konnte keine IPv4-Adresse aufgelöst werden.");
-        }
-
-        var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        try
-        {
-            await socket.ConnectAsync(new IPEndPoint(ipv4Address, context.DnsEndPoint.Port), cancellationToken);
-            return new NetworkStream(socket, ownsSocket: true);
-        }
-        catch
-        {
-            socket.Dispose();
-            throw;
-        }
-    }
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+    PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+    UseProxy = false
 });
 builder.Services.AddSingleton(new EmailSettings
 {
