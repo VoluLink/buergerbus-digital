@@ -1,8 +1,14 @@
 @import "tailwindcss";
 
-/* Adminseiten reservieren eine volle Kopfzeile für Navigation und Profil. */
+/* Adminseiten nutzen dieselben Abstände wie der Dashboard-Header. */
 body[data-admin-page="true"] main > header {
-  min-height: 4.5rem;
+  padding: 0.375rem 0.75rem;
   display: flex;
   align-items: center;
+}
+
+@media (min-width: 640px) {
+  body[data-admin-page="true"] main > header {
+    padding: 0.75rem 1.5rem;
+  }
 }

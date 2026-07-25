@@ -28,7 +28,7 @@ function AdminHeader() {
   if (!currentUser || !title) return null
 
   return (
-    <div className="fixed right-3 top-2 z-20 sm:right-6 sm:top-2">
+    <div className="fixed right-3 top-1.5 z-20 sm:right-6 sm:top-3">
       <span className="sr-only">Administration: {title}</span>
       <UserMenuButton onClick={() => navigate('/profil')} icon={<CircleUserRound className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />} />
     </div>
