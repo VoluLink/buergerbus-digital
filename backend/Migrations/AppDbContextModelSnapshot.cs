@@ -22,6 +22,65 @@ namespace BuergerbusAPI.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
+            modelBuilder.Entity("BuergerbusAPI.Models.AdminNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Audience")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("InitiativeId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("varchar(4000)");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ValidFromUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ValidUntilUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InitiativeId", "IsActive");
+
+                    b.HasIndex("IsActive", "ValidFromUtc", "ValidUntilUtc");
+
+                    b.ToTable("AdminNotifications", (string)null);
+                });
+
             modelBuilder.Entity("BuergerbusAPI.Models.AuditLog", b =>
                 {
                     b.Property<long>("Id")
@@ -703,6 +762,40 @@ namespace BuergerbusAPI.Migrations
                     b.ToTable("SitePages");
                 });
 
+            modelBuilder.Entity("BuergerbusAPI.Models.SystemSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DefaultRideDurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("EnableDriverAssignmentEmails")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("EnableSelfRegistrationEmails")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("ShowDashboardNotifications")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("TemporaryParticipantRetentionDays")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SystemSettings", (string)null);
+                });
+
             modelBuilder.Entity("BuergerbusAPI.Models.Teilstrecke", b =>
                 {
                     b.Property<int>("Id")
@@ -789,6 +882,14 @@ namespace BuergerbusAPI.Migrations
                     b.HasIndex("InitiativeId");
 
                     b.ToTable("Wartungen");
+                });
+
+            modelBuilder.Entity("BuergerbusAPI.Models.AdminNotification", b =>
+                {
+                    b.HasOne("BuergerbusAPI.Models.Initiativen", null)
+                        .WithMany()
+                        .HasForeignKey("InitiativeId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.AuditLog", b =>

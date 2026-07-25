@@ -1,0 +1,2 @@
+namespace BuergerbusAPI.DTOs;
+public sealed class AuditLogQueryDto { public int Page { get; init; } = 1; public int PageSize { get; init; } = 25; public DateTime? FromUtc { get; init; } public DateTime? ToUtc { get; init; } public int? UserId { get; init; } public string? Action { get; init; } public string? EntityType { get; init; } public int? InitiativeId { get; init; } public string? Result { get; init; } public string? Search { get; init; } }

@@ -35,6 +35,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IPasswordHasher<Benutzer>, PasswordHasher<Benutzer>>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<AuditService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<SystemSettingsService>();
 builder.Services.AddScoped<RideTimeValidationService>();
 builder.Services.AddScoped<RideConflictService>();
 builder.Services.AddHttpContextAccessor();
@@ -217,6 +219,9 @@ app.UseAuthorization();
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapAdminNotificationEndpoints();
+app.MapAdminAuditLogEndpoints();
+app.MapAdminSettingsEndpoints();
+app.MapNotificationEndpoints();
 app.MapPublicPagesEndpoints();
 app.MapPublicFooterEndpoints();
 app.MapAdminPagesEndpoints();

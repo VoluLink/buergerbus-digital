@@ -22,6 +22,8 @@ namespace BuergerbusAPI.Data
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<NotificationRecipient> NotificationRecipients { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
+        public DbSet<AdminNotification> AdminNotifications { get; set; }
+        public DbSet<SystemSettings> SystemSettings { get; set; }
 
         // Fahrten-System
         public DbSet<Fahrten> Fahrten { get; set; }
@@ -211,6 +213,24 @@ namespace BuergerbusAPI.Data
 
             modelBuilder.Entity<AuditLog>()
                 .HasIndex(log => new { log.TimestampUtc, log.Action });
+
+            modelBuilder.Entity<AdminNotification>(entity =>
+            {
+                entity.ToTable("AdminNotifications");
+                entity.Property(item => item.Title).HasMaxLength(150).IsRequired();
+                entity.Property(item => item.Message).HasMaxLength(4000).IsRequired();
+                entity.Property(item => item.Audience).HasConversion<string>().HasMaxLength(20);
+                entity.Property(item => item.Priority).HasConversion<string>().HasMaxLength(20);
+                entity.HasIndex(item => new { item.IsActive, item.ValidFromUtc, item.ValidUntilUtc });
+                entity.HasIndex(item => new { item.InitiativeId, item.IsActive });
+                entity.HasOne<Initiativen>().WithMany().HasForeignKey(item => item.InitiativeId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<SystemSettings>(entity =>
+            {
+                entity.ToTable("SystemSettings");
+                entity.HasKey(item => item.Id);
+            });
 
             modelBuilder.Entity<Benutzer>()
                 .Property(user => user.AuthVersion)

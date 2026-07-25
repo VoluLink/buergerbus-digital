@@ -11,6 +11,7 @@ const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 const AdminNotificationsPage = lazy(() => import('./pages/AdminNotificationsPage'))
 const AdminSettingsPage = lazy(() => import('./pages/AdminSettingsPage'))
+const AdminAuditLogsPage = lazy(() => import('./pages/AdminAuditLogsPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const FahrerinfosPage = lazy(() => import('./pages/FahrerinfosPage'))
 const FahrzeuginfosPage = lazy(() => import('./pages/FahrzeuginfosPage'))
@@ -44,7 +45,6 @@ function App() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/pages/:slug" element={<PublicPage />} />
         <Route element={<ProtectedRoute />}>
-          <Route path="/admin/benachrichtigungen" element={<AdminNotificationsPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/profil" element={<ProfilePage />} />
           <Route path="/users/:id/profile" element={<UserProfilePage />} />
@@ -52,8 +52,10 @@ function App() {
           <Route path="/fahrzeuginfos" element={<FahrzeuginfosPage />} />
           <Route path="/fahrgastinfos" element={<FahrgastinfosPage />} />
           <Route path="/rollenverteilung" element={<RollenverteilungPage />} />
-          <Route path="/admin/einstellungen" element={<AdminSettingsPage />} />
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+            <Route path="/admin/benachrichtigungen" element={<AdminNotificationsPage />} />
+            <Route path="/admin/audit-logs" element={<AdminAuditLogsPage />} />
+            <Route path="/admin/einstellungen" element={<AdminSettingsPage />} />
             <Route path="/initiativen" element={<InitiativenPage />} />
               <Route path="/admin/seiten" element={<AdminPagesPage />} />
               <Route path="/admin/footer-links" element={<AdminFooterLinksPage />} />

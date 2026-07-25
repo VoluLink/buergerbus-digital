@@ -4,6 +4,7 @@ import {
   LogOut,
   MapPin,
   Settings,
+  ScrollText,
   UserRound,
   UserRoundPlus,
   X,
@@ -48,6 +49,7 @@ function ProtectedSideMenu({ isOpen, onClose }: ProtectedSideMenuProps) {
     { icon: MapPin, label: 'Initiativen', path: '/initiativen', visible: canManageInitiatives },
     { icon: Settings, label: 'Rollenverteilung', path: '/rollenverteilung', visible: canManageRoleAssignments },
     { icon: Bell, label: 'Benachrichtigungen', path: '/admin/benachrichtigungen', visible: isAdmin },
+    { icon: ScrollText, label: 'Audit-Logs', path: '/admin/audit-logs', visible: isAdmin },
     { icon: Settings, label: 'Einstellungen', path: '/admin/einstellungen', visible: isAdmin },
   ]
 
