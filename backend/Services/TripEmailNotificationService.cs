@@ -22,6 +22,7 @@ public class TripEmailNotificationService
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<TripEmailNotificationService> _logger;
     private readonly SystemSettingsService _settingsService;
+    private readonly AuditService _audit;
 
     public TripEmailNotificationService(
         AppDbContext db,
@@ -29,7 +30,8 @@ public class TripEmailNotificationService
         EmailSettings emailSettings,
         IHttpContextAccessor httpContextAccessor,
         ILogger<TripEmailNotificationService> logger,
-        SystemSettingsService settingsService)
+        SystemSettingsService settingsService,
+        AuditService audit)
     {
         _db = db;
         _emailService = emailService;
@@ -37,6 +39,7 @@ public class TripEmailNotificationService
         _httpContextAccessor = httpContextAccessor;
         _logger = logger;
         _settingsService = settingsService;
+        _audit = audit;
     }
 
     private int GetCurrentUserId()
@@ -119,7 +122,7 @@ public class TripEmailNotificationService
 </div>";
     }
 
-    private async Task SendNotificationAsync(string type, string subject, string message, Benutzer user)
+    private async Task SendNotificationAsync(string type, string subject, string message, Benutzer user, int? initiativeId)
     {
         var creatorId = GetCurrentUserId();
         var notification = new Notification
@@ -156,14 +159,17 @@ public class TripEmailNotificationService
 
             recipient.Status = RecipientStatusSent;
             recipient.SentAt = DateTime.UtcNow;
+            recipient.Email = MaskEmail(recipient.Email);
             notification.Status = StatusSent;
         }
         catch (Exception ex)
         {
             recipient.Status = RecipientStatusFailed;
             recipient.ErrorMessage = "E-Mail konnte nicht versendet werden.";
+            recipient.Email = MaskEmail(recipient.Email);
             notification.Status = StatusFailed;
-            _logger.LogError(ex, "Fehler beim Versand der Fahrt-E-Mail an {RecipientEmail}.", user.Email);
+            _logger.LogError(ex, "Fehler beim Versand der Fahrt-E-Mail an Benutzer {RecipientUserId}.", user.Id);
+            await _audit.WriteAsync("AutomaticEmailFailed", "EmailDelivery", "failure", GetCurrentUserId(), notification.Id.ToString(), initiativeId, new { Type = type, RecipientUserId = user.Id });
         }
 
         notification.SentAt = DateTime.UtcNow;
@@ -184,7 +190,7 @@ public class TripEmailNotificationService
 
         var intro = "du hast dich erfolgreich für eine Fahrt angemeldet.";
         var html = BuildTripHtml(ride, user.Nutzername ?? user.Vorname ?? "", intro);
-        await SendNotificationAsync("TripSelfRegistered", "Anmeldung zur Fahrt bestätigt", html, user);
+        await SendNotificationAsync("TripSelfRegistered", "Anmeldung zur Fahrt bestätigt", html, user, ride.InitiativeId);
     }
 
     public async Task SendTripDriverAssignedEmailAsync(Fahrten ride, Fahrer fahrer, ClaimsPrincipal assignedBy)
@@ -208,7 +214,7 @@ public class TripEmailNotificationService
             intro = "du wurdest durch das Bürgerbus-Team für eine Fahrt eingetragen.";
 
         var html = BuildTripHtml(ride, user.Nutzername ?? user.Vorname ?? "", intro);
-        await SendNotificationAsync("TripDriverAssigned", "Du wurdest einer Fahrt zugewiesen", html, user);
+        await SendNotificationAsync("TripDriverAssigned", "Du wurdest einer Fahrt zugewiesen", html, user, ride.InitiativeId);
     }
 
     public async Task SendTripChangedEmailAsync(Fahrten ride, Fahrer fahrer)
@@ -220,6 +226,12 @@ public class TripEmailNotificationService
 
         var intro = "eine deiner eingetragenen Fahrten wurde geändert.";
         var html = BuildTripHtml(ride, user.Nutzername ?? user.Vorname ?? "", intro);
-        await SendNotificationAsync("TripChanged", "Eine deiner Fahrten wurde geändert", html, user);
+        await SendNotificationAsync("TripChanged", "Eine deiner Fahrten wurde geändert", html, user, ride.InitiativeId);
+    }
+
+    private static string MaskEmail(string email)
+    {
+        var at = email.IndexOf('@');
+        return at <= 1 ? "***" : $"{email[0]}***{email[at..]}";
     }
 }

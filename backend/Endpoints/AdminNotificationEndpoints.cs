@@ -42,7 +42,8 @@ public static class AdminNotificationEndpoints
         app.MapPost("/api/v1/admin/broadcast-emails", async (
             SendBroadcastNotificationRequest request,
             HttpContext httpContext,
-            INotificationService notificationService) =>
+            INotificationService notificationService,
+            AuditService audit) =>
         {
             var subject = request.Subject?.Trim();
             var message = request.Message?.Trim();
@@ -80,10 +81,18 @@ public static class AdminNotificationEndpoints
                     },
                     currentUserId);
 
+                await audit.WriteAsync(
+                    result.Status == "Sent" ? "BroadcastEmailSent" : "BroadcastEmailPartiallyFailed",
+                    "EmailDelivery",
+                    result.Status == "Sent" ? "success" : "partial_failure",
+                    int.Parse(currentUserId), result.NotificationId.ToString(), null,
+                    new { Type = type, RecipientCount = result.SentCount + result.FailedCount, result.SentCount, result.FailedCount, result.Status });
+
                 return Results.Ok(result);
             }
             catch (InvalidOperationException ex)
             {
+                await audit.WriteAsync("BroadcastEmailFailed", "EmailDelivery", "failure", int.TryParse(currentUserId, out var userId) ? userId : null, metadata: new { Type = type });
                 return Results.BadRequest(ex.Message);
             }
         })

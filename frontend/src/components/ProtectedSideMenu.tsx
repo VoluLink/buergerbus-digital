@@ -1,6 +1,7 @@
 import {
   Bell,
   Bus,
+  Mail,
   LogOut,
   MapPin,
   Settings,
@@ -49,6 +50,7 @@ function ProtectedSideMenu({ isOpen, onClose }: ProtectedSideMenuProps) {
     { icon: MapPin, label: 'Initiativen', path: '/initiativen', visible: canManageInitiatives },
     { icon: Settings, label: 'Rollenverteilung', path: '/rollenverteilung', visible: canManageRoleAssignments },
     { icon: Bell, label: 'Benachrichtigungen', path: '/admin/benachrichtigungen', visible: isAdmin },
+    { icon: Mail, label: 'E-Mail', path: '/admin/email', visible: isAdmin },
     { icon: ScrollText, label: 'Audit-Logs', path: '/admin/audit-logs', visible: isAdmin },
     { icon: Settings, label: 'Einstellungen', path: '/admin/einstellungen', visible: isAdmin },
   ]

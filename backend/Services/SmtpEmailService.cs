@@ -23,10 +23,12 @@ public class SmtpEmailService : IEmailService
         message.Subject = subject;
         message.Body = new BodyBuilder
         {
-            HtmlBody = htmlBody
+            HtmlBody = htmlBody,
+            TextBody = ToPlainText(htmlBody)
         }.ToMessageBody();
 
         using var client = new SmtpClient();
+        client.Timeout = 30_000;
         var secureSocketOptions = _settings.UseSsl
             ? SecureSocketOptions.SslOnConnect
             : SecureSocketOptions.StartTlsWhenAvailable;
@@ -44,7 +46,7 @@ public class SmtpEmailService : IEmailService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Fehler beim SMTP-Versand an {Recipient}.", to);
+            _logger.LogError(ex, "Fehler beim SMTP-Versand.");
             throw;
         }
         finally
@@ -52,4 +54,10 @@ public class SmtpEmailService : IEmailService
             await client.DisconnectAsync(true);
         }
     }
+
+    private static string ToPlainText(string html) =>
+        System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", string.Empty)
+            .Replace("&nbsp;", " ", StringComparison.Ordinal)
+            .Replace("&amp;", "&", StringComparison.Ordinal)
+            .Trim();
 }

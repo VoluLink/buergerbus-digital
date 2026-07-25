@@ -10,6 +10,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'))
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 const AdminNotificationsPage = lazy(() => import('./pages/AdminNotificationsPage'))
+const AdminEmailPage = lazy(() => import('./pages/AdminEmailPage'))
 const AdminSettingsPage = lazy(() => import('./pages/AdminSettingsPage'))
 const AdminAuditLogsPage = lazy(() => import('./pages/AdminAuditLogsPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
@@ -56,6 +57,7 @@ function App() {
           </Route>
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
             <Route path="/admin/benachrichtigungen" element={<AdminNotificationsPage />} />
+            <Route path="/admin/email" element={<AdminEmailPage />} />
             <Route path="/admin/audit-logs" element={<AdminAuditLogsPage />} />
             <Route path="/admin/einstellungen" element={<AdminSettingsPage />} />
             <Route path="/initiativen" element={<InitiativenPage />} />

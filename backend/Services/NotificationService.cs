@@ -106,14 +106,16 @@ public class NotificationService : INotificationService
                 recipient.Status = RecipientStatusSent;
                 recipient.SentAt = DateTime.UtcNow;
                 recipient.ErrorMessage = null;
+                recipient.Email = MaskEmail(recipient.Email);
                 sentCount++;
             }
             catch (Exception ex)
             {
                 recipient.Status = RecipientStatusFailed;
                 recipient.ErrorMessage = "E-Mail konnte nicht versendet werden.";
+                recipient.Email = MaskEmail(recipient.Email);
                 failedCount++;
-                _logger.LogError(ex, "Fehler beim Versand der Benachrichtigung {NotificationId} an {RecipientEmail}.", notification.Id, recipient.Email);
+                _logger.LogError(ex, "Fehler beim Versand der Benachrichtigung {NotificationId} an Benutzer {RecipientUserId}.", notification.Id, recipient.UserId);
             }
 
             await _db.SaveChangesAsync();
@@ -169,14 +171,16 @@ public class NotificationService : INotificationService
 
             recipient.Status = RecipientStatusSent;
             recipient.SentAt = DateTime.UtcNow;
+            recipient.Email = MaskEmail(recipient.Email);
             notification.Status = StatusSent;
         }
         catch (Exception ex)
         {
             recipient.Status = RecipientStatusFailed;
             recipient.ErrorMessage = "E-Mail konnte nicht versendet werden.";
+            recipient.Email = MaskEmail(recipient.Email);
             notification.Status = StatusFailed;
-            _logger.LogError(ex, "Fehler beim Versand der Einladungs-E-Mail an {RecipientEmail}.", user.Email);
+            _logger.LogError(ex, "Fehler beim Versand der Einladungs-E-Mail an Benutzer {RecipientUserId}.", user.Id);
         }
 
         notification.SentAt = DateTime.UtcNow;
@@ -221,7 +225,7 @@ public class NotificationService : INotificationService
                 .Select(recipient => new NotificationRecipientDto(
                     recipient.Id,
                     recipient.UserId,
-                    recipient.Email,
+                    MaskEmail(recipient.Email),
                     recipient.DisplayName,
                     recipient.Status,
                     recipient.ErrorMessage,
@@ -436,5 +440,12 @@ public class NotificationService : INotificationService
             notification.SentAt,
             sentCount,
             failedCount);
+    }
+
+    private static string MaskEmail(string email)
+    {
+        var at = email.IndexOf('@');
+        if (at <= 1) return "***";
+        return $"{email[0]}***{email[at..]}";
     }
 }
