@@ -22,6 +22,60 @@ namespace BuergerbusAPI.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
+            modelBuilder.Entity("BuergerbusAPI.Models.AuditLog", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("CorrelationId")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("EntityId")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int?>("InitiativeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MetadataJson")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime>("TimestampUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InitiativeId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TimestampUtc", "Action");
+
+                    b.ToTable("AuditLogs", (string)null);
+                });
+
             modelBuilder.Entity("BuergerbusAPI.Models.Benutzer", b =>
                 {
                     b.Property<int>("Id")
@@ -38,6 +92,11 @@ namespace BuergerbusAPI.Migrations
 
                     b.Property<DateTime>("AngelegtAm")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<int>("AuthVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
 
                     b.Property<string>("Bemerkung")
                         .HasColumnType("longtext");
@@ -730,6 +789,19 @@ namespace BuergerbusAPI.Migrations
                     b.HasIndex("InitiativeId");
 
                     b.ToTable("Wartungen");
+                });
+
+            modelBuilder.Entity("BuergerbusAPI.Models.AuditLog", b =>
+                {
+                    b.HasOne("BuergerbusAPI.Models.Initiativen", null)
+                        .WithMany()
+                        .HasForeignKey("InitiativeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("BuergerbusAPI.Models.Benutzer", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("BuergerbusAPI.Models.Benutzer", b =>

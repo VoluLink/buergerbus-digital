@@ -25,7 +25,7 @@ namespace BuergerbusAPI.Models
         public DateTime? GeaendertAm { get; set; }
         public bool Aktiv { get; set; }
         // Incremented whenever all previously issued access tokens must become invalid.
-        public int AuthVersion { get; set; }
+        public int AuthVersion { get; set; } = 1;
 
         // Initiative muss in jeder Tabelle sein (Multi-Tenant System) => Landkreis als Datengrenze
         public int InitiativeId { get; set; }

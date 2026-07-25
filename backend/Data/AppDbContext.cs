@@ -175,7 +175,46 @@ namespace BuergerbusAPI.Data
                 .HasIndex(r => r.UserId);
 
             modelBuilder.Entity<AuditLog>()
+                .ToTable("AuditLogs");
+
+            modelBuilder.Entity<AuditLog>()
+                .Property(log => log.Action)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<AuditLog>()
+                .Property(log => log.EntityType)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<AuditLog>()
+                .Property(log => log.EntityId)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<AuditLog>()
+                .Property(log => log.Result)
+                .HasMaxLength(50);
+
+            modelBuilder.Entity<AuditLog>()
+                .Property(log => log.CorrelationId)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<AuditLog>()
+                .HasOne<Benutzer>()
+                .WithMany()
+                .HasForeignKey(log => log.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<AuditLog>()
+                .HasOne<Initiativen>()
+                .WithMany()
+                .HasForeignKey(log => log.InitiativeId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<AuditLog>()
                 .HasIndex(log => new { log.TimestampUtc, log.Action });
+
+            modelBuilder.Entity<Benutzer>()
+                .Property(user => user.AuthVersion)
+                .HasDefaultValue(1);
 
             modelBuilder.Entity<SitePage>()
                 .HasIndex(page => page.Slug)

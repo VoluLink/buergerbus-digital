@@ -235,8 +235,7 @@ try
     if (connectionString.Contains("${", StringComparison.Ordinal))
     {
         app.Logger.LogWarning(
-            "SeedData wird übersprungen, da ConnectionString noch Platzhalter enthält: {ConnectionString}",
-            connectionString
+            "SeedData wird übersprungen, da der ConnectionString noch nicht vollständig konfiguriert ist."
         );
     }
     else
@@ -251,8 +250,9 @@ catch (SeedConfigurationException ex)
 }
 catch (Exception ex)
 {
-    app.Logger.LogError(ex, "Fehler beim Seeding des initialen Admin-Benutzers.");
-} 
+    app.Logger.LogCritical(ex, "Datenbankmigration oder Initialisierung fehlgeschlagen.");
+    throw;
+}
 
 app.Run();
 
