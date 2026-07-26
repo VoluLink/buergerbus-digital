@@ -11,6 +11,7 @@ import type { Wartung, WartungFormData } from '../../../types/Wartung'
 import type { FahrzeugTab } from '../types'
 import DamageSection from './DamageSection'
 import MaintenanceSection from './MaintenanceSection'
+import { useDialogAccessibility } from '../../../components/dialogs/useDialogAccessibility'
 
 interface VehicleFormDialogProps {
   activeTab: FahrzeugTab
@@ -91,6 +92,7 @@ function VehicleFormDialog({
   onStartEditWartung,
   onWartungFieldChange,
 }: VehicleFormDialogProps) {
+  const { dialogRef, handleKeyDown } = useDialogAccessibility<HTMLDivElement>(onClose)
   const isCreateMode = mode === 'create'
 
   const renderTabButton = (tab: FahrzeugTab, label: string) => (
@@ -115,11 +117,17 @@ function VehicleFormDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/50 p-2 backdrop-blur-sm sm:items-center sm:p-4">
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="vehicle-dialog-title"
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
         className="flex h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-lg sm:h-auto sm:max-h-[calc(100dvh-2rem)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-4 sm:px-6">
-          <h2 className="text-xl font-bold text-slate-800">{title}</h2>
+          <h2 id="vehicle-dialog-title" className="text-xl font-bold text-slate-800">{title}</h2>
           <button
             type="button"
             onClick={onClose}

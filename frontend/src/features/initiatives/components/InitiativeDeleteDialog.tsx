@@ -2,6 +2,7 @@ import { X } from 'lucide-react'
 import type { Initiative, InitiativeDeletePreview as InitiativeDeletePreviewType } from '../../../types/Initiative'
 import { isDefaultInitiative } from '../utils'
 import { InitiativeDeletePreview } from './InitiativeDeletePreview'
+import { useDialogAccessibility } from '../../../components/dialogs/useDialogAccessibility'
 
 type InitiativeDeleteDialogProps = {
   initiative: Initiative
@@ -24,19 +25,26 @@ export function InitiativeDeleteDialog({
   onClose,
   onDelete,
 }: InitiativeDeleteDialogProps) {
+  const { dialogRef, handleKeyDown } = useDialogAccessibility<HTMLElement>(onClose)
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-2 backdrop-blur-sm sm:p-4"
       onClick={onClose}
     >
       <section
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="initiative-delete-dialog-title"
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
         className="relative flex max-h-[calc(100dvh-1rem)] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-[0_35px_80px_rgba(15,23,42,0.4)] sm:max-h-[calc(100dvh-2rem)]"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="shrink-0 bg-rose-600 px-5 py-4 text-white sm:px-8 sm:py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <h2 className="break-words text-2xl font-semibold tracking-tight sm:text-3xl">Initiative löschen</h2>
+              <h2 id="initiative-delete-dialog-title" className="break-words text-2xl font-semibold tracking-tight sm:text-3xl">Initiative löschen</h2>
               <p className="mt-1 break-words text-sm text-white/80">
                 Möchtest du diese Initiative wirklich löschen?
               </p>

@@ -232,7 +232,7 @@ function DashboardPage() {
     if (selectedInitiativeId == null && initiativeListe.length > 0) {
       setSelectedInitiativeId(initiativeListe[0].id);
     }
-  }, [canManageInitiatives, initiativeListe, selectedInitiativeId]);
+  }, [canManageInitiatives, initiativeListe, selectedInitiativeId, setSelectedInitiativeId]);
 
   // Persistiert lokalen Dashboard-Zustand, sobald die Backend-Daten geladen sind
   useEffect(() => {

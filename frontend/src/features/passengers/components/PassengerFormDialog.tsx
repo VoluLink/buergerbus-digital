@@ -2,6 +2,7 @@ import type { FormEvent } from 'react'
 import { X } from 'lucide-react'
 import type { FahrgastFormData } from '../../../types/Fahrgast'
 import type { Initiative } from '../../../types/Initiative'
+import { useDialogAccessibility } from '../../../components/dialogs/useDialogAccessibility'
 
 type PassengerFormDialogProps = {
   error: string
@@ -34,6 +35,7 @@ export function PassengerFormDialog({
   onFieldChange,
   onSubmit,
 }: PassengerFormDialogProps) {
+  const { dialogRef, handleKeyDown } = useDialogAccessibility<HTMLElement>(onClose)
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     onSubmit()
@@ -42,11 +44,17 @@ export function PassengerFormDialog({
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-2 backdrop-blur-sm sm:p-4">
       <section
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="passenger-dialog-title"
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
         className="flex h-[calc(100dvh-1rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl sm:h-auto sm:max-h-[calc(100dvh-2rem)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-4 sm:px-6">
-          <h2 className="text-xl font-bold text-slate-800">{title}</h2>
+          <h2 id="passenger-dialog-title" className="text-xl font-bold text-slate-800">{title}</h2>
           <button
             type="button"
             onClick={onClose}
