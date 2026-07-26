@@ -355,7 +355,7 @@ function FahrgastinfosPage() {
           initiatives={initiatives}
           isAdmin={isAdmin}
           nonAdminInitiativeName={selectedGuest?.initiativeName ?? currentUser?.initiative?.name ?? '-'}
-          submitClassName="rounded-xl bg-[#0053a0] px-5 py-3 text-sm font-semibold text-white hover:brightness-110 sm:py-2.5"
+          submitClassName="px-5 sm:py-2.5"
           submitLabel="Änderungen speichern"
           title="Fahrgast bearbeiten"
           onClose={handleCloseEditModal}
@@ -375,7 +375,7 @@ function FahrgastinfosPage() {
           initiativesError={initiativesError}
           isAdmin={isAdmin}
           nonAdminInitiativeName={currentUser?.initiative?.name ?? '-'}
-          submitClassName="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700 sm:py-2.5"
+          submitClassName="px-5 sm:py-2.5"
           submitLabel="Gast anlegen"
           title="Fahrgast hinzufügen"
           onClose={handleCloseCreateModal}
