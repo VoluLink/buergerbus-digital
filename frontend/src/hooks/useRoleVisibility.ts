@@ -29,7 +29,7 @@ function resolveEffectiveRole(roles: string[]) {
 }
 
 export function useRoleVisibility() {
-  const { currentUser } = useAuth()
+  const { currentUser, isLoading } = useAuth()
 
   return useMemo(() => {
     const normalizedRoles = Array.from(new Set(
@@ -41,16 +41,27 @@ export function useRoleVisibility() {
     const effectiveRole = resolveEffectiveRole(normalizedRoles)
     const isGuestOnly = effectiveRole === 'gast'
 
+    const isStaff = effectiveRole === 'admin' || effectiveRole === 'disponent'
+    const isAdmin = effectiveRole === 'admin'
+
     return {
       roles: normalizedRoles,
       activeRole: effectiveRole,
-      isAdmin: effectiveRole === 'admin',
+      isAuthReady: !isLoading && currentUser !== null,
+      isAdmin,
       isDisponent: effectiveRole === 'disponent',
       isFahrer: effectiveRole === 'fahrer',
+      hasFahrerRole: normalizedRoles.includes('fahrer'),
       isGast: isGuestOnly,
-      canManageDataCrud: effectiveRole === 'admin' || effectiveRole === 'disponent',
-      canManageInitiatives: effectiveRole === 'admin',
-      canManageRoleAssignments: effectiveRole === 'admin' || effectiveRole === 'disponent',
+      canManageDataCrud: isStaff,
+      canManagePassengers: isStaff,
+      canViewInitiativeOptions: isStaff,
+      canManageInitiatives: isAdmin,
+      canManageUsers: isStaff,
+      canManageRoles: isStaff,
+      canManageRoleAssignments: isStaff,
+      canManageNotifications: isAdmin,
+      canManageSettings: isAdmin,
     }
-  }, [currentUser?.roles])
+  }, [currentUser, isLoading])
 }

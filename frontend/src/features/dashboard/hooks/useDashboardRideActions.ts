@@ -80,6 +80,7 @@ type UseDashboardRideActionsParams = {
   reloadFahrten: () => Promise<void>;
 
   canManageAsStaff: boolean;
+  canSelfRegisterAsDriver: boolean;
 };
 
 function normalizeErrorMessage(error: unknown) {
@@ -120,10 +121,11 @@ export function useDashboardRideActions({
   fahrerListe,
   reloadFahrten,
   canManageAsStaff,
+  canSelfRegisterAsDriver,
 }: UseDashboardRideActionsParams) {
   const toggleDriverSelfAssignment = useCallback(
     async (ride: CalendarRide) => {
-      if (!currentDriverIdentity) {
+      if (!canSelfRegisterAsDriver || !currentDriverIdentity) {
         return;
       }
 
@@ -135,14 +137,15 @@ export function useDashboardRideActions({
 
       await reloadFahrten();
     },
-    [currentDriverIdentity, reloadFahrten],
+    [canSelfRegisterAsDriver, currentDriverIdentity, reloadFahrten],
   );
 
   const canToggleDriverAssignment = useCallback(
     (ride: CalendarRide) => {
-      return canToggleDriverAssignmentForRide(ride, currentDriverIdentity);
+      return canSelfRegisterAsDriver
+        && canToggleDriverAssignmentForRide(ride, currentDriverIdentity);
     },
-    [currentDriverIdentity],
+    [canSelfRegisterAsDriver, currentDriverIdentity],
   );
 
   const canManagePassengerChecks = useCallback(
@@ -333,6 +336,11 @@ export function useDashboardRideActions({
         return;
       }
 
+      if (!activeRideForm.date) {
+        setRideSaveError("Bitte ein gültiges Fahrtdatum auswählen.");
+        return;
+      }
+
       const driverName = normalizePassengerText(
         activeRideForm.driverName,
       ).trim();
@@ -375,8 +383,10 @@ export function useDashboardRideActions({
 
         const tempRide: CalendarRide = {
           id: rideInEditId,
-          date: normalizeDate(selectedDate),
-          dateBis: rentalDateTo ? normalizeDate(new Date(rentalDateTo)) : null,
+          date: normalizeDate(new Date(activeRideForm.date || toDateInputValue(selectedDate))),
+          dateBis: activeRideForm.endDate && activeRideForm.endDate !== activeRideForm.date
+            ? normalizeDate(new Date(activeRideForm.endDate))
+            : null,
           type: rideType,
           status: baseStatus,
           title:
@@ -436,8 +446,10 @@ export function useDashboardRideActions({
 
       const nextRide: CalendarRide = {
         id: nextRideId,
-        date: normalizeDate(selectedDate),
-        dateBis: null,
+        date: normalizeDate(new Date(activeRideForm.date || toDateInputValue(selectedDate))),
+        dateBis: activeRideForm.endDate && activeRideForm.endDate !== activeRideForm.date
+          ? normalizeDate(new Date(activeRideForm.endDate))
+          : null,
         type: rideType,
         status: baseStatus,
         title:

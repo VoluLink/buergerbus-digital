@@ -1,4 +1,4 @@
-import { MapPin, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 
 import { FiveMinuteTimeField } from "../FiveMinuteTimeField";
 
@@ -135,40 +135,26 @@ export function PassengerRow({
           className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
         />
 
-        <label className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-500">
-          <MapPin className="h-4 w-4 text-[#0053a0]" aria-hidden="true" />
-          <input
-            type="text"
-            value={passenger.pickupAddress ?? ""}
-            onChange={(event) =>
-              updatePassengerField(
-                passenger.id,
-                "pickupAddress",
-                event.target.value,
-              )
-            }
-            placeholder="Abholadresse"
-            className="w-full bg-transparent text-slate-700 outline-none placeholder:text-slate-400"
-          />
-        </label>
+        <input
+          type="text"
+          value={passenger.pickupAddress ?? ""}
+          onChange={(event) =>
+            updatePassengerField(passenger.id, "pickupAddress", event.target.value)
+          }
+          placeholder="Abholadresse"
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
+        />
 
         {rideType === "theme" ? null : (
-          <label className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-500">
-            <MapPin className="h-4 w-4 text-[#2f73b3]" aria-hidden="true" />
-            <input
-              type="text"
-              value={passenger.destinationAddress ?? ""}
-              onChange={(event) =>
-                updatePassengerField(
-                  passenger.id,
-                  "destinationAddress",
-                  event.target.value,
-                )
-              }
-              placeholder="Zieladresse"
-              className="w-full bg-transparent text-slate-700 outline-none placeholder:text-slate-400"
-            />
-          </label>
+          <input
+            type="text"
+            value={passenger.destinationAddress ?? ""}
+            onChange={(event) =>
+              updatePassengerField(passenger.id, "destinationAddress", event.target.value)
+            }
+            placeholder="Zieladresse"
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15"
+          />
         )}
 
         <label className="sm:col-span-2 flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-500">

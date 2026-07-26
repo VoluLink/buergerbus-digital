@@ -1,0 +1,1 @@
+using BuergerbusAPI.Models; namespace BuergerbusAPI.DTOs; public record UpdateFooterLinkRequest(string Label,FooterLinkType LinkType,Guid? SitePageId,string? ExternalUrl,int SortOrder,bool IsActive,bool OpenInNewTab);

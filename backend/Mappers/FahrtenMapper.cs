@@ -9,7 +9,12 @@ public static class FahrtenMapper
     {
         var teilnehmer = (f.Teilnehmer ?? new List<FahrtTeilnehmer>())
             .Select(ToDto)
-            .OrderBy(tp => tp.Id)
+            // The pickup time belongs to the first route segment.  IDs reflect
+            // insertion order and must not determine the order shown to staff.
+            .OrderBy(tp => tp.Teilstrecken.FirstOrDefault()?.Startzeit ?? DateTime.MaxValue)
+            .ThenBy(tp => tp.Nachname)
+            .ThenBy(tp => tp.Vorname)
+            .ThenBy(tp => tp.Id)
             .ToList();
 
         return new FahrtenDto(

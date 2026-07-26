@@ -1,0 +1,79 @@
+import { useEffect, useState } from 'react'
+import { Menu, Search, X } from 'lucide-react'
+import ProtectedSideMenu from '../components/ProtectedSideMenu'
+import { getAuditLog, getAuditLogs, type AuditLogDetail, type PagedAuditLogs } from '../services/auditLogApi'
+
+const fieldClass = 'mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15'
+
+function AdminAuditLogsPage() {
+  const [menu, setMenu] = useState(false)
+  const [search, setSearch] = useState('')
+  const [action, setAction] = useState('')
+  const [entityType, setEntityType] = useState('')
+  const [data, setData] = useState<PagedAuditLogs | null>(null)
+  const [detail, setDetail] = useState<AuditLogDetail | null>(null)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  async function load(page = 1) {
+    setLoading(true)
+    setError('')
+    try {
+      const params = new URLSearchParams({ page: String(page), pageSize: '25' })
+      if (search.trim()) params.set('search', search.trim())
+      if (action) params.set('action', action)
+      if (entityType) params.set('entityType', entityType)
+      setData(await getAuditLogs(params))
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : 'Die Daten konnten nicht geladen werden.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { void load() }, [])
+  const pages = Math.max(1, Math.ceil((data?.totalCount ?? 0) / (data?.pageSize ?? 25)))
+
+  async function openDetail(id: number) {
+    try {
+      setDetail(await getAuditLog(id))
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : 'Die Details konnten nicht geladen werden.')
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-100 text-slate-900">
+      <header className="border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
+        <button type="button" onClick={() => setMenu(true)} className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50" aria-label="Navigation öffnen"><Menu className="h-5 w-5" /></button>
+      </header>
+      <div className="p-3 sm:p-4 lg:p-6">
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl">
+          <div className="border-b border-slate-200 p-4 sm:p-6">
+            <p className="text-sm font-semibold uppercase tracking-[.2em] text-[#0053a0]">Administration</p>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-800 sm:text-4xl">Audit-Logs</h1>
+            <p className="mt-2 text-sm text-slate-500">Nachvollziehen, wer Fahrten, Benutzer, Initiativen und Fahrzeuge verändert hat.</p>
+            <form onSubmit={(event) => { event.preventDefault(); void load() }} className="mt-5">
+              <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Fahrt, Benutzer, Initiative oder Fahrzeug suchen ..." className="w-full rounded-xl border border-slate-300 py-2 pl-9 pr-3 text-sm text-slate-700 outline-none focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15" /></div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">Aktion<select value={action} onChange={(event) => setAction(event.target.value)} className={fieldClass}><option value="">Alle Aktionen</option><option value="Created">Erstellt</option><option value="Updated">Geändert</option><option value="Deleted">Gelöscht</option><option value="RolesChanged">Rollen geändert</option><option value="DriverAssigned">Fahrer zugewiesen</option><option value="DriverSelfRegistered">Fahrer eingetragen</option></select></label>
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">Bereich<select value={entityType} onChange={(event) => setEntityType(event.target.value)} className={fieldClass}><option value="">Alle Bereiche</option><option value="Ride">Fahrten</option><option value="User">Benutzer</option><option value="Driver">Fahrer</option><option value="Initiative">Initiativen</option><option value="Vehicle">Fahrzeuge</option></select></label>
+                <div className="flex items-end"><button className="min-h-11 w-full rounded-xl bg-[#0053a0] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110">Filter anwenden</button></div>
+              </div>
+            </form>
+          </div>
+          {error ? <div className="border-b border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-800">{error}</div> : null}
+          <div className="p-4 sm:p-6">
+            {loading ? <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">Lade Audit-Logs ...</div> : null}
+            {!loading && data?.items.length === 0 ? <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">Keine Audit-Logs gefunden.</div> : null}
+            {!loading && data?.items.length ? <><div className="overflow-x-auto rounded-2xl border border-slate-200"><table className="w-full min-w-[900px] border-collapse text-sm"><thead><tr className="border-b border-slate-200 bg-slate-50 text-left"><th className="px-4 py-3">Zeitpunkt</th><th className="px-4 py-3">Benutzer</th><th className="px-4 py-3">Aktion</th><th className="px-4 py-3">Objekt</th><th className="px-4 py-3">Initiative</th><th className="px-4 py-3">Ergebnis</th></tr></thead><tbody>{data.items.map((item) => <tr key={item.id} onClick={() => void openDetail(item.id)} className="cursor-pointer border-b border-slate-100 transition hover:bg-slate-50"><td className="whitespace-nowrap px-4 py-3 text-slate-700">{new Date(item.timestampUtc).toLocaleString('de-DE')}</td><td className="px-4 py-3 text-slate-700">{item.userDisplayName ?? 'System'}</td><td className="px-4 py-3 font-medium text-slate-800">{item.action}</td><td className="px-4 py-3 text-slate-700">{item.entityType}{item.entityId ? ` #${item.entityId}` : ''}</td><td className="px-4 py-3 text-slate-700">{item.initiativeName ?? '–'}</td><td className="px-4 py-3"><span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">{item.result}</span></td></tr>)}</tbody></table></div><div className="mt-4 flex items-center justify-between gap-3 text-sm text-slate-600"><span>{data.totalCount} Einträge</span><div className="flex items-center gap-3"><button type="button" disabled={data.page <= 1} onClick={() => void load(data.page - 1)} className="rounded-xl border border-slate-300 px-4 py-2 font-semibold disabled:opacity-40">Zurück</button><span>Seite {data.page} von {pages}</span><button type="button" disabled={data.page >= pages} onClick={() => void load(data.page + 1)} className="rounded-xl border border-slate-300 px-4 py-2 font-semibold disabled:opacity-40">Weiter</button></div></div></> : null}
+          </div>
+        </section>
+      </div>
+      {detail ? <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4"><section className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold uppercase tracking-[.2em] text-[#0053a0]">Audit-Detail</p><h2 className="mt-1 text-xl font-bold text-slate-800">{detail.action}</h2></div><button type="button" onClick={() => setDetail(null)} className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100" aria-label="Details schließen"><X className="h-5 w-5" /></button></div><dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 text-sm"><dt className="text-slate-500">Zeitpunkt</dt><dd>{new Date(detail.timestampUtc).toLocaleString('de-DE')}</dd><dt className="text-slate-500">Ausgeführt von</dt><dd>{detail.userDisplayName ?? 'System'}</dd><dt className="text-slate-500">Objekt</dt><dd>{detail.entityType}{detail.entityId ? ` #${detail.entityId}` : ''}</dd><dt className="text-slate-500">Initiative</dt><dd>{detail.initiativeName ?? '–'}</dd></dl>{Object.keys(detail.metadata).length ? <div className="mt-6 border-t border-slate-200 pt-5"><h3 className="font-semibold text-slate-800">Zusatzinformationen</h3><dl className="mt-3 space-y-2 text-sm">{Object.entries(detail.metadata).map(([key, value]) => <div key={key} className="grid grid-cols-[minmax(0,.75fr)_minmax(0,1.25fr)] gap-3"><dt className="break-words text-slate-500">{key}</dt><dd className="break-words text-slate-800">{value || '–'}</dd></div>)}</dl></div> : null}</section></div> : null}
+      <ProtectedSideMenu isOpen={menu} onClose={() => setMenu(false)} />
+    </main>
+  )
+}
+
+export default AdminAuditLogsPage

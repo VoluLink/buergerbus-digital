@@ -49,6 +49,13 @@ public static class FahrtenEndpoints
         => string.Equals(status, "Gespeichert", StringComparison.OrdinalIgnoreCase)
            || string.Equals(status, "Saved", StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsDraft(string? status)
+        => IsSavedRideStatus(status)
+           || string.Equals(status, "Entwurf", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(status, "Draft", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsVisibleToGuestOrDriver(Fahrten ride) => !IsDraft(ride.Status);
+
     private static bool IsDriverSelfAssignableRide(Fahrten ride)
         => IsThemeRide(ride.Fahrttyp) || IsStandardRide(ride.Fahrttyp);
 
@@ -121,14 +128,15 @@ public static class FahrtenEndpoints
             return Results.Forbid();
         }
 
-        if (isGuest && !IsPublished(ride.Status))
+        // Guests never receive detail records, even for a visible ride.
+        if (isGuest)
         {
             return Results.Forbid();
         }
 
         if (isDriver && allowDriverInitiativeRead)
         {
-            if (!IsPublished(ride.Status))
+            if (!IsVisibleToGuestOrDriver(ride))
             {
                 return Results.Forbid();
             }
@@ -136,7 +144,7 @@ public static class FahrtenEndpoints
             return null;
         }
 
-        if (isDriver && !IsPublished(ride.Status) && ride.FahrerId.HasValue && fahrerId.HasValue && ride.FahrerId.Value != fahrerId.Value)
+        if (isDriver && !IsVisibleToGuestOrDriver(ride))
         {
             return Results.Forbid();
         }
@@ -185,47 +193,12 @@ public static class FahrtenEndpoints
 
         if (isGuest)
         {
-            return query.Where(f =>
-                !string.IsNullOrWhiteSpace(f.Status)
-                && (
-                    f.Status.Contains("veröffentlicht")
-                    || f.Status.Contains("published")
-                ));
+            return query.Where(f => f.Status != "Gespeichert" && f.Status != "Saved" && f.Status != "Entwurf" && f.Status != "Draft");
         }
 
         if (isDriver)
         {
-            if (fahrerId.HasValue)
-            {
-                var currentFahrerId = fahrerId.Value;
-
-                return query.Where(f =>
-                    (!string.IsNullOrWhiteSpace(f.Status)
-                    && (
-                        f.Status.Contains("veröffentlicht")
-                        || f.Status.Contains("published")
-                        || f.Status == "Offen"
-                        || f.Status == "Open"
-                    ))
-                    || f.Fahrttyp == "Themenfahrt"
-                    || f.Fahrttyp == "theme"
-                    || f.Fahrttyp == "Vermietung"
-                    || f.Fahrttyp == "rental"
-                    || f.FahrerId == currentFahrerId);
-            }
-
-            return query.Where(f =>
-                (!string.IsNullOrWhiteSpace(f.Status)
-                && (
-                    f.Status.Contains("veröffentlicht")
-                    || f.Status.Contains("published")
-                    || f.Status == "Offen"
-                    || f.Status == "Open"
-                ))
-                || f.Fahrttyp == "Themenfahrt"
-                || f.Fahrttyp == "theme"
-                || f.Fahrttyp == "Vermietung"
-                || f.Fahrttyp == "rental");
+            return query.Where(f => f.Status != "Gespeichert" && f.Status != "Saved" && f.Status != "Entwurf" && f.Status != "Draft");
         }
 
         return query;
@@ -254,6 +227,8 @@ public static class FahrtenEndpoints
         ClaimsPrincipal principal,
         FahrtMetaDto meta,
         List<CreateFahrtTeilnehmerDto> teilnehmer,
+        RideTimeValidationService timeValidation,
+        RideConflictService conflictService,
         int? ignoreRideId = null)
     {
         if (!AuthUtils.GetUserId(principal).HasValue)
@@ -276,6 +251,10 @@ public static class FahrtenEndpoints
             string.Equals(meta.Fahrttyp, "rental", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(meta.Fahrttyp, "Vermietung", StringComparison.OrdinalIgnoreCase);
         var isSaved = IsSavedRideStatus(meta.Status);
+
+        var timeError = timeValidation.Validate(meta, teilnehmer, isSaved, isRental);
+        if (timeError is not null)
+            return Results.BadRequest(timeError);
 
         if (isSaved)
         {
@@ -314,7 +293,7 @@ public static class FahrtenEndpoints
                 if (draftDriver is null)
                     return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
 
-                if (draftDriver.Benutzer.InitiativeId != targetInitiativeId.Value)
+                if (draftDriver.Benutzer?.InitiativeId != targetInitiativeId.Value)
                     return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
 
                 if (!draftDriver.Aktiv)
@@ -371,9 +350,6 @@ public static class FahrtenEndpoints
         if (teilnehmer.Count == 0 && !isRental)
             return Results.BadRequest("Mindestens ein Teilnehmer ist erforderlich.");
 
-        if (teilnehmer.Count > 8 && !isRental)
-            return Results.BadRequest("Eine Fahrt darf maximal 8 Teilnehmer haben.");
-
         if (!meta.FahrzeugId.HasValue)
             return Results.BadRequest("Ein Fahrzeug muss ausgewählt werden.");
 
@@ -390,6 +366,9 @@ public static class FahrtenEndpoints
         if (!vehicle.Aktiv)
             return Results.BadRequest("Fahrzeug ist inaktiv.");
 
+        if (!isRental && teilnehmer.Count > vehicle.Kapazitaet)
+            return Results.BadRequest($"Das ausgewählte Fahrzeug bietet nur {vehicle.Kapazitaet} Fahrgastplätze.");
+
         var requestedFahrerId = meta.FahrerId;
 
         if (requestedFahrerId.HasValue)
@@ -402,49 +381,16 @@ public static class FahrtenEndpoints
             if (driver is null)
                 return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
 
-            if (driver.Benutzer.InitiativeId != targetInitiativeId.Value)
+            if (driver.Benutzer?.InitiativeId != targetInitiativeId.Value)
                 return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
 
             if (!driver.Aktiv)
                 return Results.BadRequest("Fahrer ist inaktiv.");
         }
 
-        var rideStart = meta.Startzeit;
-        var endDate = meta.DatumBis ?? meta.Datum;
-        var rideExclusiveEnd = meta.Endzeit ?? meta.Startzeit.Date.AddDays(1);
-
-        if (meta.FahrzeugId.HasValue)
-        {
-            var vehicleBusy = await db.Fahrten.AsNoTracking().AnyAsync(f =>
-                f.FahrzeugId == meta.FahrzeugId.Value
-                && f.InitiativeId == targetInitiativeId.Value
-                && (!ignoreRideId.HasValue || f.Id != ignoreRideId.Value)
-                && f.Startzeit < rideExclusiveEnd
-                && (f.Endzeit ?? f.Startzeit.Date.AddDays(1)) > rideStart);
-
-            if (!vehicleBusy)
-                return null;
-
-            if (isRental)
-            {
-                return Results.Conflict("Fahrzeug ist in diesem Zeitraum bereits vermietet.");
-            }
-
-            return Results.Conflict("Fahrzeug ist in diesem Zeitraum bereits belegt.");
-        }
-
-        if (requestedFahrerId.HasValue && !isRental)
-        {
-            var driverBusy = await db.Fahrten.AsNoTracking().AnyAsync(f =>
-                f.FahrerId == requestedFahrerId.Value
-                && f.InitiativeId == targetInitiativeId.Value
-                && (!ignoreRideId.HasValue || f.Id != ignoreRideId.Value)
-                && f.Startzeit < rideExclusiveEnd
-                && (f.Endzeit ?? f.Startzeit.Date.AddDays(1)) > rideStart);
-
-            if (driverBusy)
-                return Results.Conflict("Fahrer ist in diesem Zeitraum bereits eingeplant.");
-        }
+        var conflictError = await conflictService.ValidateAsync(meta, targetInitiativeId.Value, ignoreRideId, isRental);
+        if (conflictError is not null)
+            return Results.Conflict(conflictError);
 
         foreach (var participant in teilnehmer)
         {
@@ -609,7 +555,7 @@ public static class FahrtenEndpoints
 
     public static IEndpointRouteBuilder MapFahrtenEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/v1/fahrten", async (
+        app.MapGet("/api/v1/rides", async (
             HttpContext httpContext,
             AppDbContext db,
             int? initiativeId
@@ -624,15 +570,27 @@ public static class FahrtenEndpoints
             var fahrerId = await ResolveFahrerIdAsync(db, AuthUtils.GetUserId(user));
             var query = BuildAccessFilteredQuery(db, user, initiativeId, fahrerId);
             var fahrten = await query
-                .OrderByDescending(f => f.Datum)
-                .ThenByDescending(f => f.Startzeit)
+                .OrderBy(f => f.Datum)
+                .ThenBy(f => f.Startzeit)
+                .ThenBy(f => f.Id)
                 .ToListAsync();
 
-            return Results.Ok(fahrten.Select(FahrtenMapper.ToDto));
+            // A guest needs only the calendar overview. Do not leak passengers,
+            // remarks, creator information, or other protected ride details.
+            var result = AuthUtils.IsGast(user)
+                ? fahrten.Select(f => FahrtenMapper.ToDto(f) with
+                {
+                    Bemerkung = null,
+                    AngelegtVonUserName = string.Empty,
+                    Teilnehmer = []
+                })
+                : fahrten.Select(FahrtenMapper.ToDto);
+
+            return Results.Ok(result);
         })
         .RequireAuthorization();
 
-        app.MapGet("/api/v1/fahrten/{id:int}", async (
+        app.MapGet("/api/v1/rides/{id:int}", async (
             int id,
             HttpContext httpContext,
             AppDbContext db
@@ -665,11 +623,14 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPost("/api/v1/fahrten", async (
+        app.MapPost("/api/v1/rides", async (
             CreateFahrtRequest request,
             AppDbContext db,
             HttpContext httpContext,
-            TripEmailNotificationService tripEmailService
+            AuditService audit,
+            TripEmailNotificationService tripEmailService,
+            RideTimeValidationService timeValidation,
+            RideConflictService conflictService
         ) =>
         {
             if (!AuthUtils.CanManageRides(httpContext.User))
@@ -677,7 +638,7 @@ public static class FahrtenEndpoints
                 return Results.Forbid();
             }
 
-            var validation = await ValidateRideWriteAsync(db, httpContext.User, request.Fahrt, request.Teilnehmer);
+            var validation = await ValidateRideWriteAsync(db, httpContext.User, request.Fahrt, request.Teilnehmer, timeValidation, conflictService);
             if (validation is not null)
             {
                 return validation;
@@ -699,6 +660,16 @@ public static class FahrtenEndpoints
                     .Include(f => f.Teilstrecken)
                         .ThenInclude(t => t.Fahrgast)
                     .FirstAsync(f => f.Id == ride.Id);
+
+                await audit.WriteAsync("Created", "Ride", "Success", AuthUtils.GetUserId(httpContext.User), loaded.Id.ToString(), loaded.InitiativeId, new
+                {
+                    title = loaded.Titel,
+                    date = loaded.Datum.ToString("yyyy-MM-dd"),
+                    status = loaded.Status,
+                    driverId = loaded.FahrerId,
+                    vehicleId = loaded.FahrzeugId,
+                    participantCount = loaded.Teilnehmer.Count
+                });
 
                 // If a driver was assigned during creation, notify them
                 if (request.Fahrt.FahrerId.HasValue && !IsSavedRideStatus(loaded.Status))
@@ -730,12 +701,15 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPut("/api/v1/fahrten/{id:int}", async (
+        app.MapPut("/api/v1/rides/{id:int}", async (
             int id,
             UpdateFahrtRequest request,
             AppDbContext db,
             HttpContext httpContext,
-            TripEmailNotificationService tripEmailService
+            AuditService audit,
+            TripEmailNotificationService tripEmailService,
+            RideTimeValidationService timeValidation,
+            RideConflictService conflictService
         ) =>
         {
             if (!AuthUtils.CanManageRides(httpContext.User))
@@ -760,7 +734,7 @@ public static class FahrtenEndpoints
                 return access;
             }
 
-            var writeValidation = await ValidateRideWriteAsync(db, httpContext.User, request.Fahrt, request.Teilnehmer, id);
+            var writeValidation = await ValidateRideWriteAsync(db, httpContext.User, request.Fahrt, request.Teilnehmer, timeValidation, conflictService, id);
             if (writeValidation is not null)
             {
                 return writeValidation;
@@ -776,7 +750,6 @@ public static class FahrtenEndpoints
                 Zielort = existing.Zielort,
                 FahrzeugId = existing.FahrzeugId,
                 Status = existing.Status,
-                Bemerkung = existing.Bemerkung,
                 FahrerId = existing.FahrerId
             };
 
@@ -808,8 +781,24 @@ public static class FahrtenEndpoints
                     || oldSnapshot.Endzeit != loaded.Endzeit
                     || !string.Equals(oldSnapshot.Zielort, loaded.Zielort, StringComparison.OrdinalIgnoreCase)
                     || oldSnapshot.FahrzeugId != loaded.FahrzeugId
-                    || !string.Equals(oldSnapshot.Status, loaded.Status, StringComparison.OrdinalIgnoreCase)
-                    || !string.Equals(oldSnapshot.Bemerkung, loaded.Bemerkung, StringComparison.OrdinalIgnoreCase);
+                    || !string.Equals(oldSnapshot.Status, loaded.Status, StringComparison.OrdinalIgnoreCase);
+
+                var changedFields = new List<string>();
+                if (oldSnapshot.Datum != loaded.Datum) changedFields.Add($"Datum: {oldSnapshot.Datum:dd.MM.yyyy} → {loaded.Datum:dd.MM.yyyy}");
+                if (oldSnapshot.Startzeit != loaded.Startzeit) changedFields.Add($"Startzeit: {oldSnapshot.Startzeit:HH\\:mm} → {loaded.Startzeit:HH\\:mm}");
+                if (oldSnapshot.Endzeit != loaded.Endzeit) changedFields.Add("Endzeit wurde geändert");
+                if (!string.Equals(oldSnapshot.Zielort, loaded.Zielort, StringComparison.OrdinalIgnoreCase)) changedFields.Add("Ziel wurde geändert");
+                if (!string.Equals(oldSnapshot.Fahrttyp, loaded.Fahrttyp, StringComparison.OrdinalIgnoreCase)) changedFields.Add("Fahrtart wurde geändert");
+                if (oldSnapshot.FahrzeugId != loaded.FahrzeugId) changedFields.Add("Fahrzeug wurde geändert");
+                if (!string.Equals(oldSnapshot.Status, loaded.Status, StringComparison.OrdinalIgnoreCase)) changedFields.Add($"Status: {oldSnapshot.Status ?? "nicht angegeben"} → {loaded.Status ?? "nicht angegeben"}");
+
+                await audit.WriteAsync("Updated", "Ride", "Success", AuthUtils.GetUserId(httpContext.User), loaded.Id.ToString(), loaded.InitiativeId, new
+                {
+                    title = loaded.Titel,
+                    changes = changedFields,
+                    driverChanged = oldSnapshot.FahrerId != loaded.FahrerId,
+                    participantCount = loaded.Teilnehmer.Count
+                });
 
                 try
                 {
@@ -827,7 +816,7 @@ public static class FahrtenEndpoints
                         var driver = await db.Fahrer.Include(f => f.Benutzer).FirstOrDefaultAsync(f => f.Id == loaded.FahrerId.Value);
                         if (driver is not null)
                         {
-                            await tripEmailService.SendTripChangedEmailAsync(loaded, driver);
+                            await tripEmailService.SendTripUpdatedEmailAsync(loaded, driver, string.Join("\n", changedFields));
                         }
                     }
                 }
@@ -846,10 +835,11 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapDelete("/api/v1/fahrten/{id:int}", async (
+        app.MapDelete("/api/v1/rides/{id:int}", async (
             int id,
             AppDbContext db,
-            HttpContext httpContext
+            HttpContext httpContext,
+            AuditService audit
         ) =>
         {
             if (!AuthUtils.CanManageRides(httpContext.User))
@@ -876,11 +866,19 @@ public static class FahrtenEndpoints
             db.Fahrten.Remove(ride);
             await db.SaveChangesAsync();
 
+            await audit.WriteAsync("Deleted", "Ride", "Success", AuthUtils.GetUserId(httpContext.User), id.ToString(), ride.InitiativeId, new
+            {
+                title = ride.Titel,
+                date = ride.Datum.ToString("yyyy-MM-dd"),
+                status = ride.Status,
+                participantCount = ride.Teilnehmer.Count
+            });
+
             return Results.Ok("Fahrt wurde gelöscht.");
         })
         .RequireAuthorization();
 
-        app.MapPatch("/api/v1/fahrten/{id:int}/fahrer/{fahrerId:int}", async (int id, int fahrerId, AppDbContext db, HttpContext httpContext, TripEmailNotificationService tripEmailService) =>
+        app.MapPatch("/api/v1/rides/{id:int}/driver/{fahrerId:int}", async (int id, int fahrerId, AppDbContext db, HttpContext httpContext, TripEmailNotificationService tripEmailService, AuditService audit) =>
         {
             if (!AuthUtils.CanManageRides(httpContext.User))
             {
@@ -899,22 +897,31 @@ public static class FahrtenEndpoints
 
             var fahrer = await db.Fahrer
                 .Include(f => f.Benutzer)
+                    .ThenInclude(u => u!.BenutzerRollen)
+                        .ThenInclude(br => br.Rolle)
                 .FirstOrDefaultAsync(f => f.Id == fahrerId);
 
             if (fahrer is null)
                 return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
 
-            if (fahrer.Benutzer.InitiativeId != fahrt.InitiativeId)
+            if (fahrer!.Benutzer?.InitiativeId != fahrt.InitiativeId)
                 return Results.BadRequest("Bitte Fahrer aus der Liste auswählen oder das Feld leer lassen.");
 
-            if (!fahrer.Aktiv)
-                return Results.BadRequest("Fahrer ist inaktiv.");
+            var isAvailableDriver = fahrer.Aktiv
+                && fahrer.Benutzer?.Aktiv == true
+                && fahrer.Benutzer.BenutzerRollen.Any(br =>
+                    br.Rolle != null
+                    && br.Rolle.Rollenname == AuthUtils.FahrerRole);
+            if (!isAvailableDriver)
+                return Results.Conflict("Fahrer ist nicht mehr für neue Zuweisungen verfügbar.");
 
             var previous = fahrt.FahrerId;
             fahrt.FahrerId = fahrerId;
             fahrt.Status = "Zugewiesen";
 
             await db.SaveChangesAsync();
+
+            await audit.WriteAsync("DriverAssigned", "Ride", "Success", AuthUtils.GetUserId(httpContext.User), fahrt.Id.ToString(), fahrt.InitiativeId, new { title = fahrt.Titel, previousDriverId = previous, driverId = fahrerId });
 
             // If assignment changed, notify new driver
             if (previous != fahrerId)
@@ -933,11 +940,12 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPatch("/api/v1/fahrten/{fahrtId:int}/fahrer/anmelden", async (
+        app.MapPost("/api/v1/rides/{fahrtId:int}/self-registration", async (
             int fahrtId,
             AppDbContext db,
             HttpContext httpContext,
-            TripEmailNotificationService tripEmailService) =>
+            TripEmailNotificationService tripEmailService,
+            AuditService audit) =>
         {
             var user = httpContext.User;
             var userId = AuthUtils.GetUserId(user);
@@ -978,14 +986,22 @@ public static class FahrtenEndpoints
 
             var fahrer = await db.Fahrer
                 .Include(f => f.Benutzer)
+                    .ThenInclude(u => u!.BenutzerRollen)
+                        .ThenInclude(br => br.Rolle)
                 .FirstOrDefaultAsync(f => f.BenutzerId == userId.Value);
 
-            if (fahrer is null || !fahrer.Aktiv)
+            var isAvailableDriver = fahrer is not null
+                && fahrer.Aktiv
+                && fahrer.Benutzer?.Aktiv == true
+                && fahrer.Benutzer.BenutzerRollen.Any(br =>
+                    br.Rolle != null
+                    && br.Rolle.Rollenname == AuthUtils.FahrerRole);
+            if (!isAvailableDriver)
             {
-                return Results.BadRequest("Angemeldeter Benutzer ist kein aktiver Fahrer.");
+                return Results.Forbid();
             }
 
-            if (fahrer.Benutzer.InitiativeId != fahrt.InitiativeId)
+            if (fahrer!.Benutzer?.InitiativeId != fahrt.InitiativeId)
             {
                 return Results.Forbid();
             }
@@ -1001,6 +1017,8 @@ public static class FahrtenEndpoints
             fahrt.Status = "Zugewiesen";
 
             await db.SaveChangesAsync();
+
+            await audit.WriteAsync("DriverSelfRegistered", "Ride", "Success", userId, fahrt.Id.ToString(), fahrt.InitiativeId, new { title = fahrt.Titel, driverId = fahrer.Id });
 
             if (previousFahrerId != fahrer.Id)
             {
@@ -1023,10 +1041,11 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPatch("/api/v1/fahrten/{fahrtId:int}/fahrer/abmelden", async (
+        app.MapDelete("/api/v1/rides/{fahrtId:int}/self-registration", async (
             int fahrtId,
             AppDbContext db,
-            HttpContext httpContext) =>
+            HttpContext httpContext,
+            AuditService audit) =>
         {
             var user = httpContext.User;
             var userId = AuthUtils.GetUserId(user);
@@ -1077,6 +1096,8 @@ public static class FahrtenEndpoints
 
             await db.SaveChangesAsync();
 
+            await audit.WriteAsync("DriverSelfRegistrationCancelled", "Ride", "Success", userId, fahrt.Id.ToString(), fahrt.InitiativeId, new { title = fahrt.Titel, driverId = fahrerId.Value });
+
             return Results.Ok(new
             {
                 fahrt.Id,
@@ -1086,7 +1107,7 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPatch("/api/v1/fahrten/{id:int}/fahrzeug/{fahrzeugId:int}", async (int id, int fahrzeugId, AppDbContext db, HttpContext httpContext) =>
+        app.MapPatch("/api/v1/rides/{id:int}/vehicle/{fahrzeugId:int}", async (int id, int fahrzeugId, AppDbContext db, HttpContext httpContext) =>
         {
             if (!AuthUtils.CanManageRides(httpContext.User))
             {
@@ -1121,7 +1142,7 @@ public static class FahrtenEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPatch("/api/v1/fahrtteilnehmer/{id:int}/abgehakt", async (
+        app.MapPatch("/api/v1/participants/{id:int}/completion", async (
             int id,
             FahrtTeilnehmerCheckDto dto,
             AppDbContext db,
@@ -1129,7 +1150,6 @@ public static class FahrtenEndpoints
         {
             var teilnehmer = await db.FahrtTeilnehmer
                 .Include(tp => tp.Fahrt)
-                    .ThenInclude(f => f.Teilnehmer)
                 .FirstOrDefaultAsync(tp => tp.Id == id);
 
             if (teilnehmer is null)
@@ -1147,6 +1167,11 @@ public static class FahrtenEndpoints
             {
                 return Results.Forbid();
             }
+
+            if (teilnehmer.Fahrt is null)
+                return Results.Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Inkonsistenter Fahrtteilnehmer-Datensatz");
+
+            await db.Entry(teilnehmer.Fahrt).Collection(f => f.Teilnehmer).LoadAsync();
 
             var access = await ValidateRideAccessAsync(user, db, teilnehmer.Fahrt);
             if (access is not null)

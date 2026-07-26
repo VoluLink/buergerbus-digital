@@ -5,7 +5,7 @@ namespace BuergerbusAPI.Models
         public int Id { get; set; }
 
         public int FahrtId { get; set; }
-        public Fahrten Fahrt { get; set; } = null!;
+        public Fahrten? Fahrt { get; set; }
 
         public int? FahrgastId { get; set; }
         public Fahrgast? Fahrgast { get; set; }

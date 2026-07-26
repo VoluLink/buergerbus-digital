@@ -103,7 +103,7 @@ services:
   # MariaDB
   # ==========================================================
   db:
-    image: mariadb:11
+    image: mariadb:11.4.5
     container_name: buergerbus_db
     restart: always
     environment:
@@ -112,7 +112,11 @@ services:
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     healthcheck:
-      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      test:
+        [
+          "CMD-SHELL",
+          "mariadb-admin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent",
+        ]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -128,7 +132,7 @@ services:
   # - nur Development
   # ==========================================================
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.27.4
     container_name: buergerbus_mailpit
     profiles: ["dev"]
     restart: unless-stopped
@@ -142,7 +146,7 @@ services:
   # - Development/Staging
   # ==========================================================
   phpmyadmin:
-    image: phpmyadmin
+    image: phpmyadmin:5.2.2
     container_name: buergerbus_phpmyadmin
     profiles: ["dev", "staging"]
     restart: unless-stopped

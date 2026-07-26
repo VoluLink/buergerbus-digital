@@ -34,13 +34,14 @@ public static class UserEndpoints
 // -----------------------------------------------------------------------------
 // Benutzer anlegen (ohne Rechteprüfung; wird später ergänzt)
 // -----------------------------------------------------------------------------
-        app.MapPost("/api/v1/benutzer", async (
+        app.MapPost("/api/v1/users", async (
             CreateBenutzerRequest request,
             HttpContext httpContext,
             AppDbContext db,
             IPasswordHasher<Benutzer> passwordHasher,
             INotificationService notificationService,
-            ILoggerFactory loggerFactory
+            ILoggerFactory loggerFactory,
+            AuditService audit
         ) =>
         {
             var logger = loggerFactory.CreateLogger("UserEndpoints");
@@ -209,6 +210,13 @@ public static class UserEndpoints
                 return Results.Problem("Benutzer wurde angelegt, konnte aber nicht geladen werden.");
             }
 
+            await audit.WriteAsync("Created", "User", "Success", AuthUtils.GetUserId(principal), loadedUser.Id.ToString(), loadedUser.InitiativeId, new
+            {
+                username = loadedUser.Nutzername,
+                role = normalizedRole,
+                driverProfileCreated = loadedUser.Fahrer is not null
+            });
+
             try
             {
                 await notificationService.SendUserCreatedEmailAsync(loadedUser, inviteToken);
@@ -297,6 +305,7 @@ public static class UserEndpoints
             int page,
             int pageSize,
             string? search,
+            int? initiativeId,
             HttpContext httpContext,
             AppDbContext db
         ) =>
@@ -321,9 +330,20 @@ public static class UserEndpoints
 
             var query = db.Benutzer.AsNoTracking();
 
+            if (!isAdmin && initiativeId.HasValue && initiativeId.Value != requesterInitiativeId!.Value)
+            {
+                return Results.Forbid();
+            }
+
             if (isDisponent)
             {
                 query = query.Where(b => b.InitiativeId == requesterInitiativeId!.Value);
+            }
+            else if (initiativeId.HasValue)
+            {
+                // Admin is the explicitly global initiative-management role; the
+                // selected initiative still constrains this database query.
+                query = query.Where(b => b.InitiativeId == initiativeId.Value);
             }
 
             if (!string.IsNullOrWhiteSpace(search))
@@ -384,7 +404,8 @@ public static class UserEndpoints
 // -----------------------------------------------------------------------------
 // Einzelnen Benutzer anhand der ID laden
 // -----------------------------------------------------------------------------
-        app.MapGet("/api/v1/users/{id:int}", async (
+        #if false // Superseded by the canonical profile endpoint below.
+        app.MapGet("/api/v1/users/{id:int}/summary", async (
             int id,
             HttpContext httpContext,
             AppDbContext db
@@ -420,7 +441,8 @@ public static class UserEndpoints
 // -----------------------------------------------------------------------------
 // Vollständiges Benutzerprofil inklusive Rollen, Initiative und Fahrer laden
 // -----------------------------------------------------------------------------
-        app.MapGet("/api/v1/users/{id:int}/profile", async (
+        #endif
+        app.MapGet("/api/v1/users/{id:int}", async (
             int id,
             HttpContext httpContext,
             AppDbContext db
@@ -469,11 +491,13 @@ public static class UserEndpoints
 // - Führerschein- und G25-Daten speichern
 // - Optional Fahrer-Daten aktualisieren
 // -----------------------------------------------------------------------------
-        app.MapPut("/api/v1/users/{id:int}/profile", async (
+        app.MapPut("/api/v1/users/{id:int}", async (
             int id,
             HttpContext httpContext,
             UpdateUserProfileRequest request,
-            AppDbContext db
+            AppDbContext db,
+            RefreshSessionService refreshSessions,
+            AuditService audit
         ) =>
         {
             var principal = httpContext.User;
@@ -498,6 +522,9 @@ public static class UserEndpoints
             {
                 return Results.NotFound("Benutzer wurde nicht gefunden.");
             }
+            var previousUsername = user.Nutzername;
+            var previousActive = user.Aktiv;
+            var previousDriverActive = user.Fahrer?.Aktiv;
             // Benutzername prüfen und sicherstellen, dass er eindeutig ist
             if (isOwnProfile && request.Aktiv.HasValue && request.Aktiv.Value != user.Aktiv)
             {
@@ -544,13 +571,16 @@ public static class UserEndpoints
             user.Bemerkung = request.Bemerkung;
             if (request.Aktiv.HasValue)
             {
+                if (user.Aktiv != request.Aktiv.Value)
+                    user.AuthVersion++;
                 user.Aktiv = request.Aktiv.Value;
             }
+
             user.GeaendertAm = DateTime.UtcNow;
 
             // Prüfen, ob der Benutzer die Rolle "Fahrer" besitzt
             var hasFahrerRole = user.BenutzerRollen.Any(br =>
-                br.Rolle.Rollenname.ToLower() == "fahrer");
+                string.Equals(br.Rolle?.Rollenname, "fahrer", StringComparison.OrdinalIgnoreCase));
 
             if (request.Fahrer != null && hasFahrerRole)
             {
@@ -576,6 +606,28 @@ public static class UserEndpoints
             // Änderungen dauerhaft in der Datenbank speichern
             await db.SaveChangesAsync();
 
+            if (request.Aktiv.HasValue && user.Fahrer is not null)
+            {
+                user.Fahrer.Aktiv = user.Aktiv && hasFahrerRole;
+                user.Fahrer.GeaendertAm = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+            }
+
+            if (request.Aktiv.HasValue)
+            {
+                await refreshSessions.RevokeAllAsync(user.Id, "user_status_changed");
+            }
+
+            var changedFields = new List<string>();
+            if (!string.Equals(previousUsername, user.Nutzername, StringComparison.Ordinal)) changedFields.Add("Benutzername");
+            if (previousActive != user.Aktiv) changedFields.Add("Kontostatus");
+            if (request.Fahrer is not null) changedFields.Add("Fahrerprofil");
+            if (changedFields.Count == 0) changedFields.Add("Profilangaben");
+            if (changedFields.Count > 0)
+            {
+                await audit.WriteAsync(request.Fahrer is not null ? "DriverUpdated" : "Updated", request.Fahrer is not null ? "Driver" : "User", "Success", AuthUtils.GetUserId(principal), user.Id.ToString(), user.InitiativeId, new { username = user.Nutzername, changes = changedFields, driverActive = user.Fahrer?.Aktiv, previousDriverActive });
+            }
+
             return Results.Ok(UserMapper.CreateUserProfile(user));
         })
         .Accepts<UpdateUserProfileRequest>("application/json")
@@ -590,10 +642,11 @@ public static class UserEndpoints
 // - Von dem Benutzer angelegte Fahrten werden auf den ausführenden Admin umgehängt
 // - Fahrer-Verknüpfungen werden vor dem Löschen gelöst
 // -----------------------------------------------------------------------------
-        app.MapDelete("/api/v1/users/{id:int}/profile", async (
+        app.MapDelete("/api/v1/users/{id:int}", async (
             int id,
             HttpContext httpContext,
-            AppDbContext db
+            AppDbContext db,
+            AuditService audit
         ) =>
         {
             var principal = httpContext.User;
@@ -622,6 +675,9 @@ public static class UserEndpoints
                 return Results.NotFound("Benutzer wurde nicht gefunden.");
             }
 
+            var auditUsername = user.Nutzername;
+            var auditInitiativeId = user.InitiativeId;
+
             if (user.Fahrer is not null)
             {
                 await db.Fahrten
@@ -637,6 +693,7 @@ public static class UserEndpoints
 
             db.Benutzer.Remove(user);
             await db.SaveChangesAsync();
+            await audit.WriteAsync("Deleted", "User", "Success", requesterUserId, id.ToString(), auditInitiativeId, new { username = auditUsername });
 
             return Results.NoContent();
         })
@@ -662,7 +719,8 @@ public static class UserEndpoints
             }
 
             var roles = user.BenutzerRollen
-                .Select(br => br.Rolle.Rollenname)
+                .Where(br => br.Rolle is not null)
+                .Select(br => br.Rolle!.Rollenname)
                 .Where(name => !string.IsNullOrWhiteSpace(name))
                 .Distinct()
                 .ToList();
@@ -685,7 +743,9 @@ public static class UserEndpoints
             UpdateRolesRequest request,
             HttpContext httpContext,
             AppDbContext db,
-            JwtService jwtService
+            JwtService jwtService,
+            RefreshSessionService refreshSessions,
+            AuditService audit
         ) =>
         {
             var principal = httpContext.User;
@@ -733,6 +793,13 @@ public static class UserEndpoints
                 .Select(role => role!.ToLowerInvariant())
                 .Distinct()
                 .ToList();
+            var previousRoles = user.BenutzerRollen
+                .Select(br => br.Rolle?.Rollenname?.ToLowerInvariant())
+                .Where(role => !string.IsNullOrWhiteSpace(role))
+                .Select(role => role!)
+                .ToHashSet();
+            var hadFahrerRole = user.BenutzerRollen.Any(br =>
+                string.Equals(br.Rolle?.Rollenname, AuthUtils.FahrerRole, StringComparison.OrdinalIgnoreCase));
 
             if (isDisponent)
             {
@@ -742,7 +809,7 @@ public static class UserEndpoints
                 }
 
                 var userHasAdminRole = user.BenutzerRollen.Any(br =>
-                    string.Equals(br.Rolle.Rollenname, "Admin", StringComparison.OrdinalIgnoreCase));
+                    string.Equals(br.Rolle?.Rollenname, "Admin", StringComparison.OrdinalIgnoreCase));
 
                 if (userHasAdminRole || normalizedRoles.Contains("admin"))
                 {
@@ -775,7 +842,7 @@ public static class UserEndpoints
             }
             // Rollen entfernen, die nicht mehr in der neuen Rollenliste enthalten sind
             user.BenutzerRollen.RemoveAll(br =>
-                !normalizedRoles.Contains(br.Rolle.Rollenname.ToLowerInvariant()));
+                br.Rolle is null || !normalizedRoles.Contains(br.Rolle.Rollenname.ToLowerInvariant()));
 
             // Neue Rollen dem Benutzer zuweisen
             foreach (var roleName in normalizedRoles)
@@ -802,9 +869,15 @@ public static class UserEndpoints
                 db.Fahrer.Add(new Fahrer
                 {
                     BenutzerId = user.Id,
-                    Aktiv = true,
+                    Aktiv = user.Aktiv,
                     AngelegtAm = DateTime.UtcNow
                 });
+            }
+
+            if (hasFahrerRole && !hadFahrerRole && user.Fahrer != null)
+            {
+                user.Fahrer.Aktiv = user.Aktiv;
+                user.Fahrer.GeaendertAm = DateTime.UtcNow;
             }
 
             // Wenn die Rolle "Fahrer" entfernt wurde, Fahrer-Datensatz deaktivieren
@@ -814,10 +887,26 @@ public static class UserEndpoints
                 user.Fahrer.GeaendertAm = DateTime.UtcNow;
             }
 
+            var rolesChanged = !previousRoles.SetEquals(normalizedRoles);
+            if (rolesChanged)
+            {
+                user.AuthVersion++;
+            }
+
             user.AktiveRolle = RolePriorityResolver.ResolveHighestRole(
                 user.BenutzerRollen.Select(br => br.Rolle?.Rollenname));
             // Rollenänderungen und Fahrerstatus dauerhaft speichern
             await db.SaveChangesAsync();
+
+            if (rolesChanged)
+            {
+                await audit.WriteAsync("RolesChanged", "User", "Success", AuthUtils.GetUserId(principal), user.Id.ToString(), user.InitiativeId, new { username = user.Nutzername, previousRoles = previousRoles.Order(), roles = normalizedRoles.Order(), driverRoleActive = hasFahrerRole });
+            }
+
+            if (rolesChanged)
+            {
+                await refreshSessions.RevokeAllAsync(user.Id, "roles_changed");
+            }
 
             string? refreshedToken = null;
             var principalUserId = AuthUtils.GetUserId(httpContext.User);

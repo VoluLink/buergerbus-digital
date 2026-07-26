@@ -14,6 +14,7 @@ export async function getUsers(
   page = 1,
   pageSize = 25,
   search = '',
+  initiativeId?: number | null,
 ): Promise<PagedUsersResponse> {
   const params = new URLSearchParams({
     page: String(page),
@@ -22,6 +23,9 @@ export async function getUsers(
 
   if (search.trim()) {
     params.set('search', search.trim())
+  }
+  if (initiativeId) {
+    params.set('initiativeId', String(initiativeId))
   }
 
   const response = await apiFetch(`${API_BASE_URL}/api/v1/users?${params.toString()}`, {
@@ -43,7 +47,7 @@ export async function getUsers(
 }
 
 export async function fetchInitiatives(): Promise<InitiativeSummary[]> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/initiatives`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/initiatives/options`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -81,7 +85,7 @@ export async function fetchRoles(): Promise<RoleSummary[]> {
 }
 
 export async function fetchUserProfile(userId: number): Promise<UserProfile> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/users/${userId}/profile`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/users/${userId}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -156,7 +160,7 @@ export interface CreateBenutzerRequest {
 }
 
 export async function createBenutzer(payload: CreateBenutzerRequest): Promise<UserProfile> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/benutzer`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/users`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

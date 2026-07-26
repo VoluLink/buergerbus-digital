@@ -3,17 +3,18 @@
     public class Fahrten
     {
         public int Id { get; set; }
-        public string Titel { get; set; }
+        // Populated by the ride command mapper before persistence.
+        public string Titel { get; set; } = string.Empty;
         public DateTime Datum { get; set; }
-        public string Zielort { get; set; }
-        public string Fahrttyp { get; set; }
+        public string Zielort { get; set; } = string.Empty;
+        public string Fahrttyp { get; set; } = string.Empty;
         public DateTime Startzeit { get; set; }
         public DateTime? Endzeit { get; set; }
         public string? Bemerkung { get; set; }
-        public string Status { get; set; }
+        public string Status { get; set; } = string.Empty;
         public DateTime AngelegtAm {  get; set; }
         public int AngelegtVonUserId { get; set; }
-        public Benutzer AngelegtVonUser { get; set; } = null!;
+        public Benutzer? AngelegtVonUser { get; set; }
 
        // 1..n - Fahrer..Fahrten
         public int? FahrerId { get; set; }
@@ -25,7 +26,7 @@
 
         // Initiative muss in jeder Tabelle sein (Multi-Tenant System) => Landkreis als Datengrenze
         public int InitiativeId { get; set; }
-        public Initiativen Initiative { get; set; }
+        public Initiativen? Initiative { get; set; }
 
         public List<FahrtTeilnehmer> Teilnehmer { get; set; } = new();
 

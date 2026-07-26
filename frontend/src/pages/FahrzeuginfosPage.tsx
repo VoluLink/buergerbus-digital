@@ -59,7 +59,7 @@ const schadenStatusOptions = ['Offen', 'In Bearbeitung', 'Behoben', 'Nicht repar
 function FahrzeuginfosPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
-  const { canManageDataCrud } = useRoleVisibility()
+  const { canManageDataCrud, canViewInitiativeOptions } = useRoleVisibility()
   const isCrudRestricted = !canManageDataCrud
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [vehicles, setVehicles] = useState<Fahrzeug[]>([])
@@ -116,10 +116,10 @@ function FahrzeuginfosPage() {
       setLoadError('')
 
       try {
-        const [loadedVehicles, loadedInitiativen] = await Promise.all([
-          getFahrzeuge(),
-          fetchInitiatives().catch(() => [] as InitiativeSummary[]),
-        ])
+        const loadedVehicles = await getFahrzeuge()
+        const loadedInitiativen = canViewInitiativeOptions
+          ? await fetchInitiatives()
+          : [] as InitiativeSummary[]
         if (isActive) {
           setVehicles(loadedVehicles)
           setInitiativen(loadedInitiativen)
@@ -140,7 +140,7 @@ function FahrzeuginfosPage() {
     return () => {
       isActive = false
     }
-  }, [currentUser?.id])
+  }, [canViewInitiativeOptions, currentUser?.id])
 
   useEffect(() => {
     let isActive = true

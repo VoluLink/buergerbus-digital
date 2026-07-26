@@ -8,7 +8,7 @@ import type {
 } from '../types/Initiative'
 
 export async function getInitiativen(): Promise<Initiative[]> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/initiativen`)
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/admin/initiatives`)
 
   if (!response.ok) {
     if (response.status === 403) {
@@ -22,7 +22,7 @@ export async function getInitiativen(): Promise<Initiative[]> {
 }
 
 export async function createInitiative(request: CreateInitiativeRequest): Promise<Initiative> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/initiativen`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/admin/initiatives`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -48,7 +48,7 @@ export async function updateInitiative(
   id: number,
   request: UpdateInitiativeRequest,
 ): Promise<Initiative> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/initiativen/${id}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/admin/initiatives/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -71,7 +71,7 @@ export async function updateInitiative(
 }
 
 export async function deleteInitiative(id: number): Promise<void> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/initiativen/${id}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/admin/initiatives/${id}`, {
     method: 'DELETE',
   })
 
@@ -85,7 +85,7 @@ export async function deleteInitiative(id: number): Promise<void> {
 }
 
 export async function getInitiativeDeletePreview(id: number): Promise<InitiativeDeletePreview> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/initiativen/${id}/delete-preview`)
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/admin/initiatives/${id}/delete-preview`)
 
   if (!response.ok) {
     if (response.status === 403) {

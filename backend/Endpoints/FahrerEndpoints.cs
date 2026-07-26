@@ -12,23 +12,43 @@ public static class FahrerEndpoints
 {
     public static IEndpointRouteBuilder MapFahrerEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/v1/fahrer", async (
+        app.MapGet("/api/v1/drivers", async (
             HttpContext httpContext,
-            AppDbContext db
+            AppDbContext db,
+            int? initiativeId
         ) =>
         {
             var principal = httpContext.User;
             var isAdmin = AuthUtils.IsAdmin(principal);
-            var initiativeId = AuthUtils.GetInitiativeId(principal);
-            if (!isAdmin && !initiativeId.HasValue)
+            var claimInitiativeId = AuthUtils.GetInitiativeId(principal);
+            if (!isAdmin && !claimInitiativeId.HasValue)
             {
                 return Results.Forbid();
+            }
+
+            // Admin is the documented global initiative-management role. All other
+            // roles are limited to the initiative embedded in their signed token.
+            if (!isAdmin && initiativeId.HasValue && initiativeId.Value != claimInitiativeId!.Value)
+            {
+                return Results.Forbid();
+            }
+
+            var targetInitiativeId = initiativeId ?? claimInitiativeId;
+            if (!targetInitiativeId.HasValue)
+            {
+                return Results.BadRequest("Initiative ist erforderlich.");
             }
 
             var fahrerList = await db.Fahrer
                 .AsNoTracking()
                 .Include(f => f.Benutzer)
-                .Where(f => isAdmin || (f.Benutzer != null && f.Benutzer.InitiativeId == initiativeId))
+                .Where(f => f.Aktiv
+                    && f.Benutzer != null
+                    && f.Benutzer.Aktiv
+                    && f.Benutzer.InitiativeId == targetInitiativeId.Value
+                    && f.Benutzer.BenutzerRollen.Any(br =>
+                        br.Rolle != null
+                        && br.Rolle.Rollenname == AuthUtils.FahrerRole))
                 .OrderBy(f => f.Id)
                 .ToListAsync();
 

@@ -27,8 +27,8 @@ import type { InitiativeSummary, RoleSummary, UserSummary } from '../types/UserP
 
 function RollenverteilungPage() {
   const navigate = useNavigate()
-  const { currentUser } = useAuth()
-  const { canManageRoleAssignments, isAdmin, isDisponent } = useRoleVisibility()
+  const { currentUser, refreshProfile } = useAuth()
+  const { canManageRoleAssignments, canManageUsers, isAdmin, isDisponent } = useRoleVisibility()
   const currentInitiativeId = currentUser?.initiative?.id ?? null
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -71,6 +71,12 @@ function RollenverteilungPage() {
     let isActive = true
 
     async function loadMeta() {
+      if (!canManageRoleAssignments) {
+        setInitiatives([])
+        setRoles([])
+        return
+      }
+
       setLoadError('')
 
       try {
@@ -97,12 +103,20 @@ function RollenverteilungPage() {
     return () => {
       isActive = false
     }
-  }, [])
+  }, [canManageRoleAssignments])
 
   useEffect(() => {
     let isActive = true
 
     async function loadUsers() {
+      if (!canManageUsers) {
+        setUsers([])
+        setTotalItems(0)
+        setTotalPages(0)
+        setIsLoading(false)
+        return
+      }
+
       setIsLoading(true)
       setLoadError('')
 
@@ -131,7 +145,7 @@ function RollenverteilungPage() {
     return () => {
       isActive = false
     }
-  }, [page, pageSize, searchQuery])
+  }, [canManageUsers, page, pageSize, searchQuery])
 
   function closeSideMenu() {
     setIsSideMenuOpen(false)
@@ -192,9 +206,10 @@ function RollenverteilungPage() {
     setSavingUserId(userId)
 
     void updateUserRoles(userId, nextRoles, nextActiveRole)
-      .then((saved) => {
+      .then(async (saved) => {
         if (saved.newToken) {
           setStoredToken(saved.newToken)
+          await refreshProfile()
         }
 
         setUsers((prev) =>

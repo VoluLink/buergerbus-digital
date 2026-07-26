@@ -9,7 +9,7 @@ export interface SendNotificationRequest {
   message: string
   type: NotificationType
   initiativeIds: number[]
-  roles: NotificationRecipientRole[]
+  roles: string[]
   recipientGroup?: NotificationRecipientGroup
 }
 
@@ -55,3 +55,5 @@ export interface NotificationDetails {
   sentAt?: string | null
   recipients: NotificationRecipient[]
 }
+
+export interface PagedNotifications { items: NotificationSummary[]; page: number; pageSize: number; totalCount: number }

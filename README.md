@@ -936,7 +936,7 @@ Die Kommunikation erfolgt über eine REST-API.
 Beispiel:
 
 ```http
-GET /api/v1/fahrten
+GET /api/v1/rides
 ```
 
 ---

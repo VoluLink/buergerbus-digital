@@ -22,9 +22,12 @@ public static class AuthEndpoints
     {
         app.MapPost("/api/v1/auth/login", async (
             LoginRequest request,
+            HttpContext httpContext,
             AppDbContext db,
             IPasswordHasher<Benutzer> passwordHasher,
-            JwtService jwtService
+            JwtService jwtService,
+            RefreshSessionService refreshSessions,
+            AuditService audit
         ) =>
         {
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
@@ -46,6 +49,7 @@ public static class AuthEndpoints
 
             if (user is null)
             {
+                await audit.WriteAsync("login", "Benutzer", "failed", metadata: new { reason = "invalid_credentials" });
                 return Results.Text(
                     "Ungültige Zugangsdaten.",
                     statusCode: StatusCodes.Status401Unauthorized
@@ -54,6 +58,7 @@ public static class AuthEndpoints
 
             if (!user.Aktiv)
             {
+                await audit.WriteAsync("login", "Benutzer", "failed", user.Id, user.Id.ToString(), user.InitiativeId, new { reason = "invalid_credentials" });
                 return Results.Text(
                     "UngÃ¼ltige Zugangsdaten.",
                     statusCode: StatusCodes.Status401Unauthorized
@@ -64,6 +69,7 @@ public static class AuthEndpoints
 
             if (passwordResult == PasswordVerificationResult.Failed)
             {
+                await audit.WriteAsync("login", "Benutzer", "failed", user.Id, user.Id.ToString(), user.InitiativeId, new { reason = "invalid_credentials" });
                 return Results.Text(
                     "Ungültige Zugangsdaten.",
                     statusCode: StatusCodes.Status401Unauthorized
@@ -76,51 +82,40 @@ public static class AuthEndpoints
                 await db.SaveChangesAsync();
             }
 
-            var token = jwtService.CreateToken(user);
+            var token = await jwtService.CreateTokenAsync(user.Id);
+            var refresh = await refreshSessions.CreateAsync(user, httpContext);
+            refreshSessions.WriteCookie(httpContext.Response, refresh.Token, refresh.Session.ExpiresAtUtc);
+            await audit.WriteAsync("RefreshSessionCreated", "RefreshSession", "success", user.Id, refresh.Session.Id.ToString(), user.InitiativeId);
+            await audit.WriteAsync("login", "Benutzer", "success", user.Id, user.Id.ToString(), user.InitiativeId);
 
             return Results.Ok(new LoginResponseDto(
                 true,
                 "Login erfolgreich.",
                 token,
                 UserMapper.CreateUserProfile(user)));
+        }).RequireRateLimiting("auth-login");
+
+        app.MapPost("/api/v1/auth/refresh", async (HttpContext context, JwtService jwtService, RefreshSessionService refreshSessions, AuditService audit, CancellationToken ct) =>
+        {
+            var rotated = await refreshSessions.RotateAsync(RefreshSessionService.ReadCookie(context.Request), context, ct);
+            if (rotated is null) { refreshSessions.DeleteCookie(context.Response); return Results.Unauthorized(); }
+            refreshSessions.WriteCookie(context.Response, rotated.Value.Token, rotated.Value.New.ExpiresAtUtc);
+            await audit.WriteAsync("RefreshSessionRotated", "RefreshSession", "success", rotated.Value.User.Id, rotated.Value.New.Id.ToString(), rotated.Value.User.InitiativeId, new { sessionId = rotated.Value.New.Id });
+            return Results.Ok(new RefreshTokenResponseDto(await jwtService.CreateTokenAsync(rotated.Value.User.Id, ct)));
+        });
+        app.MapPost("/api/v1/auth/logout", async (HttpContext context, RefreshSessionService refreshSessions, AuditService audit, CancellationToken ct) =>
+        {
+            var token=RefreshSessionService.ReadCookie(context.Request); await refreshSessions.RevokeAsync(token,"logout",ct); refreshSessions.DeleteCookie(context.Response); var userId=AuthUtils.GetUserId(context.User); if(userId.HasValue) await audit.WriteAsync("Logout","RefreshSession","success",userId.Value); return Results.NoContent();
         });
 
-        app.MapPost("/api/v1/auth/refresh", async (
-            HttpContext httpContext,
-            AppDbContext db,
-            JwtService jwtService) =>
-        {
-            var currentUserId = AuthUtils.GetUserId(httpContext.User);
-            if (!currentUserId.HasValue)
-            {
-                return Results.Unauthorized();
-            }
-
-            var user = await db.Benutzer
-                .Include(u => u.Initiative)
-                .Include(u => u.BenutzerRollen)
-                    .ThenInclude(br => br.Rolle)
-                .Include(u => u.Fahrer)
-                .FirstOrDefaultAsync(u => u.Id == currentUserId.Value);
-
-            if (user is null || !user.Aktiv)
-            {
-                return Results.Unauthorized();
-            }
-
-            var token = jwtService.CreateToken(user);
-            return Results.Ok(new RefreshTokenResponseDto(token));
-        })
-        .Produces<RefreshTokenResponseDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status401Unauthorized)
-        .RequireAuthorization();
-
-        app.MapPost("/api/auth/forgot-password", async (
+        app.MapPost("/api/v1/auth/forgot-password", async (
             ForgotPasswordRequest request,
             AppDbContext db,
-            IEmailService emailService,
             EmailSettings emailSettings,
-            ILoggerFactory loggerFactory) =>
+            EmailOutboxService outbox,
+            EmailTemplateService templates,
+            ILoggerFactory loggerFactory,
+            AuditService audit) =>
         {
             var logger = loggerFactory.CreateLogger("AuthEndpoints");
             const string neutralResponse = "Falls ein Konto mit dieser E-Mail existiert, wurde eine E-Mail zum Zurücksetzen versendet.";
@@ -170,12 +165,9 @@ public static class AuthEndpoints
                     await db.SaveChangesAsync();
 
                     var resetLink = BuildResetLink(emailSettings.FrontendUrl, token);
-                    var htmlBody = $@"<p>Hallo {System.Net.WebUtility.HtmlEncode(user.Nutzername)},</p>
-<p>du hast eine Zurücksetzung deines Passworts angefordert.</p>
-<p><a href=""{resetLink}"">Passwort jetzt zurücksetzen</a></p>
-<p>Der Link ist 60 Minuten gültig. Falls du das nicht angefordert hast, kannst du diese E-Mail ignorieren.</p>";
-
-                    await emailService.SendEmailAsync(user.Email, "Passwort zurücksetzen", htmlBody);
+                    var rendered = await templates.RenderAsync("PasswordReset", new PasswordResetTemplateContext(user.Nutzername, resetLink, "60", user.Initiative?.Name ?? "Bürgerbus", "Bürgerbus-Team"));
+                    await outbox.EnqueueAsync("PasswordReset", user.Email, user.Nutzername, rendered.Subject, rendered.Html, initiativeId: user.InitiativeId);
+                    await audit.WriteAsync("password_reset_requested", "Benutzer", "success", user.Id, user.Id.ToString(), user.InitiativeId);
                 }
             }
             catch (Exception ex)
@@ -184,12 +176,14 @@ public static class AuthEndpoints
             }
 
             return Results.Ok(new { message = neutralResponse });
-        });
+        }).RequireRateLimiting("auth-forgot-password");
 
-        app.MapPost("/api/auth/reset-password", async (
+        app.MapPost("/api/v1/auth/reset-password", async (
             ResetPasswordRequest request,
             AppDbContext db,
-            IPasswordHasher<Benutzer> passwordHasher) =>
+            IPasswordHasher<Benutzer> passwordHasher,
+            RefreshSessionService refreshSessions,
+            AuditService audit) =>
         {
             if (string.IsNullOrWhiteSpace(request.Token))
             {
@@ -218,19 +212,26 @@ public static class AuthEndpoints
             }
 
             var user = resetToken.Benutzer;
+            if (user is null)
+                return Results.Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Inkonsistenter Passwort-Reset-Datensatz");
             user.PasswortHash = passwordHasher.HashPassword(user, newPassword);
+            user.AuthVersion++;
+            await refreshSessions.RevokeAllAsync(user.Id, "password_reset");
             resetToken.UsedAt = DateTime.UtcNow;
 
             await db.SaveChangesAsync();
+            await audit.WriteAsync("password_reset", "Benutzer", "success", user.Id, user.Id.ToString(), user.InitiativeId);
 
             return Results.Ok(new { message = "Passwort wurde erfolgreich zurückgesetzt." });
-        });
+        }).RequireRateLimiting("auth-reset-password");
 
         app.MapPost("/api/v1/auth/change-password", async (
             ChangePasswordRequest request,
             HttpContext httpContext,
             AppDbContext db,
-            IPasswordHasher<Benutzer> passwordHasher) =>
+            IPasswordHasher<Benutzer> passwordHasher,
+            RefreshSessionService refreshSessions,
+            AuditService audit) =>
         {
             var principal = httpContext.User;
             var currentUserId = AuthUtils.GetUserId(principal);
@@ -277,8 +278,11 @@ public static class AuthEndpoints
 
             user.PasswortHash = passwordHasher.HashPassword(user, newPassword);
             user.GeaendertAm = DateTime.UtcNow;
+            user.AuthVersion++;
+            await refreshSessions.RevokeAllAsync(user.Id, "password_changed");
 
             await db.SaveChangesAsync();
+            await audit.WriteAsync("password_changed", "Benutzer", "success", user.Id, user.Id.ToString(), user.InitiativeId);
 
             return Results.Ok(new ChangePasswordResponse("Passwort wurde erfolgreich geändert."));
         })
@@ -288,7 +292,9 @@ public static class AuthEndpoints
         .Produces(StatusCodes.Status401Unauthorized)
         .RequireAuthorization();
 
-        app.MapGet("/api/v1/test", (HttpContext httpContext) =>
+        if (app.ServiceProvider.GetRequiredService<IHostEnvironment>().IsDevelopment())
+        {
+            app.MapGet("/api/v1/test", (HttpContext httpContext) =>
         {
             var userName = httpContext.User.Identity?.Name;
 
@@ -297,7 +303,8 @@ public static class AuthEndpoints
                 Message = "Du bist eingeloggt!",
                 User = userName
             });
-        }).RequireAuthorization();
+            }).RequireAuthorization();
+        }
 
         return app;
     }

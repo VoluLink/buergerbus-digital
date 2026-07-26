@@ -18,7 +18,8 @@ public static class UserMapper
     public static UserProfileDto CreateUserProfile(Benutzer user)
     {
         var roles = user.BenutzerRollen
-            .Select(br => br.Rolle.Rollenname)
+            .Where(br => br.Rolle is not null)
+            .Select(br => br.Rolle!.Rollenname)
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Distinct()
             .ToList();

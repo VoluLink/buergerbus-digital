@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
   type SetStateAction,
@@ -22,6 +23,8 @@ import type { Fahrgast } from "../../../types/Fahrgast";
 import type { Fahrzeug } from "../../../types/Fahrzeug";
 import type { FahrerListItem } from "../../../types/FahrerListItem";
 import { toDateInputValue } from "../utils/dateUtils";
+import { calculateDefaultRideEnd } from "../utils/defaultRideEnd";
+import { apiFetch } from "../../../services/httpClient";
 
 type UseRideDialogStateParams = {
   initialDateValue: string;
@@ -110,6 +113,19 @@ export function useRideDialogState({
 }: UseRideDialogStateParams): UseRideDialogStateResult {
   const [isRideDialogOpen, setIsRideDialogOpen] = useState(false);
   const [rideInEditId, setRideInEditId] = useState<number | null>(null);
+  const [defaultRideDurationMinutes, setDefaultRideDurationMinutes] = useState(60);
+  const endTimeWasManuallyEdited = useRef(false);
+
+  useEffect(() => {
+    void apiFetch("/api/v1/app-settings")
+      .then(async response => response.ok ? response.json() as Promise<{ defaultRideDurationMinutes?: number }> : null)
+      .then(settings => {
+        if (settings && Number.isFinite(settings.defaultRideDurationMinutes) && settings.defaultRideDurationMinutes! >= 15 && settings.defaultRideDurationMinutes! <= 1440) {
+          setDefaultRideDurationMinutes(settings.defaultRideDurationMinutes!);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
   const [rideType, setRideType] = useState<RideType>("standard");
   const [rideFormsByType, setRideFormsByType] = useState<
     Record<RideFormType, RideFormState>
@@ -125,6 +141,18 @@ export function useRideDialogState({
   const [rideCapacityWarning, setRideCapacityWarning] = useState<string | null>(
     null,
   );
+
+  // A dialog belongs to exactly one initiative. Closing it on a switch prevents
+  // an already opened dialog from saving a driver or regular passenger selected
+  // for the previous initiative.
+  useEffect(() => {
+    setIsRideDialogOpen(false);
+    setRideInEditId(null);
+    setRideFormsByType(createInitialRideForms());
+    setRentalVehicleId(null);
+    setRideSaveError(null);
+    setRideCapacityWarning(null);
+  }, [selectedInitiativeId]);
 
   const visibleFahrzeuge = useMemo(() => {
     if (canManageInitiatives && selectedInitiativeId != null) {
@@ -215,11 +243,12 @@ export function useRideDialogState({
     (dateValue: string, initialVehicleId: number | null) => {
       clearRideMessages();
       setRideInEditId(null);
+      endTimeWasManuallyEdited.current = false;
       resetRideForms();
       resetRentalForm(dateValue);
       setRideFormsByType((currentState) => ({
-        standard: { ...currentState.standard, fahrzeugId: initialVehicleId },
-        theme: { ...currentState.theme, fahrzeugId: initialVehicleId },
+        standard: { ...currentState.standard, date: dateValue, endDate: dateValue, fahrzeugId: initialVehicleId },
+        theme: { ...currentState.theme, date: dateValue, endDate: dateValue, fahrzeugId: initialVehicleId },
       }));
       setRentalVehicleId(initialVehicleId);
       setIsRideDialogOpen(true);
@@ -237,6 +266,7 @@ export function useRideDialogState({
     (ride: CalendarRide) => {
       clearRideMessages();
       setRideInEditId(ride.id);
+      endTimeWasManuallyEdited.current = true;
       setRideType(ride.type);
       setIsRideDialogOpen(true);
 
@@ -270,6 +300,8 @@ export function useRideDialogState({
         ride.type === "theme" ? "theme" : "standard";
 
       seededForms[rideFormKey] = {
+        date: rideDateValue,
+        endDate: ride.dateBis ? toDateInputValue(ride.dateBis) : rideDateValue,
         driverName: ride.driverName,
         fahrerId: ride.fahrerId,
         fahrzeugId: ride.fahrzeugId,
@@ -365,24 +397,37 @@ export function useRideDialogState({
       const rideFormKey: RideFormType =
         rideType === "theme" ? "theme" : "standard";
 
-      setRideFormsByType((currentState) => ({
-        ...currentState,
-        [rideFormKey]: {
-          ...currentState[rideFormKey],
+      setRideFormsByType((currentState) => {
+        const currentRideForm = currentState[rideFormKey];
+        const earliestPickupTime = currentRideForm.passengers
+          .map((passenger) => passenger.time)
+          .filter((time): time is string => /^\d{2}:\d{2}$/.test(time))
+          .sort()[0];
+        const defaultEnd = field === "date" && !endTimeWasManuallyEdited.current && earliestPickupTime
+          ? calculateDefaultRideEnd(value, earliestPickupTime, defaultRideDurationMinutes)
+          : null;
+
+        return {
+          ...currentState,
+          [rideFormKey]: {
+          ...currentRideForm,
           [field]: value,
+          ...(defaultEnd ? { endDate: defaultEnd.date, endTime: defaultEnd.time } : {}),
           ...(field === "driverName" ? { fahrerId: null } : {}),
+          ...(field === "endTime" || field === "endDate" ? (endTimeWasManuallyEdited.current = true, {}) : {}),
           ...(rideFormKey === "theme" && field === "themeDestination"
             ? {
                 passengers: applyThemeDestinationToPassengers(
-                  currentState.theme.passengers,
+                  currentRideForm.passengers,
                   value,
                 ),
               }
             : {}),
         },
-      }));
+        };
+      });
     },
-    [rideType],
+    [defaultRideDurationMinutes, rideType],
   );
 
   const updatePassengerField = useCallback(
@@ -401,26 +446,35 @@ export function useRideDialogState({
       const rideFormKey: RideFormType =
         rideType === "theme" ? "theme" : "standard";
 
-      setRideFormsByType((currentState) => ({
-        ...currentState,
-        [rideFormKey]: {
-          ...currentState[rideFormKey],
-          passengers: currentState[rideFormKey].passengers.map((passenger) =>
-            passenger.id === passengerId
-              ? {
-                  ...passenger,
-                  ...(field === "name" ? { sourceGuestId: null } : {}),
-                  [field]:
-                    field === "time" && typeof value === "string"
-                      ? snapTimeToFiveMinuteStep(value)
-                      : value,
-                }
-              : passenger,
-          ),
-        },
-      }));
+      setRideFormsByType((currentState) => {
+        const currentRideForm = currentState[rideFormKey];
+        const passengerValue = field === "time" && typeof value === "string"
+          ? snapTimeToFiveMinuteStep(value)
+          : value;
+        const passengers = currentRideForm.passengers.map((passenger) =>
+          passenger.id === passengerId
+            ? { ...passenger, ...(field === "name" ? { sourceGuestId: null } : {}), [field]: passengerValue }
+            : passenger,
+        );
+        const earliestPickupTime = passengers
+          .map((passenger) => passenger.time)
+          .filter((time): time is string => /^\d{2}:\d{2}$/.test(time))
+          .sort()[0];
+        const defaultEnd = field === "time" && !endTimeWasManuallyEdited.current && earliestPickupTime
+          ? calculateDefaultRideEnd(currentRideForm.date, earliestPickupTime, defaultRideDurationMinutes)
+          : null;
+
+        return {
+          ...currentState,
+          [rideFormKey]: {
+            ...currentRideForm,
+            ...(defaultEnd ? { endDate: defaultEnd.date, endTime: defaultEnd.time } : {}),
+            passengers,
+          },
+        };
+      });
     },
-    [rideType],
+    [defaultRideDurationMinutes, rideType],
   );
 
   const autofillPassengerFromKnownGuest = useCallback(

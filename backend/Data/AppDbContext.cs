@@ -19,8 +19,14 @@ namespace BuergerbusAPI.Data
         public DbSet<Rollen> Rollen { get; set; }
         public DbSet<BenutzerRolle> BenutzerRollen { get; set; }
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+        public DbSet<RefreshSession> RefreshSessions { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<NotificationRecipient> NotificationRecipients { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
+        public DbSet<AdminNotification> AdminNotifications { get; set; }
+        public DbSet<SystemSettings> SystemSettings { get; set; }
+        public DbSet<EmailOutbox> EmailOutbox { get; set; }
+        public DbSet<EmailTemplate> EmailTemplates { get; set; }
 
         // Fahrten-System
         public DbSet<Fahrten> Fahrten { get; set; }
@@ -157,6 +163,16 @@ namespace BuergerbusAPI.Data
                 .HasIndex(t => t.TokenHash)
                 .IsUnique();
 
+            modelBuilder.Entity<RefreshSession>(entity =>
+            {
+                entity.Property(x => x.TokenHash).HasMaxLength(64).IsRequired();
+                entity.Property(x => x.UserAgentHash).HasMaxLength(64);
+                entity.Property(x => x.IpAddressHash).HasMaxLength(64);
+                entity.Property(x => x.RevokedReason).HasMaxLength(100);
+                entity.HasIndex(x => x.TokenHash).IsUnique(); entity.HasIndex(x => x.UserId); entity.HasIndex(x => x.ExpiresAtUtc);
+                entity.HasOne(x => x.Benutzer).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            });
+
             modelBuilder.Entity<Notification>()
                 .HasMany(n => n.Recipients)
                 .WithOne(r => r.Notification)
@@ -172,6 +188,87 @@ namespace BuergerbusAPI.Data
 
             modelBuilder.Entity<NotificationRecipient>()
                 .HasIndex(r => r.UserId);
+
+            modelBuilder.Entity<AuditLog>()
+                .ToTable("AuditLogs");
+
+            modelBuilder.Entity<AuditLog>()
+                .Property(log => log.Action)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<AuditLog>()
+                .Property(log => log.EntityType)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<AuditLog>()
+                .Property(log => log.EntityId)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<AuditLog>()
+                .Property(log => log.Result)
+                .HasMaxLength(50);
+
+            modelBuilder.Entity<AuditLog>()
+                .Property(log => log.CorrelationId)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<AuditLog>()
+                .HasOne<Benutzer>()
+                .WithMany()
+                .HasForeignKey(log => log.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<AuditLog>()
+                .HasOne<Initiativen>()
+                .WithMany()
+                .HasForeignKey(log => log.InitiativeId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<AuditLog>()
+                .HasIndex(log => new { log.TimestampUtc, log.Action });
+
+            modelBuilder.Entity<AdminNotification>(entity =>
+            {
+                entity.ToTable("AdminNotifications");
+                entity.Property(item => item.Title).HasMaxLength(150).IsRequired();
+                entity.Property(item => item.Message).HasMaxLength(4000).IsRequired();
+                entity.Property(item => item.Audience).HasConversion<string>().HasMaxLength(20);
+                entity.Property(item => item.Priority).HasConversion<string>().HasMaxLength(20);
+                entity.HasIndex(item => new { item.IsActive, item.ValidFromUtc, item.ValidUntilUtc });
+                entity.HasIndex(item => new { item.InitiativeId, item.IsActive });
+                entity.HasOne<Initiativen>().WithMany().HasForeignKey(item => item.InitiativeId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<SystemSettings>(entity =>
+            {
+                entity.ToTable("SystemSettings");
+                entity.HasKey(item => item.Id);
+            });
+
+            modelBuilder.Entity<EmailOutbox>(entity =>
+            {
+                entity.ToTable("EmailOutbox");
+                entity.Property(item => item.EmailType).HasMaxLength(80).IsRequired();
+                entity.Property(item => item.Recipient).HasMaxLength(320).IsRequired();
+                entity.Property(item => item.RecipientName).HasMaxLength(200);
+                entity.Property(item => item.Subject).HasMaxLength(250).IsRequired();
+                entity.Property(item => item.TemplateName).HasMaxLength(100).IsRequired();
+                entity.Property(item => item.Status).HasMaxLength(20).IsRequired();
+                entity.Property(item => item.LastError).HasMaxLength(300);
+                entity.HasIndex(item => new { item.Status, item.NextAttemptUtc });
+                entity.HasIndex(item => item.CreatedAtUtc);
+                entity.HasIndex(item => item.NotificationId);
+            });
+
+            modelBuilder.Entity<EmailTemplate>(entity =>
+            {
+                entity.ToTable("EmailTemplates"); entity.HasIndex(item => item.TemplateType).IsUnique();
+                entity.Property(item => item.TemplateType).HasMaxLength(80).IsRequired(); entity.Property(item => item.Subject).HasMaxLength(250).IsRequired();
+            });
+
+            modelBuilder.Entity<Benutzer>()
+                .Property(user => user.AuthVersion)
+                .HasDefaultValue(1);
 
             modelBuilder.Entity<SitePage>()
                 .HasIndex(page => page.Slug)

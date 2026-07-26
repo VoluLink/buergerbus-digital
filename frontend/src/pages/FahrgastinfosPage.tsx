@@ -26,7 +26,7 @@ import type { Initiative } from '../types/Initiative'
 function FahrgastinfosPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
-  const { canManageDataCrud, isAdmin } = useRoleVisibility()
+  const { canManageDataCrud, canManagePassengers, isAdmin } = useRoleVisibility()
   const isCrudRestricted = !canManageDataCrud
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -43,11 +43,22 @@ function FahrgastinfosPage() {
   const [createForm, setCreateForm] = useState<FahrgastFormData>(createEmptyForm())
   const [initiatives, setInitiatives] = useState<Initiative[]>([])
   const [initiativesError, setInitiativesError] = useState('')
+  const [initiativeFilterId, setInitiativeFilterId] = useState<number | null>(null)
 
   const selectedGuest = guests.find((entry) => entry.id === selectedGuestId) ?? null
-  const filteredGuests = filterGuests(guests, searchQuery)
+  const filteredGuests = filterGuests(
+    initiativeFilterId == null ? guests : guests.filter((guest) => guest.initiativeId === initiativeFilterId),
+    searchQuery,
+  )
 
   useEffect(() => {
+    if (!canManagePassengers) {
+      setGuests([])
+      setSelectedGuestId(null)
+      setIsLoading(false)
+      return
+    }
+
     let isActive = true
 
     setIsLoading(true)
@@ -76,7 +87,7 @@ function FahrgastinfosPage() {
     return () => {
       isActive = false
     }
-  }, [])
+  }, [canManagePassengers])
 
   useEffect(() => {
     if (!isAdmin) {
@@ -194,7 +205,7 @@ function FahrgastinfosPage() {
     setDeleteError('')
 
     try {
-      console.info('Deleting passenger', { passengerId: selectedGuest.id, route: '/api/v1/fahrgaeste/:id' })
+      console.info('Deleting passenger', { passengerId: selectedGuest.id, route: '/api/v1/passengers/:id' })
       await deletePassenger(selectedGuest.id)
 
       setGuests((prev) => prev.filter((entry) => entry.id !== selectedGuest.id))
@@ -202,7 +213,7 @@ function FahrgastinfosPage() {
     } catch (err) {
       console.error('Failed to delete passenger', {
         passengerId: selectedGuest.id,
-        route: '/api/v1/fahrgaeste/:id',
+        route: '/api/v1/passengers/:id',
         error: err,
       })
       setDeleteError(err instanceof Error ? err.message : 'Fahrgast konnte nicht gelöscht werden.')
@@ -269,6 +280,19 @@ function FahrgastinfosPage() {
             <h1 className="text-3xl font-bold tracking-tight text-slate-800 sm:text-4xl">Fahrgastinfos</h1>
 
             <PassengerSearchBar searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} />
+            {isAdmin ? (
+              <label className="mt-3 block max-w-sm text-sm font-semibold text-slate-700">
+                Initiative filtern
+                <select
+                  value={initiativeFilterId ?? ''}
+                  onChange={(event) => setInitiativeFilterId(event.target.value ? Number(event.target.value) : null)}
+                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-normal"
+                >
+                  <option value="">Alle Initiativen</option>
+                  {initiatives.map((initiative) => <option key={initiative.id} value={initiative.id}>{initiative.name}</option>)}
+                </select>
+              </label>
+            ) : null}
           </div>
 
           {deleteError ? (

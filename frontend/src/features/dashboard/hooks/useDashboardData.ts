@@ -24,6 +24,7 @@ import type { CalendarRide } from "../../../types/DashboardRide";
 type UseDashboardDataParams = {
   selectedInitiativeId: number | null;
   canManageInitiatives: boolean;
+  canManagePassengers: boolean;
 };
 
 type UseDashboardDataResult = {
@@ -48,6 +49,7 @@ function mapRidesToCalendarRides(
 export function useDashboardData({
   selectedInitiativeId,
   canManageInitiatives,
+  canManagePassengers,
 }: UseDashboardDataParams): UseDashboardDataResult {
   const [calendarRides, setCalendarRides] = useState<CalendarRide[]>([]);
   const [knownGuests, setKnownGuests] = useState<Fahrgast[]>([]);
@@ -68,7 +70,12 @@ export function useDashboardData({
     let isCancelled = false;
 
     async function loadFahrer() {
-      const loadPromise = getAllFahrer();
+      if (canManageInitiatives && selectedInitiativeId == null) {
+        setFahrerListe([]);
+        return;
+      }
+      setFahrerListe([]);
+      const loadPromise = getAllFahrer(selectedInitiativeId);
       fahrerLoadPromiseRef.current = loadPromise;
 
       try {
@@ -95,7 +102,7 @@ export function useDashboardData({
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [canManageInitiatives, selectedInitiativeId]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -103,6 +110,12 @@ export function useDashboardData({
     async function hydrateRides() {
       try {
         setIsDashboardHydrated(false);
+        setCalendarRides([]);
+
+        if (canManageInitiatives && selectedInitiativeId == null) {
+          setIsDashboardHydrated(true);
+          return;
+        }
 
         if (fahrerLoadPromiseRef.current) {
           await fahrerLoadPromiseRef.current.catch(() => undefined);
@@ -129,7 +142,7 @@ export function useDashboardData({
     return () => {
       isCancelled = true;
     };
-  }, [selectedInitiativeId]);
+  }, [canManageInitiatives, selectedInitiativeId]);
 
   useEffect(() => {
     if (!canManageInitiatives) {
@@ -163,8 +176,19 @@ export function useDashboardData({
     let isCancelled = false;
 
     async function loadKnownGuests() {
+      if (!canManagePassengers) {
+        setKnownGuests([]);
+        setKnownGuestsLoaded(true);
+        return;
+      }
+
       try {
         setKnownGuestsLoaded(false);
+        setKnownGuests([]);
+        if (canManageInitiatives && selectedInitiativeId == null) {
+          setKnownGuestsLoaded(true);
+          return;
+        }
 
         const guests = await getFahrgaeste(selectedInitiativeId);
 
@@ -185,7 +209,7 @@ export function useDashboardData({
     return () => {
       isCancelled = true;
     };
-  }, [selectedInitiativeId]);
+  }, [canManageInitiatives, canManagePassengers, selectedInitiativeId]);
 
   useEffect(() => {
     let isCancelled = false;

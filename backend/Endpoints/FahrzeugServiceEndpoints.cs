@@ -19,7 +19,7 @@ public static class FahrzeugServiceEndpoints
 
     public static IEndpointRouteBuilder MapFahrzeugServiceEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/v1/fahrzeuge", async (
+        app.MapGet("/api/v1/vehicles", async (
             HttpContext httpContext,
             int? userId,
             AppDbContext db
@@ -71,11 +71,12 @@ public static class FahrzeugServiceEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPost("/api/v1/fahrzeuge", async (
+        app.MapPost("/api/v1/vehicles", async (
             HttpContext httpContext,
             int? userId,
             CreateFahrzeugRequest request,
-            AppDbContext db
+            AppDbContext db,
+            AuditService audit
         ) =>
         {
             if (!AuthUtils.CanManageVehicles(httpContext.User))
@@ -133,13 +134,14 @@ public static class FahrzeugServiceEndpoints
 
             db.Fahrzeuge.Add(fahrzeug);
             await db.SaveChangesAsync();
+            await audit.WriteAsync("Created", "Vehicle", "Success", AuthUtils.GetUserId(httpContext.User), fahrzeug.Id.ToString(), fahrzeug.InitiativeId, new { label = fahrzeug.Bezeichnung, licensePlate = fahrzeug.Kennzeichen, status = fahrzeug.Status });
 
             var initiativeName = await db.Initiativen
                 .Where(i => i.Id == fahrzeug.InitiativeId)
                 .Select(i => i.Name)
                 .FirstOrDefaultAsync();
 
-            return Results.Created($"/api/v1/fahrzeuge/{fahrzeug.Id}", new FahrzeugDto(
+            return Results.Created($"/api/v1/vehicles/{fahrzeug.Id}", new FahrzeugDto(
                 fahrzeug.Id,
                 fahrzeug.Kennzeichen,
                 fahrzeug.Bezeichnung,
@@ -160,12 +162,13 @@ public static class FahrzeugServiceEndpoints
         .Produces<FahrzeugDto>(StatusCodes.Status201Created)
         .RequireAuthorization();
 
-        app.MapPut("/api/v1/fahrzeuge/{id:int}", async (
+        app.MapPut("/api/v1/vehicles/{id:int}", async (
             int id,
             HttpContext httpContext,
             int? userId,
             UpdateFahrzeugRequest request,
-            AppDbContext db
+            AppDbContext db,
+            AuditService audit
         ) =>
         {
             if (!AuthUtils.CanManageVehicles(httpContext.User))
@@ -178,6 +181,7 @@ public static class FahrzeugServiceEndpoints
             {
                 return Results.NotFound("Fahrzeug wurde nicht gefunden.");
             }
+            var previous = new { fahrzeug.Kennzeichen, fahrzeug.Bezeichnung, fahrzeug.Status, fahrzeug.Aktiv, fahrzeug.Kilometerstand, fahrzeug.InitiativeId };
 
             var authResult = await EnsureUserCanAccessVehicleAsync(httpContext.User, id, userId, db, fahrzeug);
             if (authResult != null)
@@ -230,6 +234,14 @@ public static class FahrzeugServiceEndpoints
             fahrzeug.InitiativeId = request.InitiativeId;
 
             await db.SaveChangesAsync();
+            var changes = new List<string>();
+            if (!string.Equals(previous.Kennzeichen, fahrzeug.Kennzeichen, StringComparison.Ordinal)) changes.Add("Kennzeichen");
+            if (!string.Equals(previous.Bezeichnung, fahrzeug.Bezeichnung, StringComparison.Ordinal)) changes.Add("Bezeichnung");
+            if (!string.Equals(previous.Status, fahrzeug.Status, StringComparison.Ordinal)) changes.Add("Status");
+            if (previous.Aktiv != fahrzeug.Aktiv) changes.Add("Aktivstatus");
+            if (previous.Kilometerstand != fahrzeug.Kilometerstand) changes.Add("Kilometerstand");
+            if (previous.InitiativeId != fahrzeug.InitiativeId) changes.Add("Initiative");
+            await audit.WriteAsync("Updated", "Vehicle", "Success", AuthUtils.GetUserId(httpContext.User), fahrzeug.Id.ToString(), fahrzeug.InitiativeId, new { label = fahrzeug.Bezeichnung, changes });
 
             var initiativeName = await db.Initiativen
                 .Where(i => i.Id == fahrzeug.InitiativeId)
@@ -273,11 +285,12 @@ public static class FahrzeugServiceEndpoints
         .Produces<FahrzeugDto>(StatusCodes.Status200OK)
         .RequireAuthorization();
 
-        app.MapDelete("/api/v1/fahrzeuge/{id:int}", async (
+        app.MapDelete("/api/v1/vehicles/{id:int}", async (
             int id,
             HttpContext httpContext,
             int? userId,
-            AppDbContext db
+            AppDbContext db,
+            AuditService audit
         ) =>
         {
             if (!AuthUtils.CanManageVehicles(httpContext.User))
@@ -290,6 +303,7 @@ public static class FahrzeugServiceEndpoints
             {
                 return Results.NotFound("Fahrzeug wurde nicht gefunden.");
             }
+            var auditVehicle = new { fahrzeug.Bezeichnung, fahrzeug.Kennzeichen, fahrzeug.InitiativeId };
 
             var authResult = await EnsureUserCanAccessVehicleAsync(httpContext.User, id, userId, db, fahrzeug);
             if (authResult != null)
@@ -299,12 +313,13 @@ public static class FahrzeugServiceEndpoints
 
             db.Fahrzeuge.Remove(fahrzeug);
             await db.SaveChangesAsync();
+            await audit.WriteAsync("Deleted", "Vehicle", "Success", AuthUtils.GetUserId(httpContext.User), id.ToString(), auditVehicle.InitiativeId, new { label = auditVehicle.Bezeichnung, licensePlate = auditVehicle.Kennzeichen });
 
             return Results.NoContent();
         })
         .RequireAuthorization();
 
-        app.MapGet("/api/v1/fahrzeuge/{fahrzeugId:int}/wartungen", async (
+        app.MapGet("/api/v1/vehicles/{fahrzeugId:int}/maintenance", async (
             int fahrzeugId,
             HttpContext httpContext,
             int? userId,
@@ -337,7 +352,7 @@ public static class FahrzeugServiceEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPost("/api/v1/fahrzeuge/{fahrzeugId:int}/wartungen", async (
+        app.MapPost("/api/v1/vehicles/{fahrzeugId:int}/maintenance", async (
             int fahrzeugId,
             HttpContext httpContext,
             int? userId,
@@ -380,7 +395,7 @@ public static class FahrzeugServiceEndpoints
             db.Wartungen.Add(wartung);
             await db.SaveChangesAsync();
 
-            return Results.Created($"/api/v1/wartungen/{wartung.Id}", new WartungDto(
+            return Results.Created($"/api/v1/maintenance/{wartung.Id}", new WartungDto(
                 wartung.Id,
                 wartung.FahrzeugId,
                 wartung.InitiativeId,
@@ -395,7 +410,7 @@ public static class FahrzeugServiceEndpoints
         .Produces<WartungDto>(StatusCodes.Status201Created)
         .RequireAuthorization();
 
-        app.MapPut("/api/v1/wartungen/{id:int}", async (
+        app.MapPut("/api/v1/maintenance/{id:int}", async (
             int id,
             HttpContext httpContext,
             int? userId,
@@ -456,7 +471,7 @@ public static class FahrzeugServiceEndpoints
         .Produces<WartungDto>(StatusCodes.Status200OK)
         .RequireAuthorization();
 
-        app.MapDelete("/api/v1/wartungen/{id:int}", async (
+        app.MapDelete("/api/v1/maintenance/{id:int}", async (
             int id,
             HttpContext httpContext,
             int? userId,
@@ -490,7 +505,7 @@ public static class FahrzeugServiceEndpoints
         })
         .RequireAuthorization();
 
-        app.MapGet("/api/v1/fahrzeuge/{fahrzeugId:int}/schaeden", async (
+        app.MapGet("/api/v1/vehicles/{fahrzeugId:int}/damages", async (
             int fahrzeugId,
             HttpContext httpContext,
             int? userId,
@@ -522,7 +537,7 @@ public static class FahrzeugServiceEndpoints
         })
         .RequireAuthorization();
 
-        app.MapPost("/api/v1/fahrzeuge/{fahrzeugId:int}/schaeden", async (
+        app.MapPost("/api/v1/vehicles/{fahrzeugId:int}/damages", async (
             int fahrzeugId,
             HttpContext httpContext,
             int? userId,
@@ -560,7 +575,7 @@ public static class FahrzeugServiceEndpoints
             db.Schaeden.Add(schaden);
             await db.SaveChangesAsync();
 
-            return Results.Created($"/api/v1/schaeden/{schaden.Id}", new SchadenDto(
+            return Results.Created($"/api/v1/damages/{schaden.Id}", new SchadenDto(
                 schaden.Id,
                 schaden.FahrzeugId,
                 schaden.InitiativeId,
@@ -574,7 +589,7 @@ public static class FahrzeugServiceEndpoints
         .Produces<SchadenDto>(StatusCodes.Status201Created)
         .RequireAuthorization();
 
-        app.MapPut("/api/v1/schaeden/{id:int}", async (
+        app.MapPut("/api/v1/damages/{id:int}", async (
             int id,
             HttpContext httpContext,
             int? userId,
@@ -629,7 +644,7 @@ public static class FahrzeugServiceEndpoints
         .Produces<SchadenDto>(StatusCodes.Status200OK)
         .RequireAuthorization();
 
-        app.MapDelete("/api/v1/schaeden/{id:int}", async (
+        app.MapDelete("/api/v1/damages/{id:int}", async (
             int id,
             HttpContext httpContext,
             int? userId,

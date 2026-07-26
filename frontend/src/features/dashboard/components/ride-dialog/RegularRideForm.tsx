@@ -1,4 +1,5 @@
 import { Bus, Check, UserRound } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { FiveMinuteTimeField } from "../FiveMinuteTimeField";
 import { PassengerList } from "./PassengerList";
@@ -68,11 +69,13 @@ export function RegularRideForm({
   addPassengerField,
   removePassengerField,
 }: RegularRideFormProps) {
+  const [isDriverDropdownOpen, setIsDriverDropdownOpen] = useState(false);
+  const driverSearchRef = useRef<HTMLDivElement>(null);
   const isDriverAssigned = Boolean(activeRideForm?.fahrerId);
   const driverQuery = (activeRideForm?.driverName ?? "").trim().toLowerCase();
 
   const matchingDrivers =
-    driverQuery.length > 0 && !isDriverAssigned
+    driverQuery.length > 0
       ? fahrerListe
           .filter((driver) => {
             const searchable =
@@ -82,6 +85,22 @@ export function RegularRideForm({
           })
           .slice(0, 6)
       : [];
+
+  useEffect(() => {
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (!driverSearchRef.current?.contains(event.target as Node)) {
+        setIsDriverDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, []);
+
+  function selectDriver(fahrerId: number) {
+    autofillFahrer(fahrerId);
+    setIsDriverDropdownOpen(false);
+  }
 
   return (
     <>
@@ -119,9 +138,18 @@ export function RegularRideForm({
             Ein Fahrzeug wurde automatisch vorausgewählt.
           </p>
         ) : null}
+
+        {selectedRideVehicle ? (
+          <p className={`mt-2 text-sm ${activeRideForm && activeRideForm.passengers.length > selectedRideVehicle.kapazitaet ? "text-red-700" : "text-slate-600"}`}>
+            {activeRideForm?.passengers.length ?? 0} von {selectedRideVehicle.kapazitaet} Fahrgastplätzen belegt
+            {activeRideForm && activeRideForm.passengers.length > selectedRideVehicle.kapazitaet
+              ? ". Das ausgewählte Fahrzeug bietet nicht genügend Plätze."
+              : "."}
+          </p>
+        ) : null}
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6" ref={driverSearchRef}>
         <label
           htmlFor="driver-name"
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700"
@@ -140,20 +168,39 @@ export function RegularRideForm({
           id="driver-name"
           type="text"
           value={activeRideForm?.driverName ?? ""}
-          onChange={(event) =>
-            updateRideField("driverName", event.target.value)
-          }
+          onChange={(event) => {
+            updateRideField("driverName", event.target.value);
+            setIsDriverDropdownOpen(true);
+          }}
+          onFocus={() => {
+            if (driverQuery.length > 0) setIsDriverDropdownOpen(true);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setIsDriverDropdownOpen(false);
+            }
+            if (event.key === "Enter" && isDriverDropdownOpen && matchingDrivers.length > 0) {
+              event.preventDefault();
+              selectDriver(matchingDrivers[0].fahrerId);
+            }
+          }}
           placeholder="Name des Fahrers"
           className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/15"
         />
 
-        {matchingDrivers.length > 0 ? (
+        {isDriverDropdownOpen && matchingDrivers.length > 0 ? (
           <div className="mt-1 max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm">
             {matchingDrivers.map((driver) => (
               <button
                 key={driver.fahrerId}
                 type="button"
-                onClick={() => autofillFahrer(driver.fahrerId)}
+                onMouseDown={(event) => {
+                  // This fires before an input blur/outside-click handler can
+                  // unmount the result list. `fahrerId` is the persisted ride
+                  // foreign key, not the linked BenutzerId.
+                  event.preventDefault();
+                  selectDriver(driver.fahrerId);
+                }}
                 className="flex w-full flex-col items-start border-b border-slate-100 px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 last:border-b-0"
               >
                 <span className="font-semibold text-slate-800">
@@ -170,6 +217,15 @@ export function RegularRideForm({
       </div>
 
       <div className="mt-6">
+        <label className="block text-sm font-semibold text-slate-700">
+          Enddatum
+          <input
+            type="date"
+            value={activeRideForm?.endDate ?? ""}
+            onChange={(event) => updateRideField("endDate", event.target.value)}
+            className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-4 focus:ring-[#0053a0]/15"
+          />
+        </label>
         <label className="block text-sm font-semibold text-slate-700">
           Geschätzte Endzeit
         </label>

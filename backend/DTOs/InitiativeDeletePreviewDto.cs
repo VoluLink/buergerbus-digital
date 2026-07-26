@@ -1,0 +1,1 @@
+namespace BuergerbusAPI.DTOs; public record InitiativeDeletePreviewDto(int InitiativeId,string InitiativeName,bool CanDelete,bool IsDefault,string? Reason,InitiativeDeletePreviewAffectedDto Affected);

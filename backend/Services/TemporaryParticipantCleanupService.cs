@@ -5,23 +5,26 @@ namespace BuergerbusAPI.Services;
 
 public class TemporaryParticipantCleanupService : ITemporaryParticipantCleanupService
 {
-    private const int AnonymisierungsfristInTagen = 7;
     private const string FahrtAbgeschlossenStatus = "Abgeschlossen";
 
     private readonly AppDbContext _context;
     private readonly ILogger<TemporaryParticipantCleanupService> _logger;
+    private readonly SystemSettingsService _settingsService;
 
     public TemporaryParticipantCleanupService(
         AppDbContext context,
-        ILogger<TemporaryParticipantCleanupService> logger)
+        ILogger<TemporaryParticipantCleanupService> logger,
+        SystemSettingsService settingsService)
     {
         _context = context;
         _logger = logger;
+        _settingsService = settingsService;
     }
 
     public async Task<int> CleanupAsync(CancellationToken cancellationToken = default)
     {
-        var grenze = DateTime.UtcNow.AddDays(-AnonymisierungsfristInTagen);
+        var settings = await _settingsService.GetAsync(cancellationToken);
+        var grenze = DateTime.UtcNow.AddDays(-settings.TemporaryParticipantRetentionDays);
 
         _logger.LogInformation(
             "Starte Cleanup temporärer Fahrtteilnehmer. Grenze: {Grenze}",
@@ -33,6 +36,7 @@ public class TemporaryParticipantCleanupService : ITemporaryParticipantCleanupSe
                 t.IstTemporaer &&
                 t.FahrgastId == null &&
                 t.AnonymisiertAm == null &&
+                t.Fahrt != null &&
                 t.Fahrt.Status == FahrtAbgeschlossenStatus &&
                 (t.Fahrt.Endzeit ?? t.Fahrt.Startzeit) <= grenze)
             .ToListAsync(cancellationToken);

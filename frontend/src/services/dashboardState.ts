@@ -9,12 +9,6 @@ type DashboardStateSnapshot = {
   nextRideId: number
 }
 
-type StoredCalendarRide = Omit<CalendarRide, 'date' | 'dateBis' | 'createdByName'> & {
-  date: string | Date
-  dateBis?: string | Date | null
-  createdByName?: string | null
-}
-
 export type BackendFahrtDto = {
   id: number
   titel: string
@@ -44,6 +38,7 @@ type BackendTeilstreckeDto = {
   abholadresse: string
   zieladresse: string
   startzeit?: string | null
+  endzeit?: string | null
   status?: string | null
   fahrgastId?: number | null
   fahrgast?: BackendFahrgastDto | null
@@ -99,6 +94,12 @@ const DASHBOARD_STORAGE_KEY = 'bb.dashboard.state.v1'
 
 function safeText(value?: string | null) {
   return value ?? ''
+}
+
+function parseLocalDate(value: string): Date {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!match) return new Date(value)
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
 }
 
 function extractHourMinute(value?: string | null) {
@@ -167,7 +168,9 @@ function mapTeilnehmerToPassengers(teilnehmer?: BackendFahrtTeilnehmerDto[] | nu
   if (!teilnehmer) return []
 
   return teilnehmer.map((item) => {
-    const firstSegment = item.teilstrecken?.[0]
+    const segments = item.teilstrecken ?? []
+    const firstSegment = segments[0]
+    const lastSegment = segments.at(-1)
     const fullName = `${safeText(item.vorname)} ${safeText(item.nachname)}`.trim()
 
     return {
@@ -179,9 +182,14 @@ function mapTeilnehmerToPassengers(teilnehmer?: BackendFahrtTeilnehmerDto[] | nu
       pickupAddress: safeText(firstSegment?.abholadresse ?? item.adresse),
       destinationAddress: safeText(firstSegment?.zieladresse),
       time: extractHourMinute(firstSegment?.startzeit),
+      endTime: extractHourMinute(lastSegment?.endzeit) || null,
       istAbgehakt: item.istAbgehakt,
       abgehaktAm: item.abgehaktAm ?? null,
     }
+  }).sort((left, right) => {
+    const leftTime = extractHourMinute(left.time) || '99:99'
+    const rightTime = extractHourMinute(right.time) || '99:99'
+    return leftTime.localeCompare(rightTime) || left.name.localeCompare(right.name, 'de') || left.id - right.id
   })
 }
 
@@ -190,28 +198,6 @@ function toLocalDateString(date: Date) {
   const mm = String(date.getMonth() + 1).padStart(2, '0')
   const dd = String(date.getDate()).padStart(2, '0')
   return `${yyyy}-${mm}-${dd}`
-}
-
-function buildDefaultRideEndzeit(date: Date, latestPassengerTime?: string | null) {
-  const normalizedTime = safeText(latestPassengerTime).trim()
-  const match = normalizedTime.match(/^(\d{2}):(\d{2})$/)
-
-  if (!match) {
-    return null
-  }
-
-  const hours = Number(match[1])
-  const minutes = Number(match[2])
-
-  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) {
-    return null
-  }
-
-  const endDate = new Date(date)
-  endDate.setHours(hours, minutes, 0, 0)
-  endDate.setMinutes(endDate.getMinutes() + 60)
-
-  return `${toLocalDateString(endDate)}T${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}:00`
 }
 
 function hasPassengerDraftContent(passenger: PassengerForm) {
@@ -236,8 +222,8 @@ export function mapBackendRideToCalendarRide(dto: BackendFahrtDto, fahrerListe: 
 
   return {  
     id: dto.id,
-    date: new Date(dto.datum),
-    dateBis: dto.datumBis ? new Date(dto.datumBis) : null,
+    date: parseLocalDate(dto.datum),
+    dateBis: dto.datumBis ? parseLocalDate(dto.datumBis) : null,
     type,
     status: mapBackendStatusToRideStatus(dto.status, type, dto.fahrerId),
     title: dto.titel,
@@ -263,12 +249,6 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide, initiativeI
     .map(p => p.time)
     .filter((t): t is string => !!t)
     .sort()[0]
-  const latestTime = writablePassengers
-    .map(p => p.time)
-    .filter((t): t is string => !!t)
-    .sort()
-    .at(-1)
-  const fallbackEndzeit = buildDefaultRideEndzeit(ride.date, latestTime)
 
   if (ride.type === 'rental') {
     const [timeFrom, timeTo] = (ride.time ?? '').split('-')
@@ -313,15 +293,15 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide, initiativeI
     fahrt: {
       titel: ride.title,
       datum: toLocalDateString(ride.date),
-      datumBis: null,
+      datumBis: ride.dateBis ? toLocalDateString(ride.dateBis) : null,
       zielort: firstPassenger?.destinationAddress || '',
       fahrttyp: ride.type,
       startzeit: earliestTime
         ? `${toLocalDateString(ride.date)}T${earliestTime}:00`
         : `${toLocalDateString(ride.date)}T00:00:00`,
       endzeit: ride.endTime
-        ? `${toLocalDateString(ride.date)}T${ride.endTime}:00`
-        : fallbackEndzeit,
+        ? `${toLocalDateString(ride.dateBis ?? ride.date)}T${ride.endTime}:00`
+        : null,
       bemerkung: safeText(ride.remarks).trim() || null,
       status: mapRideStatusToBackendStatus(ride.status),
       fahrerId: ride.fahrerId,
@@ -347,53 +327,13 @@ export function mapCalendarRideToBackendWriteDto(ride: CalendarRide, initiativeI
   }
 }
 
-function parseStoredState(raw: string | null): DashboardStateSnapshot {
-  if (!raw) {
-    return { rides: [], completedPassengerKeys: [], nextRideId: 1 }
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as {
-      rides?: StoredCalendarRide[]
-      completedPassengerKeys?: string[]
-      nextRideId?: number
-    }
-
-    return {
-      rides: (parsed.rides ?? []).map((r) => ({
-        ...r,
-        createdByName: r.createdByName ?? '',
-        date: new Date(r.date ?? Date.now()),
-        dateBis: r.dateBis ? new Date(r.dateBis) : null,
-      })),
-      completedPassengerKeys: Array.isArray(parsed.completedPassengerKeys)
-        ? parsed.completedPassengerKeys
-        : [],
-      nextRideId: typeof parsed.nextRideId === 'number' ? parsed.nextRideId : 1,
-    }
-  } catch {
-    return { rides: [], completedPassengerKeys: [], nextRideId: 1 }
-  }
-}
-
-function serializeState(state: DashboardStateSnapshot) {
-  return JSON.stringify({
-    ...state,
-    rides: state.rides.map((r) => ({
-      ...r,
-      date: r.date.toISOString(),
-      dateBis: r.dateBis ? r.dateBis.toISOString() : null,
-    })),
-  })
-}
-
 async function tryLoadFromBackend(
   fahrerListe: FahrerListItem[],
   initiativeId?: number | null,
 ): Promise<CalendarRide[] | null> {
   try {
     const query = initiativeId ? `?initiativeId=${initiativeId}` : ''
-    const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten${query}`)
+    const res = await apiFetch(`${API_BASE_URL}/api/v1/rides${query}`)
     if (!res.ok) return null
 
     const data: BackendFahrtDto[] = await res.json()
@@ -414,19 +354,22 @@ export async function loadDashboardState(
   fahrerListe: FahrerListItem[],
   initiativeId?: number | null,
 ): Promise<DashboardStateSnapshot> {
-  const local = parseStoredState(localStorage.getItem(DASHBOARD_STORAGE_KEY))
   const backend = await tryLoadFromBackend(fahrerListe, initiativeId)
 
-  if (!backend) return local
+  if (!backend) return { rides: [], completedPassengerKeys: [], nextRideId: 1 }
 
   return {
     rides: backend,
-    completedPassengerKeys: local.completedPassengerKeys,
+    completedPassengerKeys: [],
     nextRideId:
       backend.reduce((m, r) => Math.max(m, r.id), 0) + 1,
   }
 }
 
 export async function saveDashboardState(state: DashboardStateSnapshot): Promise<void> {
-  localStorage.setItem(DASHBOARD_STORAGE_KEY, serializeState(state))
+  void state
+}
+
+export function removeLegacyDashboardStorage(): void {
+  localStorage.removeItem(DASHBOARD_STORAGE_KEY)
 }

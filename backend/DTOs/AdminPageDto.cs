@@ -1,0 +1,1 @@
+namespace BuergerbusAPI.DTOs; public record AdminPageDto(Guid Id,string Slug,string Title,string Content,bool IsPublished,bool ShowInFooter,int? FooterSortOrder,DateTime CreatedAt,DateTime UpdatedAt,Guid? UpdatedByUserId);
