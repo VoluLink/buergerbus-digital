@@ -4,6 +4,7 @@ import { PasswordChangeForm } from '../features/profile/components/PasswordChang
 import { ProfileActions } from '../features/profile/components/ProfileActions'
 import { ProfileHeader } from '../features/profile/components/ProfileHeader'
 import { ProfileInfoCard } from '../features/profile/components/ProfileInfoCard'
+import { ThemeSettings } from '../features/profile/components/ThemeSettings'
 import type { PasswordFormData, ProfileFormData } from '../features/profile/types'
 import { formatDateInput } from '../features/profile/utils'
 import { changePassword, updateUserProfile } from '../services/profile'
@@ -265,6 +266,7 @@ function ProfilePage() {
             isSaving={isSaving}
             onSaveProfile={handleSaveProfile}
           />
+          <ThemeSettings />
         </section>
       </div>
     </main>

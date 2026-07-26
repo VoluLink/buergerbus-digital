@@ -13,3 +13,19 @@ body[data-admin-page="true"] main > header {
     padding: 0.75rem 1.5rem;
   }
 }
+
+/* Dark mode: semantic ride colors remain untouched; only the neutral interface palette changes. */
+html.dark { color-scheme: dark; }
+html.dark body { background: #0f172a; }
+html.dark .bg-slate-100 { background-color: #0f172a; }
+html.dark .bg-white, html.dark .bg-white\/95 { background-color: #1e293b; }
+html.dark .bg-slate-50 { background-color: #1e293b; }
+html.dark .bg-slate-200 { background-color: #334155; }
+html.dark .text-slate-900, html.dark .text-slate-800 { color: #f8fafc; }
+html.dark .text-slate-700 { color: #e2e8f0; }
+html.dark .text-slate-600 { color: #cbd5e1; }
+html.dark .text-slate-500, html.dark .text-slate-400 { color: #94a3b8; }
+html.dark .border-slate-100, html.dark .border-slate-200, html.dark .border-slate-300 { border-color: #475569; }
+html.dark input.bg-white, html.dark select.bg-white, html.dark textarea.bg-white { background-color: #0f172a; color: #f8fafc; }
+html.dark .hover\:bg-slate-50:hover, html.dark .hover\:bg-slate-100:hover { background-color: #334155; }
+html.dark .shadow-sm, html.dark .shadow-xl, html.dark .shadow-2xl { --tw-shadow-color: rgb(0 0 0 / 0.35); }
