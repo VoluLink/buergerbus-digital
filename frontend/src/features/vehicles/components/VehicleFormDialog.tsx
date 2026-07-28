@@ -11,6 +11,8 @@ import type { Wartung, WartungFormData } from '../../../types/Wartung'
 import type { FahrzeugTab } from '../types'
 import DamageSection from './DamageSection'
 import MaintenanceSection from './MaintenanceSection'
+import { useDialogAccessibility } from '../../../components/dialogs/useDialogAccessibility'
+import { ui } from '../../../design/ui'
 
 interface VehicleFormDialogProps {
   activeTab: FahrzeugTab
@@ -91,6 +93,7 @@ function VehicleFormDialog({
   onStartEditWartung,
   onWartungFieldChange,
 }: VehicleFormDialogProps) {
+  const { dialogRef, handleKeyDown } = useDialogAccessibility<HTMLDivElement>(onClose)
   const isCreateMode = mode === 'create'
 
   const renderTabButton = (tab: FahrzeugTab, label: string) => (
@@ -115,11 +118,17 @@ function VehicleFormDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/50 p-2 backdrop-blur-sm sm:items-center sm:p-4">
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="vehicle-dialog-title"
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
         className="flex h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-lg sm:h-auto sm:max-h-[calc(100dvh-2rem)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-4 sm:px-6">
-          <h2 className="text-xl font-bold text-slate-800">{title}</h2>
+          <h2 id="vehicle-dialog-title" className="text-xl font-bold text-slate-800">{title}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -149,6 +158,7 @@ function VehicleFormDialog({
                   const isTextarea = field.type === 'textarea'
                   const isSelect = field.type === 'select'
                   const isKapazitaet = field.name === 'kapazitaet'
+                  const isRequired = ['kennzeichen', 'bezeichnung', 'initiativeId', 'kapazitaet', 'kilometerstand', 'betriebsaufnahme'].includes(field.name)
                   const selectOptions =
                     field.name === 'initiativeId'
                       ? initativen.map((initiative) => ({
@@ -160,22 +170,28 @@ function VehicleFormDialog({
 
                   return (
                     <div key={field.name} className={fieldSpan}>
-                      <label className="block text-sm font-medium text-slate-700">
-                        {field.label}
+                      <label className={ui.label}>
+                        {field.label}{isRequired ? <span className="ml-1 text-rose-700" aria-label="Pflichtfeld">*</span> : null}
                       </label>
 
                       {isTextarea ? (
-                        <textarea
-                          value={fieldValue}
-                          onChange={(event) => onFieldChange(field.name, event.target.value)}
-                          rows={4}
-                          className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                        />
+                        <>
+                          <textarea
+                            value={fieldValue}
+                            onChange={(event) => onFieldChange(field.name, event.target.value)}
+                            rows={4}
+                            maxLength={1000}
+                            aria-describedby="vehicle-remarks-counter"
+                            className={ui.field}
+                          />
+                          <p id="vehicle-remarks-counter" className="mt-1 text-right text-xs text-slate-500">{fieldValue.length}/1000 Zeichen</p>
+                        </>
                       ) : isSelect ? (
                         <select
                           value={fieldValue}
                           onChange={(event) => onFieldChange(field.name, event.target.value)}
-                          className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                          required={isRequired}
+                          className={ui.field}
                         >
                           {field.name === 'initiativeId' ? (
                             <option value="">Keine Initiative ausgewählt</option>
@@ -197,6 +213,7 @@ function VehicleFormDialog({
                           value={fieldValue}
                           min={isKapazitaet ? 1 : undefined}
                           max={isKapazitaet ? 8 : undefined}
+                          required={isRequired}
                           onChange={(event) => {
                             if (isKapazitaet) {
                               const rawValue = event.target.value
@@ -217,7 +234,7 @@ function VehicleFormDialog({
 
                             onFieldChange(field.name, event.target.value)
                           }}
-                          className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                          className={ui.field}
                         />
                       )}
                     </div>
@@ -225,7 +242,7 @@ function VehicleFormDialog({
                 })}
 
                 {formError ? (
-                  <p className="col-span-1 text-sm text-red-600 sm:col-span-2 md:col-span-3">
+                  <p className="col-span-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 sm:col-span-2 md:col-span-3" role="alert">
                     {formError}
                   </p>
                 ) : null}
@@ -293,7 +310,7 @@ function VehicleFormDialog({
             <button
               type="button"
               onClick={onClose}
-              className="min-h-11 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+              className={ui.secondaryButton}
             >
               Abbrechen
             </button>
@@ -301,11 +318,7 @@ function VehicleFormDialog({
               type="submit"
               form="vehicle-main-form"
               disabled={isCrudRestricted || isSaving}
-              className={`min-h-11 rounded-lg px-4 py-2 text-sm font-semibold text-white ${
-                isCrudRestricted || isSaving
-                  ? 'cursor-not-allowed bg-blue-400'
-                  : 'bg-blue-500 hover:bg-blue-600'
-              }`}
+              className={ui.primaryButton}
             >
               {isSaving ? 'Speichern...' : submitLabel}
             </button>

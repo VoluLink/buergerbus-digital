@@ -1,0 +1,1 @@
+namespace BuergerbusAPI.DTOs; public record NotificationDetailsDto(Guid Id,string Type,string Subject,string Message,string RecipientGroup,string Status,int CreatedByUserId,DateTime CreatedAt,DateTime? SentAt,List<NotificationRecipientDto> Recipients);

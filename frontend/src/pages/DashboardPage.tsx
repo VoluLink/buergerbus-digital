@@ -9,6 +9,7 @@ import { useDashboardCalendarModel } from "../features/dashboard/hooks/useDashbo
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useInitiative } from "../context/InitiativeContext";
 import { useDashboardData } from "../features/dashboard/hooks/useDashboardData";
 import { useRideDialogState } from "../features/dashboard/hooks/useRideDialogState";
 import { useRoleVisibility } from "../hooks/useRoleVisibility";
@@ -23,6 +24,7 @@ import {
 } from "../features/dashboard/utils/dateUtils";
 import { StatusLegend } from "../features/dashboard/components/StatusLegend";
 import ProtectedSideMenu from "../components/ProtectedSideMenu";
+import { DashboardNotificationBanner } from "../features/dashboard/components/DashboardNotificationBanner";
 
 import type { CalendarRide } from "../types/DashboardRide";
 type DayRole = "dispo" | "fahrer";
@@ -39,9 +41,11 @@ function DashboardPage() {
   const {
     canManageDataCrud,
     canManageInitiatives,
+    canManagePassengers,
     isAdmin,
     isDisponent,
     isFahrer,
+    hasFahrerRole,
     isGast,
   } = useRoleVisibility();
 
@@ -79,9 +83,7 @@ function DashboardPage() {
   const [nextRideId, setNextRideId] = useState(1);
 
   // Aktive Initiative für Admins / initiativeübergreifende Ansicht
-  const [selectedInitiativeId, setSelectedInitiativeId] = useState<
-    number | null
-  >(currentUser?.initiative?.id ?? null);
+  const { activeInitiativeId: selectedInitiativeId, setActiveInitiativeId: setSelectedInitiativeId } = useInitiative();
 
   // Lädt Fahrten, Fahrer, Fahrzeuge, Fahrgäste und Initiativen
   const {
@@ -97,6 +99,7 @@ function DashboardPage() {
   } = useDashboardData({
     selectedInitiativeId,
     canManageInitiatives,
+    canManagePassengers,
   });
 
   // Verwaltet den kompletten Zustand vom Fahrt-erstellen/-bearbeiten-Dialog
@@ -217,6 +220,7 @@ function DashboardPage() {
     reloadFahrten,
 
     canManageAsStaff: isAdmin || isDisponent,
+    canSelfRegisterAsDriver: hasFahrerRole,
   });
 
   // Admins bekommen automatisch eine Initiative vorausgewählt, falls noch keine gesetzt ist
@@ -228,7 +232,7 @@ function DashboardPage() {
     if (selectedInitiativeId == null && initiativeListe.length > 0) {
       setSelectedInitiativeId(initiativeListe[0].id);
     }
-  }, [canManageInitiatives, initiativeListe, selectedInitiativeId]);
+  }, [canManageInitiatives, initiativeListe, selectedInitiativeId, setSelectedInitiativeId]);
 
   // Persistiert lokalen Dashboard-Zustand, sobald die Backend-Daten geladen sind
   useEffect(() => {
@@ -422,6 +426,7 @@ function DashboardPage() {
       />
 
       <div className="p-2 sm:p-4 lg:p-6">
+        <DashboardNotificationBanner />
         <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-3xl sm:p-6 lg:p-8">
           <DashboardToolbar
             monthHeading={monthHeading}

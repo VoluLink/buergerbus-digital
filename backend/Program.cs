@@ -8,6 +8,9 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Net.Sockets;
+using System.Threading.RateLimiting;
+using System.Text.Json.Serialization;
 
 /// <summary>
 /// Einstiegspunkt der Anwendung.
@@ -32,6 +35,12 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<IPasswordHasher<Benutzer>, PasswordHasher<Benutzer>>();
 builder.Services.AddScoped<JwtService>();
+builder.Services.AddScoped<RefreshSessionService>();
+builder.Services.AddScoped<AuditService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<SystemSettingsService>();
+builder.Services.AddScoped<RideTimeValidationService>();
+builder.Services.AddScoped<RideConflictService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(new EmailSettings
 {
@@ -45,6 +54,8 @@ builder.Services.AddSingleton(new EmailSettings
     FrontendUrl = GetRequiredSetting(builder, "FRONTEND_URL")
 });
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<EmailOutboxService>();
+builder.Services.AddScoped<EmailTemplateService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<TripEmailNotificationService>();
 builder.Services.AddScoped<InitiativeDeletionService>();
@@ -52,7 +63,10 @@ builder.Services.AddScoped<ITemporaryParticipantCleanupService, TemporaryPartici
 builder.Services.AddScoped<PageService>();
 builder.Services.AddScoped<FooterService>();
 builder.Services.AddHostedService<TemporaryParticipantCleanupBackgroundService>();
+builder.Services.AddHostedService<EmailBackgroundWorker>();
 builder.Services.AddControllers();
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -142,11 +156,46 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 Encoding.UTF8.GetBytes(builder.Configuration["JWT_SECRET"]!)
             )
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var userIdValue = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var versionValue = context.Principal?.FindFirst("authVersion")?.Value;
+                if (!int.TryParse(userIdValue, out var userId) || !int.TryParse(versionValue, out var version))
+                {
+                    context.Fail("Ungültiges Zugriffstoken.");
+                    return;
+                }
+
+                var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                var user = await db.Benutzer.AsNoTracking().FirstOrDefaultAsync(item => item.Id == userId);
+                if (user is null || !user.Aktiv || user.AuthVersion != version)
+                    context.Fail("Sitzung ist nicht mehr gültig.");
+            }
+        };
     });
 
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+});
+
+// Intentionally partitions by the address ASP.NET receives. Forwarded-header
+// handling is deliberately not changed here; production proxies must therefore
+// be configured outside this application if client IPs are to be distinguished.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth-login", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.AddPolicy("auth-forgot-password", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 3, Window = TimeSpan.FromMinutes(15), QueueLimit = 0 }));
+    options.AddPolicy("auth-reset-password", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(15), QueueLimit = 0 }));
 });
 
 builder.Services.AddHostedService<FahrgastCleanupService>();
@@ -169,12 +218,18 @@ app.UseRouting();
 
 app.UseCors("FrontendCors");
 
+app.UseRateLimiter();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapAdminNotificationEndpoints();
+app.MapEmailTemplateEndpoints();
+app.MapAdminAuditLogEndpoints();
+app.MapAdminSettingsEndpoints();
+app.MapNotificationEndpoints();
 app.MapPublicPagesEndpoints();
 app.MapPublicFooterEndpoints();
 app.MapAdminPagesEndpoints();
@@ -193,8 +248,7 @@ try
     if (connectionString.Contains("${", StringComparison.Ordinal))
     {
         app.Logger.LogWarning(
-            "SeedData wird übersprungen, da ConnectionString noch Platzhalter enthält: {ConnectionString}",
-            connectionString
+            "SeedData wird übersprungen, da der ConnectionString noch nicht vollständig konfiguriert ist."
         );
     }
     else
@@ -209,8 +263,9 @@ catch (SeedConfigurationException ex)
 }
 catch (Exception ex)
 {
-    app.Logger.LogError(ex, "Fehler beim Seeding des initialen Admin-Benutzers.");
-} 
+    app.Logger.LogCritical(ex, "Datenbankmigration oder Initialisierung fehlgeschlagen.");
+    throw;
+}
 
 app.Run();
 

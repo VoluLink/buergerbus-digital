@@ -2,6 +2,8 @@ import type { FormEvent } from 'react'
 import { X } from 'lucide-react'
 import type { FahrgastFormData } from '../../../types/Fahrgast'
 import type { Initiative } from '../../../types/Initiative'
+import { useDialogAccessibility } from '../../../components/dialogs/useDialogAccessibility'
+import { ui } from '../../../design/ui'
 
 type PassengerFormDialogProps = {
   error: string
@@ -34,6 +36,7 @@ export function PassengerFormDialog({
   onFieldChange,
   onSubmit,
 }: PassengerFormDialogProps) {
+  const { dialogRef, handleKeyDown } = useDialogAccessibility<HTMLElement>(onClose)
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     onSubmit()
@@ -42,11 +45,17 @@ export function PassengerFormDialog({
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-2 backdrop-blur-sm sm:p-4">
       <section
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="passenger-dialog-title"
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
         className="flex h-[calc(100dvh-1rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl sm:h-auto sm:max-h-[calc(100dvh-2rem)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-4 sm:px-6">
-          <h2 className="text-xl font-bold text-slate-800">{title}</h2>
+          <h2 id="passenger-dialog-title" className="text-xl font-bold text-slate-800">{title}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -72,22 +81,24 @@ export function PassengerFormDialog({
             ) : null}
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Vorname</label>
+              <label className={ui.label}>Vorname <span className="text-rose-700" aria-label="Pflichtfeld">*</span></label>
               <input
                 type="text"
+                required
                 value={form.vorname ?? ''}
                 onChange={(event) => onFieldChange('vorname', event.target.value)}
-                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-sm sm:py-2"
+                className={ui.field}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Nachname</label>
+              <label className={ui.label}>Nachname <span className="text-rose-700" aria-label="Pflichtfeld">*</span></label>
               <input
                 type="text"
+                required
                 value={form.nachname ?? ''}
                 onChange={(event) => onFieldChange('nachname', event.target.value)}
-                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-sm sm:py-2"
+                className={ui.field}
               />
             </div>
 
@@ -172,25 +183,28 @@ export function PassengerFormDialog({
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Bemerkungen</label>
+              <label className={ui.label}>Bemerkungen</label>
               <textarea
                 value={form.bemerkung ?? ''}
                 onChange={(event) => onFieldChange('bemerkung', event.target.value)}
                 rows={3}
-                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-sm sm:py-2"
+                maxLength={1000}
+                aria-describedby="passenger-remarks-counter"
+                className={ui.field}
               />
+              <p id="passenger-remarks-counter" className="mt-1 text-right text-xs text-slate-500">{(form.bemerkung ?? '').length}/1000 Zeichen</p>
             </div>
           </div>
 
-          <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-slate-200 px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+12px)] sm:flex-row sm:justify-end sm:px-6 sm:pb-4">
+          <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-slate-200 bg-white px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+12px)] sm:flex-row sm:justify-end sm:px-6 sm:pb-4">
             <button
               type="button"
               onClick={onClose}
-              className="min-h-11 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:py-2.5"
+              className={ui.secondaryButton}
             >
               Abbrechen
             </button>
-            <button type="submit" className={`min-h-11 ${submitClassName}`}>
+            <button type="submit" className={`${ui.primaryButton} ${submitClassName}`}>
               {submitLabel}
             </button>
           </div>

@@ -32,7 +32,7 @@ function buildUserQuery(userId?: number) {
 }
 
 export async function getFahrzeuge(userId?: number): Promise<Fahrzeug[]> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrzeuge${buildUserQuery(userId)}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/vehicles${buildUserQuery(userId)}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -46,7 +46,7 @@ export async function createFahrzeug(
   userId: number | undefined,
   request: CreateFahrzeugRequest,
 ): Promise<Fahrzeug> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrzeuge${buildUserQuery(userId)}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/vehicles${buildUserQuery(userId)}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -63,7 +63,7 @@ export async function updateFahrzeug(
   request: UpdateFahrzeugRequest,
 ): Promise<Fahrzeug> {
   const response = await apiFetch(
-    `${API_BASE_URL}/api/v1/fahrzeuge/${vehicleId}${buildUserQuery(userId)}`,
+    `${API_BASE_URL}/api/v1/vehicles/${vehicleId}${buildUserQuery(userId)}`,
     {
       method: 'PUT',
       headers: {
@@ -78,7 +78,7 @@ export async function updateFahrzeug(
 
 export async function deleteFahrzeug(vehicleId: number, userId?: number): Promise<void> {
   const response = await apiFetch(
-    `${API_BASE_URL}/api/v1/fahrzeuge/${vehicleId}${buildUserQuery(userId)}`,
+    `${API_BASE_URL}/api/v1/vehicles/${vehicleId}${buildUserQuery(userId)}`,
     {
       method: 'DELETE',
     },

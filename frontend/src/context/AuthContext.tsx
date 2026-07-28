@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
-import { login as loginRequest, refreshToken as refreshTokenRequest } from '../services/auth'
+import { login as loginRequest, logout as logoutRequest, refreshToken } from '../services/auth'
 import { getCurrentUserProfile } from '../services/profile'
 import { clearStoredAuth, getStoredToken, setStoredToken } from '../services/httpClient'
 import type { LoginCredentials } from '../types/Login'
@@ -17,87 +16,30 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
-const USER_ID_STORAGE_KEY = 'bb.auth.userId'
 const SESSION_EXPIRED_MESSAGE = 'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.'
 const SESSION_IDLE_MESSAGE = 'Deine Sitzung wurde wegen Inaktivität beendet. Bitte melde dich erneut an.'
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000
-const REFRESH_THRESHOLD_MS = 2 * 60 * 1000
-const REFRESH_THROTTLE_MS = 30 * 1000
+let restoreAccessTokenInFlight: Promise<string | null> | null = null
 
-function parseJwtExpiration(token: string): number | null {
-  const segments = token.split('.')
-  if (segments.length < 2) {
-    return null
-  }
-
-  try {
-    const normalizedPayload = segments[1].replace(/-/g, '+').replace(/_/g, '/')
-    const paddedPayload = normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, '=')
-    const payload = JSON.parse(window.atob(paddedPayload)) as { exp?: number }
-
-    return typeof payload.exp === 'number' ? payload.exp * 1000 : null
-  } catch {
-    return null
-  }
+function restoreAccessTokenOnce() {
+  restoreAccessTokenInFlight ??= refreshToken()
+    .then(response => response.token)
+    .catch(() => null)
+    .finally(() => { restoreAccessTokenInFlight = null })
+  return restoreAccessTokenInFlight
 }
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const location = useLocation()
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const idleTimeoutRef = useRef<number | null>(null)
-  const isRefreshingRef = useRef(false)
-  const lastRefreshAttemptRef = useRef(0)
 
   const logout = useCallback((message?: string) => {
+    void logoutRequest().catch(() => undefined)
     clearStoredAuth()
     setCurrentUser(null)
     setError(message ?? null)
   }, [])
-
-  const refreshAccessToken = useCallback(async () => {
-    if (isRefreshingRef.current) {
-      return getStoredToken()
-    }
-
-    isRefreshingRef.current = true
-
-    try {
-      const response = await refreshTokenRequest()
-      setStoredToken(response.token)
-      lastRefreshAttemptRef.current = Date.now()
-      return response.token
-    } catch (err) {
-      logout(err instanceof Error ? err.message : SESSION_EXPIRED_MESSAGE)
-      return null
-    } finally {
-      isRefreshingRef.current = false
-    }
-  }, [logout])
-
-  const maybeRefreshToken = useCallback(async () => {
-    const token = getStoredToken()
-    if (!token) {
-      return
-    }
-
-    const expiration = parseJwtExpiration(token)
-    if (!expiration) {
-      return
-    }
-
-    const now = Date.now()
-    if (expiration - now > REFRESH_THRESHOLD_MS) {
-      return
-    }
-
-    if (now - lastRefreshAttemptRef.current < REFRESH_THROTTLE_MS) {
-      return
-    }
-
-    await refreshAccessToken()
-  }, [refreshAccessToken])
 
   const resetIdleTimeout = useCallback(() => {
     if (idleTimeoutRef.current !== null) {
@@ -115,21 +57,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     resetIdleTimeout()
-    void maybeRefreshToken()
-  }, [maybeRefreshToken, resetIdleTimeout])
+  }, [resetIdleTimeout])
 
   const refreshProfile = useCallback(async () => {
     const token = getStoredToken()
-    const storedUserId = localStorage.getItem(USER_ID_STORAGE_KEY)
-    const userId = storedUserId ? Number(storedUserId) : null
-
-    if (!token || !userId || Number.isNaN(userId)) {
-      setCurrentUser(null)
-      setIsLoading(false)
-      if (!token) {
-        localStorage.removeItem(USER_ID_STORAGE_KEY)
-      }
-      return null
+    if (!token) {
+      const refreshedToken = await restoreAccessTokenOnce()
+      if (!refreshedToken) { setCurrentUser(null); setIsLoading(false); return null }
+      setStoredToken(refreshedToken)
     }
 
     setIsLoading(true)
@@ -153,10 +88,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void refreshProfile()
   }, [refreshProfile])
-
-  useEffect(() => {
-    void refreshProfile()
-  }, [location.pathname, refreshProfile])
 
   useEffect(() => {
     if (!currentUser || !getStoredToken()) {
@@ -223,9 +154,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setStoredToken(response.token)
-      lastRefreshAttemptRef.current = Date.now()
-
-      localStorage.setItem(USER_ID_STORAGE_KEY, String(response.user.id))
       setCurrentUser(response.user)
       resetIdleTimeout()
       return response.user

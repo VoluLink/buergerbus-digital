@@ -20,7 +20,7 @@ function buildInitiativeQuery(initiativeId?: number | null) {
 }
 
 export async function getFahrgaeste(initiativeId?: number | null): Promise<Fahrgast[]> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrgaeste${buildInitiativeQuery(initiativeId)}`)
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/passengers${buildInitiativeQuery(initiativeId)}`)
 
   if (!response.ok) {
     if (response.status === 403) {
@@ -35,7 +35,7 @@ export async function getFahrgaeste(initiativeId?: number | null): Promise<Fahrg
 
 export async function createFahrgast(payload: FahrgastUpsertRequest): Promise<Fahrgast> {
 
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrgaeste`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/passengers`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -57,7 +57,7 @@ export async function createFahrgast(payload: FahrgastUpsertRequest): Promise<Fa
 
 export async function updateFahrgast(fahrgastId: number, payload: FahrgastUpsertRequest): Promise<Fahrgast> {
 
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrgaeste/${fahrgastId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/passengers/${fahrgastId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -78,7 +78,7 @@ export async function updateFahrgast(fahrgastId: number, payload: FahrgastUpsert
 }
 
 export async function deletePassenger(fahrgastId: number): Promise<void> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/fahrgaeste/${fahrgastId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/passengers/${fahrgastId}`, {
     method: 'DELETE',
   })
 

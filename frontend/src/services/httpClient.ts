@@ -1,17 +1,16 @@
-const TOKEN_STORAGE_KEY = 'bb.auth.token'
-const USER_ID_STORAGE_KEY = 'bb.auth.userId'
+let accessToken: string | null = null
+let refreshInFlight: Promise<string | null> | null = null
 
 export function getStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_STORAGE_KEY)
+  return accessToken
 }
 
 export function setStoredToken(token: string) {
-  localStorage.setItem(TOKEN_STORAGE_KEY, token)
+  accessToken = token
 }
 
 export function clearStoredAuth() {
-  localStorage.removeItem(TOKEN_STORAGE_KEY)
-  localStorage.removeItem(USER_ID_STORAGE_KEY)
+  accessToken = null
 }
 
 export async function apiFetch(
@@ -27,12 +26,23 @@ export async function apiFetch(
     headers.set('Authorization', `Bearer ${token}`)
   }
 
-  const response = await fetch(input, {
+  let response = await fetch(input, {
     ...init,
     headers,
+    credentials: 'include',
   })
 
   if (response.status === 401 && authEnabled) {
+    refreshInFlight ??= fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' })
+      .then(async refreshResponse => refreshResponse.ok ? (await refreshResponse.json() as { token?: string }).token ?? null : null)
+      .finally(() => { refreshInFlight = null })
+    const refreshedToken = await refreshInFlight
+    if (refreshedToken) {
+      setStoredToken(refreshedToken)
+      headers.set('Authorization', `Bearer ${refreshedToken}`)
+      response = await fetch(input, { ...init, headers, credentials: 'include' })
+      if (response.status !== 401) return response
+    }
     clearStoredAuth()
     window.dispatchEvent(new Event('bb:auth:unauthorized'))
   }

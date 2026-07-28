@@ -4,8 +4,8 @@
     {
         public int Id { get; set; }
 
-        public string Abholadresse { get; set; }
-        public string Zieladresse { get; set; }
+        public required string Abholadresse { get; set; }
+        public required string Zieladresse { get; set; }
 
         // Optional für Planung
         public DateTime? Startzeit { get; set; }
@@ -20,7 +20,7 @@
 
         // Teilstrecke .. Fahrt - n .. 1
         public int FahrtId { get; set; }
-        public Fahrten Fahrt { get; set; }
+        public Fahrten? Fahrt { get; set; }
 
         // Legacy-Feld bleibt für die Übergangsphase erhalten.
         public int? FahrgastId { get; set; }

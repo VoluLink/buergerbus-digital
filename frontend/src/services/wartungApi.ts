@@ -29,7 +29,7 @@ export async function getWartungenByFahrzeug(
   userId: number,
 ): Promise<Wartung[]> {
   const response = await apiFetch(
-    `${API_BASE_URL}/api/v1/fahrzeuge/${fahrzeugId}/wartungen?userId=${userId}`,
+    `${API_BASE_URL}/api/v1/vehicles/${fahrzeugId}/maintenance?userId=${userId}`,
     {
       method: 'GET',
       headers: {
@@ -47,7 +47,7 @@ export async function createWartung(
   request: CreateWartungRequest,
 ): Promise<Wartung> {
   const response = await apiFetch(
-    `${API_BASE_URL}/api/v1/fahrzeuge/${fahrzeugId}/wartungen?userId=${userId}`,
+    `${API_BASE_URL}/api/v1/vehicles/${fahrzeugId}/maintenance?userId=${userId}`,
     {
       method: 'POST',
       headers: {
@@ -65,7 +65,7 @@ export async function updateWartung(
   userId: number,
   request: UpdateWartungRequest,
 ): Promise<Wartung> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/wartungen/${wartungId}?userId=${userId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/maintenance/${wartungId}?userId=${userId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -77,7 +77,7 @@ export async function updateWartung(
 }
 
 export async function deleteWartung(wartungId: number, userId: number): Promise<void> {
-  const response = await apiFetch(`${API_BASE_URL}/api/v1/wartungen/${wartungId}?userId=${userId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/maintenance/${wartungId}?userId=${userId}`, {
     method: 'DELETE',
   })
 

@@ -1,0 +1,1 @@
+namespace BuergerbusAPI.DTOs; public record UpdateUserProfileRequest(string? Vorname,string? Nachname,string Username,string? Strasse,string? Postleitzahl,string? Ort,string? Fuehrerscheinklasse,DateTime? LetzteG25,DateTime? NaechsteG25,string? Telefonnummer,string? Bemerkung,bool? Aktiv,UpdateFahrerProfileRequest? Fahrer);

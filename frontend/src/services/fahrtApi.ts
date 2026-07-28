@@ -11,7 +11,7 @@ function buildInitiativeQuery(initiativeId?: number | null) {
 }
 
 export async function createFahrt(data: BackendFahrtWriteDto): Promise<BackendFahrtDto> {
-  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/rides`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -32,7 +32,7 @@ export async function createFahrt(data: BackendFahrtWriteDto): Promise<BackendFa
 ========================= */
 
 export async function getFahrten(initiativeId?: number | null): Promise<BackendFahrtDto[]> {
-  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten${buildInitiativeQuery(initiativeId)}`)
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/rides${buildInitiativeQuery(initiativeId)}`)
 
   if (!res.ok) {
     const err = await res.text()
@@ -47,7 +47,7 @@ export async function getFahrten(initiativeId?: number | null): Promise<BackendF
 ========================= */
 
 export async function getFahrt(id: number): Promise<BackendFahrtDto> {
-  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten/${id}`)
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/rides/${id}`)
 
   if (!res.ok) {
     const err = await res.text()
@@ -62,7 +62,7 @@ export async function getFahrt(id: number): Promise<BackendFahrtDto> {
 ========================= */
 
 export async function updateFahrt(id: number, data: BackendFahrtWriteDto): Promise<BackendFahrtDto> {
-  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten/${id}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/rides/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -83,7 +83,7 @@ export async function updateFahrt(id: number, data: BackendFahrtWriteDto): Promi
 ========================= */
 
 export async function deleteFahrt(id: number) {
-  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten/${id}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/rides/${id}`, {
     method: 'DELETE',
   })
 
@@ -96,7 +96,7 @@ export async function deleteFahrt(id: number) {
 }
 
 export async function updateFahrtteilnehmerAbgehakt(id: number, istAbgehakt: boolean) {
-  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrtteilnehmer/${id}/abgehakt`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/participants/${id}/completion`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -113,8 +113,8 @@ export async function updateFahrtteilnehmerAbgehakt(id: number, istAbgehakt: boo
 }
 
 export async function meldeFahrerAn(fahrtId: number) {
-  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten/${fahrtId}/fahrer/anmelden`, {
-    method: 'PATCH',
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/rides/${fahrtId}/self-registration`, {
+    method: 'POST',
   })
 
   if (!res.ok) {
@@ -126,8 +126,8 @@ export async function meldeFahrerAn(fahrtId: number) {
 }
 
 export async function meldeFahrerAb(fahrtId: number) {
-  const res = await apiFetch(`${API_BASE_URL}/api/v1/fahrten/${fahrtId}/fahrer/abmelden`, {
-    method: 'PATCH',
+  const res = await apiFetch(`${API_BASE_URL}/api/v1/rides/${fahrtId}/self-registration`, {
+    method: 'DELETE',
   })
 
   if (!res.ok) {

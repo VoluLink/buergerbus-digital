@@ -3,8 +3,8 @@ import type { CalendarRide } from "../../../types/DashboardRide";
 import type { CalendarDay } from "../utils/calendarViewUtils";
 import { isSameDay, toDateKey } from "../utils/dateUtils";
 import {
-  getRideCalendarDisplayTime,
   getRideCalendarTitle,
+  formatTripTimeRange,
 } from "../utils/rideDisplayUtils";
 
 type CalendarView = "Monat" | "Woche" | "Tag";
@@ -75,7 +75,7 @@ export function MonthWeekCalendar({
 
               <div className="space-y-1">
                 {visibleMarkers.map((ride) => {
-                  const rideDisplayTime = getRideCalendarDisplayTime(ride);
+                  const rideDisplayTime = formatTripTimeRange(ride);
 
                   if (selectedView === "Monat") {
                     return (
@@ -84,7 +84,7 @@ export function MonthWeekCalendar({
                         className={`block truncate rounded-full px-1.5 py-0.5 text-center text-[9px] font-semibold leading-none text-white ${statusMetadata[ride.status].color}`}
                         title={getRideCalendarTitle(ride)}
                       >
-                        {rideDisplayTime || "---"}
+                        {rideDisplayTime}
                       </span>
                     );
                   }
@@ -95,17 +95,11 @@ export function MonthWeekCalendar({
                       className="block rounded-lg bg-slate-100 px-1 py-1 text-[10px] font-semibold text-slate-700 sm:px-2"
                       title={getRideCalendarTitle(ride)}
                     >
-                      {rideDisplayTime ? (
-                        <span
-                          className={`block truncate rounded-full px-1.5 py-0.5 text-center text-[9px] font-semibold leading-none text-white ${statusMetadata[ride.status].color}`}
-                        >
-                          {rideDisplayTime}
-                        </span>
-                      ) : (
-                        <span
-                          className={`block h-2 rounded-full ${statusMetadata[ride.status].color}`}
-                        />
-                      )}
+                      <span
+                        className={`block truncate rounded-full px-1.5 py-0.5 text-center text-[9px] font-semibold leading-none text-white ${statusMetadata[ride.status].color}`}
+                      >
+                        {rideDisplayTime}
+                      </span>
 
                       <span className="mt-1 block min-w-0 truncate">
                         {ride.title}

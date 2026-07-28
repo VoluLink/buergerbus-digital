@@ -1,9 +1,11 @@
 import {
   Bell,
   Bus,
+  Mail,
   LogOut,
   MapPin,
   Settings,
+  ScrollText,
   UserRound,
   UserRoundPlus,
   X,
@@ -48,6 +50,8 @@ function ProtectedSideMenu({ isOpen, onClose }: ProtectedSideMenuProps) {
     { icon: MapPin, label: 'Initiativen', path: '/initiativen', visible: canManageInitiatives },
     { icon: Settings, label: 'Rollenverteilung', path: '/rollenverteilung', visible: canManageRoleAssignments },
     { icon: Bell, label: 'Benachrichtigungen', path: '/admin/benachrichtigungen', visible: isAdmin },
+    { icon: Mail, label: 'E-Mail', path: '/admin/email', visible: isAdmin },
+    { icon: ScrollText, label: 'Audit-Logs', path: '/admin/audit-logs', visible: isAdmin },
     { icon: Settings, label: 'Einstellungen', path: '/admin/einstellungen', visible: isAdmin },
   ]
 
@@ -68,11 +72,11 @@ function ProtectedSideMenu({ isOpen, onClose }: ProtectedSideMenuProps) {
       onClick={onClose}
     >
       <aside
-        className="flex h-full w-full max-w-sm flex-col bg-white shadow-2xl"
+        className="side-menu flex h-full w-full max-w-sm flex-col bg-white shadow-2xl"
         onClick={(event) => event.stopPropagation()}
         aria-label="Seitliche Navigation"
       >
-        <div className="flex items-center justify-between gap-3 bg-[#0053a0] px-4 py-4 text-white sm:px-6 sm:py-5">
+        <div className="side-menu__header flex items-center justify-between gap-3 bg-[#0053a0] px-4 py-4 text-white sm:px-6 sm:py-5">
           <h2 className="min-w-0 break-words text-2xl font-semibold tracking-tight sm:text-4xl">Navigation</h2>
           <button
             type="button"
@@ -89,14 +93,14 @@ function ProtectedSideMenu({ isOpen, onClose }: ProtectedSideMenuProps) {
             .filter((item) => item.visible)
             .map((item) => {
               const Icon = item.icon
-              const isActive = location.pathname === item.path
+              const isActive = location.pathname === item.path || (item.path === '/admin/email' && location.pathname.startsWith('/admin/email/'))
 
               return (
                 <button
                   key={item.path}
                   type="button"
                   onClick={() => navigateTo(item.path)}
-                  className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-base font-medium sm:rounded-2xl sm:text-lg ${
+                  className={`side-menu__item flex min-h-11 w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-base font-medium sm:rounded-2xl sm:text-lg ${isActive ? 'side-menu__item--active ' : ''}${
                     isActive
                       ? 'bg-[#0053a0] text-white'
                       : 'bg-[#0053a0]/12 text-[#0053a0]'
@@ -109,11 +113,11 @@ function ProtectedSideMenu({ isOpen, onClose }: ProtectedSideMenuProps) {
             })}
         </div>
 
-        <div className="mt-auto border-t border-slate-200 p-4">
+        <div className="side-menu__footer mt-auto border-t border-slate-200 p-4">
           <button
             type="button"
             onClick={handleLogout}
-            className="flex min-h-11 w-full items-center gap-3 rounded-xl border border-rose-200 bg-white px-4 py-3 text-left text-base font-medium text-rose-700 transition hover:bg-rose-50 sm:rounded-2xl sm:text-lg"
+            className="side-menu__logout flex min-h-11 w-full items-center gap-3 rounded-xl border border-rose-200 bg-white px-4 py-3 text-left text-base font-medium text-rose-700 transition hover:bg-rose-50 sm:rounded-2xl sm:text-lg"
           >
             <LogOut className="h-5 w-5 shrink-0" aria-hidden="true" />
             <span className="min-w-0 break-words">Abmelden</span>

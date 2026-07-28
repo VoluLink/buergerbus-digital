@@ -15,7 +15,7 @@ public static class FahrgastEndpoints
     public static IEndpointRouteBuilder MapFahrgastEndpoints(this IEndpointRouteBuilder app)
     {
         // Alle Fahrgäste abrufen
-        app.MapGet("/api/v1/fahrgaeste", async (
+        app.MapGet("/api/v1/passengers", async (
             HttpContext httpContext,
             AppDbContext db,
             int? initiativeId
@@ -40,12 +40,14 @@ public static class FahrgastEndpoints
                 return Results.Forbid();
             }
 
-            var targetInitiativeId = initiativeId ?? claimInitiativeId;
+            // Admins use this management endpoint globally unless they explicitly
+            // apply an initiative filter. Non-admins always resolve to their claim.
+            var targetInitiativeId = isAdmin ? initiativeId : claimInitiativeId;
 
             var fahrgaeste = await db.Fahrgaeste
                 .Include(f => f.Initiative)
                 .AsNoTracking()
-                .Where(f => (!targetInitiativeId.HasValue || f.InitiativeId == targetInitiativeId.Value))
+                .Where(f => !targetInitiativeId.HasValue || f.InitiativeId == targetInitiativeId.Value)
                 .OrderBy(f => f.Nachname)
                 .ThenBy(f => f.Vorname)
                 .ToListAsync();
@@ -58,7 +60,7 @@ public static class FahrgastEndpoints
         .RequireAuthorization();
 
         // Einzelnen Fahrgast abrufen
-        app.MapGet("/api/v1/fahrgaeste/{id:int}", async (
+        app.MapGet("/api/v1/passengers/{id:int}", async (
             int id,
             HttpContext httpContext,
             AppDbContext db
@@ -99,7 +101,7 @@ public static class FahrgastEndpoints
         .RequireAuthorization();
 
         // Fahrgast erstellen
-        app.MapPost("/api/v1/fahrgaeste", async (
+        app.MapPost("/api/v1/passengers", async (
             CreateFahrgastDto request,
             HttpContext httpContext,
             AppDbContext db
@@ -176,7 +178,7 @@ public static class FahrgastEndpoints
         .RequireAuthorization();
 
 
-        app.MapPut("/api/v1/fahrgaeste/{id:int}", async (
+        app.MapPut("/api/v1/passengers/{id:int}", async (
             int id,
             CreateFahrgastDto request,
             HttpContext httpContext,
@@ -260,7 +262,7 @@ public static class FahrgastEndpoints
         .RequireAuthorization();
 
         // Fahrgast löschen
-        app.MapDelete("/api/v1/fahrgaeste/{id:int}", async (
+        app.MapDelete("/api/v1/passengers/{id:int}", async (
             int id,
             HttpContext httpContext,
             AppDbContext db

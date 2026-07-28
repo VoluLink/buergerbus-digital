@@ -263,6 +263,18 @@ oder:
 COMPOSE_PROFILES=prod
 ```
 
+## Konfigurationsvorlagen
+
+Für die drei unterstützten Zugriffsarten gibt es getrennte Vorlagen. So enthält eine `.env` immer nur die für das jeweilige Szenario gültigen Werte.
+
+| Vorlage | Einsatz |
+| --- | --- |
+| `.env.example` | Lokale Entwicklung über `localhost` |
+| `.env.server-ip.example` | Entwicklung über eine Server-IP |
+| `.env.production.example` | Produktivbetrieb über eine HTTPS-Domain |
+
+Die gewünschte Vorlage wird nach `.env` kopiert und anschließend mit echten Zugangsdaten ergänzt. Alternativ wählt `start.sh` die passende Vorlage automatisch aus.
+
 ---
 
 ## Development starten
@@ -273,7 +285,6 @@ Beispiel `.env` für Development über Server-IP:
 
 ```env
 ASPNETCORE_ENVIRONMENT=Development
-APP_RUN_MODE=development
 COMPOSE_PROFILES=dev
 
 USAGE_MODE=SERVER_IP
@@ -319,7 +330,6 @@ Beispiel `.env` für Production mit Domain oder Subdomain:
 
 ```env
 ASPNETCORE_ENVIRONMENT=Production
-APP_RUN_MODE=production
 COMPOSE_PROFILES=prod
 
 USAGE_MODE=DOMAIN
@@ -936,7 +946,7 @@ Die Kommunikation erfolgt über eine REST-API.
 Beispiel:
 
 ```http
-GET /api/v1/fahrten
+GET /api/v1/rides
 ```
 
 ---

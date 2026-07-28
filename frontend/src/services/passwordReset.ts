@@ -5,7 +5,7 @@ import type { ForgotPasswordRequest, PasswordResetResponse, ResetPasswordRequest
 export async function requestPasswordReset(
   body: ForgotPasswordRequest,
 ): Promise<PasswordResetResponse> {
-  const response = await apiFetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/auth/forgot-password`, {
     method: 'POST',
     auth: false,
     headers: {
@@ -25,7 +25,7 @@ export async function requestPasswordReset(
 export async function resetPassword(
   body: ResetPasswordRequest,
 ): Promise<PasswordResetResponse> {
-  const response = await apiFetch(`${API_BASE_URL}/api/auth/reset-password`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/auth/reset-password`, {
     method: 'POST',
     auth: false,
     headers: {

@@ -9,6 +9,6 @@ namespace BuergerbusAPI.Models
         public DateTime? UsedAt { get; set; }
         public DateTime CreatedAt { get; set; }
 
-        public Benutzer Benutzer { get; set; } = null!;
+        public Benutzer? Benutzer { get; set; }
     }
 }

@@ -3,14 +3,14 @@ import { apiFetch } from './httpClient'
 import type {
   NotificationDetails,
   NotificationSendResult,
-  NotificationSummary,
+  PagedNotifications,
   SendNotificationRequest,
 } from '../types/Notifications'
 
 export async function sendNotification(
   payload: SendNotificationRequest,
 ): Promise<NotificationSendResult> {
-  const response = await apiFetch(`${API_BASE_URL}/api/admin/notifications/send`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/admin/broadcast-emails`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -26,8 +26,10 @@ export async function sendNotification(
   return response.json()
 }
 
-export async function getNotifications(): Promise<NotificationSummary[]> {
-  const response = await apiFetch(`${API_BASE_URL}/api/admin/notifications`, {
+export async function getNotifications(page = 1, pageSize = 25, status = '', type = '', fromUtc = ''): Promise<PagedNotifications> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+  if (status) params.set('status', status); if (type) params.set('type', type); if (fromUtc) params.set('fromUtc', fromUtc)
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/admin/broadcast-emails?${params}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -47,7 +49,7 @@ export async function getNotifications(): Promise<NotificationSummary[]> {
 }
 
 export async function getNotificationDetails(id: string): Promise<NotificationDetails> {
-  const response = await apiFetch(`${API_BASE_URL}/api/admin/notifications/${id}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/v1/admin/broadcast-emails/${id}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',

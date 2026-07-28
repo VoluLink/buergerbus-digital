@@ -1,73 +1,16 @@
-import { useState } from 'react'
-import { FileText, Link2, ChevronLeft, Menu } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { FileText, Link2, Menu, Save } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import ProtectedSideMenu from '../components/ProtectedSideMenu'
+import { getSettings, saveSettings, type Settings } from '../services/settingsApi'
 
+const fieldClass = 'mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#0053a0] focus:ring-2 focus:ring-[#0053a0]/15'
 function AdminSettingsPage() {
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false)
-
-  return (
-    <main className="min-h-screen bg-slate-100 px-5 py-8 text-slate-900 sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.08)]">
-          <div className="border-b border-slate-200 px-6 py-5 sm:px-8">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0053a0]">Einstellungen</p>
-                <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Seiten & Footer</h1>
-                <p className="mt-3 text-sm leading-6 text-slate-500">Öffentliche Inhalte und Login-Footer zentral verwalten.</p>
-              </div>
-
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                <button
-                  type="button"
-                  onClick={() => setIsSideMenuOpen(true)}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                  aria-label="Navigation öffnen"
-                >
-                  <Menu className="h-4 w-4" aria-hidden="true" />
-                  Navigation
-                </button>
-                <Link
-                  to="/dashboard"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                >
-                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                  Zum Dashboard
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-4 px-6 py-6 sm:grid-cols-2 lg:px-8">
-            <Link
-              to="/admin/seiten"
-              className="group rounded-3xl border border-slate-200 bg-slate-50 p-6 transition hover:border-[#0053a0]/30 hover:bg-[#0053a0]/5"
-            >
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0053a0]/10 text-[#0053a0]">
-                <FileText className="h-5 w-5" aria-hidden="true" />
-              </div>
-              <h2 className="mt-4 text-xl font-semibold text-slate-900">Seiten</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-500">Impressum, Datenschutz, Kontakt und weitere öffentliche Seiten.</p>
-            </Link>
-
-            <Link
-              to="/admin/footer-links"
-              className="group rounded-3xl border border-slate-200 bg-slate-50 p-6 transition hover:border-[#0053a0]/30 hover:bg-[#0053a0]/5"
-            >
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0053a0]/10 text-[#0053a0]">
-                <Link2 className="h-5 w-5" aria-hidden="true" />
-              </div>
-              <h2 className="mt-4 text-xl font-semibold text-slate-900">Footer</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-500">Interne und externe Footer-Links für die Login-Seite pflegen.</p>
-            </Link>
-          </div>
-        </section>
-      </div>
-
-      <ProtectedSideMenu isOpen={isSideMenuOpen} onClose={() => setIsSideMenuOpen(false)} />
-    </main>
-  )
+  const [settings, setSettings] = useState<Settings | null>(null)
+  const [message, setMessage] = useState('')
+  useEffect(() => { void getSettings().then(setSettings).catch(() => setMessage('Einstellungen konnten nicht geladen werden.')) }, [])
+  async function save() { if (!settings) return; if (settings.temporaryParticipantRetentionDays < 1 || settings.temporaryParticipantRetentionDays > 365 || settings.defaultRideDurationMinutes < 15 || settings.defaultRideDurationMinutes > 1440) { setMessage('Bitte gültige Werte eingeben.'); return } try { setSettings(await saveSettings(settings)); setMessage('Einstellungen gespeichert.') } catch { setMessage('Einstellungen konnten nicht gespeichert werden.') } }
+  return <main className="min-h-screen bg-slate-100 text-slate-900"><header className="border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6"><button type="button" onClick={() => setIsSideMenuOpen(true)} className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50" aria-label="Navigation öffnen"><Menu className="h-5 w-5" /></button></header><div className="p-3 sm:p-4 lg:p-6"><section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl"><div className="border-b border-slate-200 p-4 sm:p-6"><p className="text-sm font-semibold uppercase tracking-[.2em] text-[#0053a0]">Administration</p><h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-800 sm:text-4xl">Einstellungen</h1><p className="mt-2 text-sm text-slate-500">Systemverhalten und öffentliche Inhalte zentral verwalten.</p></div>{message ? <div className={`border-b px-5 py-3 text-sm sm:px-6 ${message === 'Einstellungen gespeichert.' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800'}`}>{message}</div> : null}<div className="grid gap-8 p-4 sm:p-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,.6fr)]"><section><div className="flex items-baseline justify-between gap-3"><div><h2 className="text-xl font-bold text-slate-800">Systemeinstellungen</h2><p className="mt-1 text-sm text-slate-500">Vorgaben für Datenaufbewahrung, Fahrten und Mitteilungen.</p></div></div>{settings ? <div className="mt-5 grid gap-5 sm:grid-cols-2"><label className="text-xs font-semibold uppercase tracking-wide text-slate-600">Aufbewahrungsdauer temporärer Teilnehmerdaten (Tage)<input type="number" min="1" max="365" value={settings.temporaryParticipantRetentionDays} onChange={(event) => setSettings({ ...settings, temporaryParticipantRetentionDays: Number(event.target.value) })} className={fieldClass} /></label><label className="text-xs font-semibold uppercase tracking-wide text-slate-600">Standardfahrtdauer (Minuten)<input type="number" min="15" max="1440" value={settings.defaultRideDurationMinutes} onChange={(event) => setSettings({ ...settings, defaultRideDurationMinutes: Number(event.target.value) })} className={fieldClass} /></label><div className="space-y-3 sm:col-span-2"><p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Benachrichtigungen</p><label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50"><input type="checkbox" checked={settings.showDashboardNotifications} onChange={(event) => setSettings({ ...settings, showDashboardNotifications: event.target.checked })} />Administrative Mitteilungen im Dashboard anzeigen</label><label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50"><input type="checkbox" checked={settings.enableDriverAssignmentEmails} onChange={(event) => setSettings({ ...settings, enableDriverAssignmentEmails: event.target.checked })} />E-Mail bei Fahrerzuweisung senden</label><label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50"><input type="checkbox" checked={settings.enableSelfRegistrationEmails} onChange={(event) => setSettings({ ...settings, enableSelfRegistrationEmails: event.target.checked })} />E-Mail bei Selbstanmeldung senden</label></div><div className="sm:col-span-2"><button type="button" onClick={() => void save()} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#0053a0] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"><Save className="h-4 w-4" />Speichern</button></div></div> : <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">Lade Einstellungen ...</div>}</section><section className="border-t border-slate-200 pt-6 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0"><h2 className="text-xl font-bold text-slate-800">Öffentliche Inhalte</h2><p className="mt-1 text-sm text-slate-500">Inhalte auf der Website und im Login-Footer pflegen.</p><div className="mt-5 space-y-3"><Link to="/admin/seiten" className="group flex items-center gap-4 rounded-xl border border-slate-200 p-4 transition hover:border-[#0053a0]/30 hover:bg-[#0053a0]/5"><span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0053a0]/10 text-[#0053a0]"><FileText className="h-5 w-5" /></span><span><span className="block font-semibold text-slate-800">Seiten</span><span className="mt-1 block text-sm text-slate-500">Impressum, Datenschutz und Kontakt.</span></span></Link><Link to="/admin/footer-links" className="group flex items-center gap-4 rounded-xl border border-slate-200 p-4 transition hover:border-[#0053a0]/30 hover:bg-[#0053a0]/5"><span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0053a0]/10 text-[#0053a0]"><Link2 className="h-5 w-5" /></span><span><span className="block font-semibold text-slate-800">Footer</span><span className="mt-1 block text-sm text-slate-500">Links für die Login-Seite verwalten.</span></span></Link></div></section></div></section></div><ProtectedSideMenu isOpen={isSideMenuOpen} onClose={() => setIsSideMenuOpen(false)} /></main>
 }
-
 export default AdminSettingsPage

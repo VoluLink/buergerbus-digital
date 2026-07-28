@@ -3,7 +3,7 @@
     public class Initiativen
     {
         public int Id { get; set; }
-        public string Name { get; set; }
+        public required string Name { get; set; }
         public string? Beschreibung { get; set; }
         public DateTime AngelegtAm { get; set; }
         public DateTime? GeaendertAm { get; set; }

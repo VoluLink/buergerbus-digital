@@ -9,6 +9,8 @@ import {
   formatMonthHeading,
 } from "../utils/calendarViewUtils";
 import { normalizeName } from "../utils/nameUtils";
+import { getRideCalendarDisplayTime } from "../utils/rideDisplayUtils";
+import { parseTimeToMinutes } from "../utils/timeUtils";
 
 type CalendarView = "Monat" | "Woche" | "Tag";
 
@@ -53,7 +55,11 @@ export function useDashboardCalendarModel({
         const addToDay = (date: Date) => {
           const key = toDateKey(date);
           const list = acc.get(key) ?? [];
-          acc.set(key, [...list, ride]);
+          acc.set(key, [...list, ride].sort((left, right) =>
+            (parseTimeToMinutes(getRideCalendarDisplayTime(left)) ?? Number.MAX_SAFE_INTEGER)
+              - (parseTimeToMinutes(getRideCalendarDisplayTime(right)) ?? Number.MAX_SAFE_INTEGER)
+              || left.id - right.id,
+          ));
         };
 
         if (ride.type === "rental" && ride.dateBis) {
