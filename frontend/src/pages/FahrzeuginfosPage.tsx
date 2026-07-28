@@ -33,6 +33,7 @@ import UserMenuButton from '../components/UserMenuButton'
 import ProtectedSideMenu from '../components/ProtectedSideMenu'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
 import VehicleFormDialog from '../features/vehicles/components/VehicleFormDialog'
+import { ConfirmationDialog } from '../components/dialogs/ConfirmationDialog'
 import VehicleTable from '../features/vehicles/components/VehicleTable'
 import type { FahrzeugTab } from '../features/vehicles/types'
 import {
@@ -93,6 +94,7 @@ function FahrzeuginfosPage() {
   const [isSchadenSaving, setIsSchadenSaving] = useState(false)
   const [editingWartungId, setEditingWartungId] = useState<number | null>(null)
   const [editingSchadenId, setEditingSchadenId] = useState<number | null>(null)
+  const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false)
 
   const selectedVehicle = useMemo(
     () => vehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? null,
@@ -220,7 +222,7 @@ function FahrzeuginfosPage() {
     }
 
     if (!selectedVehicle) {
-      alert('Bitte wählen Sie ein Fahrzeug aus, um die Daten zu bearbeiten.')
+      setLoadError('Bitte wählen Sie ein Fahrzeug aus, um die Daten zu bearbeiten.')
       return
     }
 
@@ -338,20 +340,12 @@ function FahrzeuginfosPage() {
     }
 
     if (!selectedVehicle) {
-      alert('Bitte wählen Sie ein Fahrzeug aus, um es zu löschen.')
+      setLoadError('Bitte wählen Sie ein Fahrzeug aus, um es zu löschen.')
       return
     }
 
     if (!currentUser?.id) {
-      alert('Benutzerkontext fehlt.')
-      return
-    }
-
-    const shouldDelete = window.confirm(
-      `Sind Sie sicher, dass Sie das Fahrzeug ${selectedVehicle.id} löschen möchten?`,
-    )
-
-    if (!shouldDelete) {
+      setLoadError('Benutzerkontext fehlt.')
       return
     }
 
@@ -362,8 +356,16 @@ function FahrzeuginfosPage() {
       setSelectedVehicleId(null)
       setSuccessMessage('Fahrzeug wurde gelöscht.')
     } catch {
-      alert('Das Fahrzeug konnte nicht gelöscht werden.')
+      setLoadError('Das Fahrzeug konnte nicht gelöscht werden.')
     }
+  }
+
+  function requestDeleteVehicle() {
+    if (!selectedVehicle) {
+      setLoadError('Bitte wählen Sie ein Fahrzeug aus, um es zu löschen.')
+      return
+    }
+    setIsDeleteConfirmationOpen(true)
   }
 
   function handleWartungFieldChange(fieldName: keyof WartungFormData, value: string) {
@@ -658,7 +660,7 @@ function FahrzeuginfosPage() {
               </button>
               <button
                 type="button"
-                onClick={handleDeleteVehicle}
+                onClick={requestDeleteVehicle}
                 disabled={!selectedVehicle}
                 className={`min-h-11 rounded-lg px-4 py-2 text-sm font-semibold text-white ${
                   selectedVehicle ? 'bg-red-500 hover:bg-red-600' : 'cursor-not-allowed bg-red-300'
@@ -714,6 +716,14 @@ function FahrzeuginfosPage() {
           onWartungFieldChange={handleWartungFieldChange}
         />
       ) : null}
+      <ConfirmationDialog
+        isOpen={isDeleteConfirmationOpen}
+        title="Fahrzeug löschen"
+        description={`Möchtest du das Fahrzeug ${selectedVehicle?.kennzeichen ?? ''} wirklich löschen?`}
+        confirmLabel="Fahrzeug löschen"
+        onCancel={() => setIsDeleteConfirmationOpen(false)}
+        onConfirm={() => { setIsDeleteConfirmationOpen(false); void handleDeleteVehicle() }}
+      />
     </main>
   )
 }

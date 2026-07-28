@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminHeader from './components/AdminHeader'
+import { AppLoadingScreen } from './components/AppLoadingScreen'
 
 import { useAuth } from './context/AuthContext'
 import { getStoredToken } from './services/httpClient'
@@ -29,7 +30,7 @@ const AdminFooterLinksPage = lazy(() => import('./features/footer/admin/AdminFoo
 function App() {
   const { currentUser, isLoading } = useAuth()
 
-  if (isLoading) {return null}
+  if (isLoading) return <AppLoadingScreen />
 
   const token = getStoredToken()
 

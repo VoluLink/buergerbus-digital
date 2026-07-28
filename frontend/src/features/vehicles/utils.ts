@@ -166,7 +166,7 @@ export function getStatusBadgeClasses(status: string) {
     case 'Wartung faellig':
       return `${base} bg-amber-100 text-amber-700`
     case 'Werkstatt':
-      return `${base} bg-orange-100 text-orange-700`
+      return `${base} bg-amber-100 text-amber-800`
     case 'Außer Betrieb':
     case 'Ausser Betrieb':
       return `${base} bg-rose-100 text-rose-700`

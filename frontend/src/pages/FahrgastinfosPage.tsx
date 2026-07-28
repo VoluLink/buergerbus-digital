@@ -22,6 +22,7 @@ import { useAuth } from '../context/AuthContext'
 import { useRoleVisibility } from '../hooks/useRoleVisibility'
 import type { Fahrgast, FahrgastFormData } from '../types/Fahrgast'
 import type { Initiative } from '../types/Initiative'
+import { ConfirmationDialog } from '../components/dialogs/ConfirmationDialog'
 
 function FahrgastinfosPage() {
   const navigate = useNavigate()
@@ -44,6 +45,7 @@ function FahrgastinfosPage() {
   const [initiatives, setInitiatives] = useState<Initiative[]>([])
   const [initiativesError, setInitiativesError] = useState('')
   const [initiativeFilterId, setInitiativeFilterId] = useState<number | null>(null)
+  const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false)
 
   const selectedGuest = guests.find((entry) => entry.id === selectedGuestId) ?? null
   const filteredGuests = filterGuests(
@@ -196,12 +198,6 @@ function FahrgastinfosPage() {
       return
     }
 
-    const shouldDelete = window.confirm('Sind Sie sicher, dass Sie diesen Fahrgast löschen möchten?')
-
-    if (!shouldDelete) {
-      return
-    }
-
     setDeleteError('')
 
     try {
@@ -217,6 +213,12 @@ function FahrgastinfosPage() {
         error: err,
       })
       setDeleteError(err instanceof Error ? err.message : 'Fahrgast konnte nicht gelöscht werden.')
+    }
+  }
+
+  function requestDeleteGuest() {
+    if (selectedGuest) {
+      setIsDeleteConfirmationOpen(true)
     }
   }
 
@@ -332,7 +334,7 @@ function FahrgastinfosPage() {
               </button>
               <button
                 type="button"
-                onClick={handleDeleteGuest}
+                onClick={requestDeleteGuest}
                 disabled={!selectedGuestId}
                 className={`rounded-xl px-5 py-3 text-sm font-semibold text-white transition sm:py-2.5 ${
                   selectedGuestId ? 'bg-rose-500 hover:bg-rose-600' : 'cursor-not-allowed bg-rose-200'
@@ -353,7 +355,7 @@ function FahrgastinfosPage() {
           initiatives={initiatives}
           isAdmin={isAdmin}
           nonAdminInitiativeName={selectedGuest?.initiativeName ?? currentUser?.initiative?.name ?? '-'}
-          submitClassName="rounded-xl bg-[#0053a0] px-5 py-3 text-sm font-semibold text-white hover:brightness-110 sm:py-2.5"
+          submitClassName="px-5 sm:py-2.5"
           submitLabel="Änderungen speichern"
           title="Fahrgast bearbeiten"
           onClose={handleCloseEditModal}
@@ -373,7 +375,7 @@ function FahrgastinfosPage() {
           initiativesError={initiativesError}
           isAdmin={isAdmin}
           nonAdminInitiativeName={currentUser?.initiative?.name ?? '-'}
-          submitClassName="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700 sm:py-2.5"
+          submitClassName="px-5 sm:py-2.5"
           submitLabel="Gast anlegen"
           title="Fahrgast hinzufügen"
           onClose={handleCloseCreateModal}
@@ -385,6 +387,14 @@ function FahrgastinfosPage() {
       ) : null}
 
       {selectedGuest ? <PassengerDetailsCard selectedGuest={selectedGuest} /> : null}
+      <ConfirmationDialog
+        isOpen={isDeleteConfirmationOpen}
+        title="Fahrgast löschen"
+        description={`Möchtest du ${selectedGuest ? `${selectedGuest.vorname ?? ''} ${selectedGuest.nachname ?? ''}`.trim() : 'diesen Fahrgast'} wirklich löschen?`}
+        confirmLabel="Fahrgast löschen"
+        onCancel={() => setIsDeleteConfirmationOpen(false)}
+        onConfirm={() => { setIsDeleteConfirmationOpen(false); void handleDeleteGuest() }}
+      />
     </main>
   )
 }

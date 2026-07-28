@@ -10,7 +10,7 @@ IFS=$'\n\t'
 # ==========================================================
 
 ENV_FILE=".env"
-ENV_EXAMPLE_FILE=".env.example"
+ENV_TEMPLATE_FILE=".env.example"
 ENV_FOUND="false"
 DB_RESET_STATUS="beibehalten"
 
@@ -191,13 +191,40 @@ default_for() {
     return 0
   fi
 
-  value="$(read_env_value "$ENV_EXAMPLE_FILE" "$key" || true)"
+  value="$(read_env_value "$ENV_TEMPLATE_FILE" "$key" || true)"
   if [[ -n "$value" ]]; then
     echo "$value"
     return 0
   fi
 
   return 1
+}
+
+select_env_template() {
+  local environment="$1"
+  local usage_mode="$2"
+
+  case "$usage_mode" in
+    SERVER_IP)
+      ENV_TEMPLATE_FILE=".env.server-ip.example"
+      ;;
+    DOMAIN)
+      ENV_TEMPLATE_FILE=".env.production.example"
+      ;;
+    *)
+      if [[ "$environment" == "Production" || "$environment" == "Staging" ]]; then
+        ENV_TEMPLATE_FILE=".env.production.example"
+      else
+        ENV_TEMPLATE_FILE=".env.example"
+      fi
+      ;;
+  esac
+
+  if [[ ! -f "$ENV_TEMPLATE_FILE" ]]; then
+    print_warning "Vorlage $ENV_TEMPLATE_FILE wurde nicht gefunden; verwende Minimal-Defaults."
+  else
+    print_info "Verwende Konfigurationsvorlage: $ENV_TEMPLATE_FILE"
+  fi
 }
 
 ask_value() {
@@ -316,16 +343,6 @@ compose_profile_for_environment() {
     Staging) echo "staging" ;;
     Production) echo "prod" ;;
     *) echo "dev" ;;
-  esac
-}
-
-app_run_mode_for_environment() {
-  local env_name="$1"
-  case "$env_name" in
-    Development) echo "development" ;;
-    Staging) echo "staging" ;;
-    Production) echo "production" ;;
-    *) echo "development" ;;
   esac
 }
 
@@ -527,7 +544,7 @@ ask_usage_mode() {
       choice="1"
     fi
     case "$choice" in
-      1) echo "SSH_TUNNEL"; return 0 ;;
+      1) echo "LOCALHOST"; return 0 ;;
       2) echo "SERVER_IP"; return 0 ;;
       3) echo "DOMAIN"; return 0 ;;
       *) print_warning "Ungültige Auswahl. Bitte 1, 2 oder 3 eingeben." >&2 ;;
@@ -601,7 +618,7 @@ derive_browser_config() {
   SSH_TUNNEL_CMD=""
 
   case "$usage_mode" in
-    SSH_TUNNEL)
+    LOCALHOST|SSH_TUNNEL)
       VITE_API_BASE_URL="http://localhost:5000"
       FRONTEND_ORIGIN="http://localhost:5173"
       CORS_ALLOWED_ORIGINS="http://localhost:5173"
@@ -634,7 +651,7 @@ derive_browser_config() {
       fi
 
       FRONTEND_ORIGIN="$(ask_frontend_origin "https://example.com")"
-      VITE_API_BASE_URL="$(ask_url "Backend/API URL (VITE_API_BASE_URL)" "https://api.example.com" "$allow_localhost_api")"
+      VITE_API_BASE_URL="$(ask_url "Backend/API URL (VITE_API_BASE_URL)" "$FRONTEND_ORIGIN" "$allow_localhost_api")"
       CORS_ALLOWED_ORIGINS="$FRONTEND_ORIGIN"
       ;;
 
@@ -752,7 +769,7 @@ check_required_env_keys() {
 
   for key in \
     VITE_API_BASE_URL FRONTEND_URL \
-    ASPNETCORE_ENVIRONMENT APP_RUN_MODE COMPOSE_PROFILES \
+    ASPNETCORE_ENVIRONMENT COMPOSE_PROFILES \
     USAGE_MODE FRONTEND_ORIGIN \
     DB_NAME DB_USER DB_PASSWORD DB_ROOT_PASSWORD \
     CORS_ALLOWED_ORIGINS \
@@ -791,7 +808,7 @@ assert_env_sane() {
 
   local required=(
     DB_NAME DB_USER DB_PASSWORD DB_ROOT_PASSWORD
-    ASPNETCORE_ENVIRONMENT APP_RUN_MODE COMPOSE_PROFILES
+    ASPNETCORE_ENVIRONMENT COMPOSE_PROFILES
     USAGE_MODE FRONTEND_ORIGIN
     VITE_API_BASE_URL FRONTEND_URL
     JWT_SECRET JWT_ISSUER JWT_AUDIENCE JWT_EXPIRES_MINUTES
@@ -1016,7 +1033,7 @@ fi
 
 ask_database_reset_if_env_exists
 
-if [[ ! -f "$ENV_EXAMPLE_FILE" ]]; then
+if [[ ! -f ".env.example" ]]; then
   print_warning ".env.example wurde nicht gefunden (Defaults werden minimal gesetzt)."
 fi
 
@@ -1027,32 +1044,23 @@ if [[ "$should_write_env" == "true" ]]; then
     IS_DEVELOPMENT="true"
   fi
 
-  APP_RUN_MODE="$(app_run_mode_for_environment "$ASPNETCORE_ENVIRONMENT")"
   COMPOSE_PROFILES="$(compose_profile_for_environment "$ASPNETCORE_ENVIRONMENT")"
 
   USAGE_MODE="$(ask_usage_mode)"
+  select_env_template "$ASPNETCORE_ENVIRONMENT" "$USAGE_MODE"
+
+  if [[ "$USAGE_MODE" == "SERVER_IP" && "$ASPNETCORE_ENVIRONMENT" != "Development" ]]; then
+    print_error "Server-IP ist nur für Development vorgesehen. Für Staging/Production ist eine HTTPS-Domain erforderlich."
+    exit 1
+  fi
 
   print_section "Datenbank (MariaDB)"
 
-  print_info "Standard (Docker Compose): DB_HOST=db und DB_PORT=3306 beibehalten."
-  print_info "Nur ändern, wenn du bewusst eine externe DB (außerhalb von Compose) nutzt."
-
-  DB_HOST_DEFAULT="$(default_for DB_HOST || echo "db")"
-  DB_PORT_DEFAULT="$(default_for DB_PORT || echo "3306")"
   DB_NAME_DEFAULT="$(default_for DB_NAME || echo "fahrdienst")"
   DB_USER_DEFAULT="$(default_for DB_USER || echo "fahrdienst_user")"
 
-  DB_HOST="$(ask_value DB_HOST "DB_HOST" "$DB_HOST_DEFAULT")"
-  DB_PORT="$(ask_value DB_PORT "DB_PORT" "$DB_PORT_DEFAULT")"
   DB_NAME="$(ask_value DB_NAME "DB_NAME" "$DB_NAME_DEFAULT")"
   DB_USER="$(ask_value DB_USER "DB_USER" "$DB_USER_DEFAULT")"
-
-  if [[ "$DB_HOST" != "db" ]]; then
-    print_warning "DB_HOST ist '${DB_HOST}'. In Compose ist normalerweise 'db' korrekt (sonst findet der Backend-Container die DB evtl. nicht)."
-  fi
-  if [[ "$DB_PORT" != "3306" ]]; then
-    print_warning "DB_PORT ist '${DB_PORT}'. In Compose ist normalerweise '3306' korrekt (interner DB-Port)."
-  fi
 
   existing_db_password="$(read_env_value "$ENV_FILE" DB_PASSWORD || true)"
   if [[ -n "$existing_db_password" ]]; then
@@ -1109,7 +1117,6 @@ if [[ "$should_write_env" == "true" ]]; then
 
   print_info "Compose-Profil wird aus dem Environment abgeleitet."
   print_info "Development => dev (inkl. Mailpit), Staging => staging, Production => prod."
-  echo "APP_RUN_MODE:      ${APP_RUN_MODE}"
   echo "COMPOSE_PROFILES:  ${COMPOSE_PROFILES}"
 
   print_section "JWT Konfiguration"
@@ -1150,7 +1157,7 @@ if [[ "$should_write_env" == "true" ]]; then
   EMAIL_SMTP_PASSWORD_DEFAULT="$(default_for EMAIL_SMTP_PASSWORD || echo "")"
   EMAIL_FROM_ADDRESS_DEFAULT="$(default_for EMAIL_FROM_ADDRESS || echo "no-reply@example.com")"
   EMAIL_FROM_NAME_DEFAULT="$(default_for EMAIL_FROM_NAME || echo "Bürgerbus Digital")"
-  FRONTEND_URL_DEFAULT="$(default_for FRONTEND_URL || echo "$FRONTEND_ORIGIN")"
+  FRONTEND_URL_DEFAULT="$FRONTEND_ORIGIN"
 
   EMAIL_SMTP_HOST="$(ask_value EMAIL_SMTP_HOST "EMAIL_SMTP_HOST" "$EMAIL_SMTP_HOST_DEFAULT")"
   EMAIL_SMTP_PORT="$(ask_int EMAIL_SMTP_PORT "EMAIL_SMTP_PORT" "$EMAIL_SMTP_PORT_DEFAULT")"
@@ -1223,8 +1230,6 @@ if [[ "$should_write_env" == "true" ]]; then
 # =========================
 # Datenbank (MariaDB)
 # =========================
-DB_HOST=${DB_HOST}
-DB_PORT=${DB_PORT}
 DB_NAME=${DB_NAME}
 DB_USER=${DB_USER}
 DB_PASSWORD=${DB_PASSWORD}
@@ -1234,7 +1239,6 @@ DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
 # Backend / Startmodus
 # =========================
 ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
-APP_RUN_MODE=${APP_RUN_MODE}
 COMPOSE_PROFILES=${COMPOSE_PROFILES}
 
 # =========================
@@ -1304,12 +1308,9 @@ if [[ -z "${SERVER_IPV4_SUMMARY// }" ]]; then
   SERVER_IPV4_SUMMARY="-"
 fi
 
-DB_HOST_SUMMARY="$(read_env_value "$ENV_FILE" DB_HOST || echo "-")"
-DB_PORT_SUMMARY="$(read_env_value "$ENV_FILE" DB_PORT || echo "-")"
 DB_NAME_SUMMARY="$(read_env_value "$ENV_FILE" DB_NAME || echo "-")"
 DB_USER_SUMMARY="$(read_env_value "$ENV_FILE" DB_USER || echo "-")"
 ASPNET_SUMMARY="$(read_env_value "$ENV_FILE" ASPNETCORE_ENVIRONMENT || echo "-")"
-APP_RUN_MODE_SUMMARY="$(read_env_value "$ENV_FILE" APP_RUN_MODE || echo "-")"
 COMPOSE_PROFILES_SUMMARY="$(read_env_value "$ENV_FILE" COMPOSE_PROFILES || echo "-")"
 CORS_SUMMARY="$(read_env_value "$ENV_FILE" CORS_ALLOWED_ORIGINS || echo "-")"
 VITE_SUMMARY="$(read_env_value "$ENV_FILE" VITE_API_BASE_URL || echo "-")"
@@ -1326,7 +1327,6 @@ SEED_INIT_SUMMARY="$(read_env_value "$ENV_FILE" SEED_INITIATIVE_NAME || echo "-"
 SEED_ATTEMPTS_SUMMARY="$(read_env_value "$ENV_FILE" DB_SEED_MAX_ATTEMPTS || echo "-")"
 
 echo "Environment:            ${ASPNET_SUMMARY}"
-echo "App-Run-Mode:           ${APP_RUN_MODE_SUMMARY}"
 echo "Compose-Profiles:       ${COMPOSE_PROFILES_SUMMARY}"
 echo "Nutzungsmodus:          ${USAGE_MODE_SUMMARY}"
 echo "Server-IP erkannt:      ${SERVER_IPV4_SUMMARY}"
@@ -1347,7 +1347,7 @@ echo "CORS Modus:             ${cors_mode}"
 docker_build_mode="$(docker_build_mode_summary)"
 echo "Docker-Build-Modus:     ${docker_build_mode}"
 
-if [[ "${USAGE_MODE_SUMMARY}" == "SSH_TUNNEL" ]]; then
+if [[ "${USAGE_MODE_SUMMARY}" == "LOCALHOST" || "${USAGE_MODE_SUMMARY}" == "SSH_TUNNEL" ]]; then
   echo
   print_info "SSH-Tunnel-Befehl (Client-PC):"
   if [[ -n "${SERVER_IPV4_SUMMARY// }" && "${SERVER_IPV4_SUMMARY}" != "-" ]]; then
@@ -1358,8 +1358,6 @@ if [[ "${USAGE_MODE_SUMMARY}" == "SSH_TUNNEL" ]]; then
 fi
 
 echo
-echo "DB_HOST:                ${DB_HOST_SUMMARY}"
-echo "DB_PORT:                ${DB_PORT_SUMMARY}"
 echo "DB_NAME:                ${DB_NAME_SUMMARY}"
 echo "DB_USER:                ${DB_USER_SUMMARY}"
 echo "JWT_ISSUER:             ${JWT_ISSUER_SUMMARY}"

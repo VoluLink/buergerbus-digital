@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, Menu, Plus, Save, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import ProtectedSideMenu from '../../../components/ProtectedSideMenu'
+import { ConfirmationDialog } from '../../../components/dialogs/ConfirmationDialog'
 import { useRoleVisibility } from '../../../hooks/useRoleVisibility'
 import { createPage, deletePage, getAdminPages, updatePage } from '../api/pagesApi'
 import type { AdminPage, CreatePageRequest } from '../types'
@@ -30,6 +31,7 @@ function AdminPagesPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [pagePendingDelete, setPagePendingDelete] = useState<AdminPage | null>(null)
 
   const selectedPage = useMemo(
     () => pages.find((page) => page.id === selectedPageId) ?? null,
@@ -125,10 +127,6 @@ function AdminPagesPage() {
   }
 
   async function handleDelete(pageId: string) {
-    if (!window.confirm('Seite wirklich löschen?')) {
-      return
-    }
-
     setError(null)
     try {
       await deletePage(pageId)
@@ -230,7 +228,7 @@ function AdminPagesPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(page.id)}
+                        onClick={() => setPagePendingDelete(page)}
                         className="inline-flex items-center gap-2 rounded-full border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50"
                       >
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -356,6 +354,14 @@ function AdminPagesPage() {
       </div>
 
       <ProtectedSideMenu isOpen={isSideMenuOpen} onClose={() => setIsSideMenuOpen(false)} />
+      <ConfirmationDialog
+        isOpen={pagePendingDelete !== null}
+        title="Seite löschen"
+        description={`Möchtest du die Seite „${pagePendingDelete?.title ?? ''}“ wirklich löschen?`}
+        confirmLabel="Seite löschen"
+        onCancel={() => setPagePendingDelete(null)}
+        onConfirm={() => { if (pagePendingDelete) void handleDelete(pagePendingDelete.id); setPagePendingDelete(null) }}
+      />
     </main>
   )
 }

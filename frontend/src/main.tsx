@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './context/AuthContext'
 import { InitiativeProvider } from './context/InitiativeContext'
+import { ThemeProvider } from './context/ThemeContext'
 import { removeLegacyDashboardStorage } from './services/dashboardState'
 
 removeLegacyDashboardStorage()
@@ -12,11 +13,13 @@ removeLegacyDashboardStorage()
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <AuthProvider>
-        <InitiativeProvider>
-          <App />
-        </InitiativeProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <InitiativeProvider>
+            <App />
+          </InitiativeProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   </StrictMode>,
 )

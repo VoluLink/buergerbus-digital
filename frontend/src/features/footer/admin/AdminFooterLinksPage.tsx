@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, Menu, Plus, Save, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import ProtectedSideMenu from '../../../components/ProtectedSideMenu'
+import { ConfirmationDialog } from '../../../components/dialogs/ConfirmationDialog'
 import { useRoleVisibility } from '../../../hooks/useRoleVisibility'
 import { getAdminPages } from '../../pages/api/pagesApi'
 import { createFooterLink, deleteFooterLink, getAdminFooterLinks, updateFooterLink } from '../api/footerApi'
@@ -41,6 +42,7 @@ function AdminFooterLinksPage() {
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null)
   const [form, setForm] = useState<FooterFormState>(emptyForm())
   const [isSaving, setIsSaving] = useState(false)
+  const [linkPendingDelete, setLinkPendingDelete] = useState<AdminFooterLink | null>(null)
 
   const selectedLink = useMemo(
     () => links.find((link) => link.id === selectedLinkId) ?? null,
@@ -148,10 +150,6 @@ function AdminFooterLinksPage() {
   }
 
   async function handleDelete(linkId: string) {
-    if (!window.confirm('Footer-Link wirklich löschen?')) {
-      return
-    }
-
     try {
       await deleteFooterLink(linkId)
       setLinks((current) => current.filter((link) => link.id !== linkId))
@@ -247,7 +245,7 @@ function AdminFooterLinksPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(link.id)}
+                        onClick={() => setLinkPendingDelete(link)}
                         className="inline-flex items-center gap-2 rounded-full border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50"
                       >
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -391,6 +389,14 @@ function AdminFooterLinksPage() {
       </div>
 
       <ProtectedSideMenu isOpen={isSideMenuOpen} onClose={() => setIsSideMenuOpen(false)} />
+      <ConfirmationDialog
+        isOpen={linkPendingDelete !== null}
+        title="Footer-Link löschen"
+        description={`Möchtest du den Footer-Link „${linkPendingDelete?.label ?? ''}“ wirklich löschen?`}
+        confirmLabel="Footer-Link löschen"
+        onCancel={() => setLinkPendingDelete(null)}
+        onConfirm={() => { if (linkPendingDelete) void handleDelete(linkPendingDelete.id); setLinkPendingDelete(null) }}
+      />
     </main>
   )
 }

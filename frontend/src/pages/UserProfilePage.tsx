@@ -8,6 +8,7 @@ import { useRoleVisibility } from '../hooks/useRoleVisibility'
 import { deleteUserProfile, updateUserProfile } from '../services/profile'
 import { fetchUserProfile } from '../services/users'
 import type { UserProfile } from '../types/UserProfile'
+import { ConfirmationDialog } from '../components/dialogs/ConfirmationDialog'
 
 function formatDateInput(value?: string | null) {
   if (!value) {
@@ -88,6 +89,7 @@ function UserProfilePage() {
   const [isEditMode, setIsEditMode] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false)
   const [actionError, setActionError] = useState('')
   const [actionSuccess, setActionSuccess] = useState('')
   const [phoneError, setPhoneError] = useState('')
@@ -244,14 +246,6 @@ function UserProfilePage() {
       return
     }
 
-    const shouldDelete = window.confirm(
-      `Sind Sie sicher, dass Sie das Profil von ${buildDisplayName(profile)} löschen möchten?`,
-    )
-
-    if (!shouldDelete) {
-      return
-    }
-
     setIsDeleting(true)
     setActionError('')
     setActionSuccess('')
@@ -340,7 +334,7 @@ function UserProfilePage() {
 
                     <button
                       type="button"
-                      onClick={() => void handleDeleteProfile()}
+                      onClick={() => setIsDeleteConfirmationOpen(true)}
                       disabled={!canDeleteProfile || isDeleting || isSaving}
                       title={canDeleteProfile ? 'Profil löschen' : 'Das eigene Profil kann nicht gelöscht werden.'}
                       className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
@@ -586,6 +580,15 @@ function UserProfilePage() {
       </div>
 
       <ProtectedSideMenu isOpen={isSideMenuOpen} onClose={() => setIsSideMenuOpen(false)} />
+      <ConfirmationDialog
+        isOpen={isDeleteConfirmationOpen}
+        title="Profil löschen"
+        description={`Möchtest du das Profil von ${profile ? buildDisplayName(profile) : ''} wirklich löschen?`}
+        confirmLabel="Profil löschen"
+        isConfirming={isDeleting}
+        onCancel={() => setIsDeleteConfirmationOpen(false)}
+        onConfirm={() => { setIsDeleteConfirmationOpen(false); void handleDeleteProfile() }}
+      />
     </main>
   )
 }
