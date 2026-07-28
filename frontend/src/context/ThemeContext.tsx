@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
-export type ThemePreference = 'system' | 'light' | 'dark'
+export type ThemePreference = 'light' | 'dark'
 
 type ThemeContextValue = {
   preference: ThemePreference
@@ -12,22 +12,16 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)
 
 function getInitialPreference(): ThemePreference {
   const stored = localStorage.getItem(storageKey)
-  return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'
+  return stored === 'dark' ? 'dark' : 'light'
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [preference, setPreference] = useState<ThemePreference>(getInitialPreference)
 
   useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-    const applyTheme = () => {
-      const isDark = preference === 'dark' || (preference === 'system' && media.matches)
-      document.documentElement.classList.toggle('dark', isDark)
-      document.documentElement.style.colorScheme = isDark ? 'dark' : 'light'
-    }
-    applyTheme()
-    media.addEventListener('change', applyTheme)
-    return () => media.removeEventListener('change', applyTheme)
+    const isDark = preference === 'dark'
+    document.documentElement.classList.toggle('dark', isDark)
+    document.documentElement.style.colorScheme = isDark ? 'dark' : 'light'
   }, [preference])
 
   const value = useMemo(() => ({
